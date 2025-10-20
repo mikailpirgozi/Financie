@@ -1,0 +1,72 @@
+{
+  "common": {
+    "welcome": "Welcome",
+    "logout": "Log out",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "back": "Back",
+    "next": "Next",
+    "finish": "Finish",
+    "skip": "Skip",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "loans": "Loans",
+    "expenses": "Expenses",
+    "incomes": "Incomes",
+    "assets": "Assets",
+    "summaries": "Monthly Summaries",
+    "categories": "Categories",
+    "rules": "Rules"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Overview of your finances",
+    "activeLoans": "Active loans",
+    "monthlyExpenses": "Monthly expenses",
+    "monthlyIncomes": "Monthly incomes",
+    "totalAssets": "Total assets",
+    "thisMonth": "This month",
+    "currentValue": "Current value",
+    "totalPrincipal": "Total principal",
+    "quickActions": "Quick actions",
+    "upcomingPayments": "Upcoming payments",
+    "next7Days": "Next 7 days",
+    "noUpcomingPayments": "No upcoming payments yet"
+  },
+  "loans": {
+    "title": "Loans",
+    "newLoan": "New loan",
+    "loanDetails": "Loan details",
+    "simulate": "Simulate",
+    "types": {
+      "annuity": "Annuity",
+      "fixed_principal": "Fixed principal",
+      "interest_only": "Interest-only"
+    }
+  },
+  "onboarding": {
+    "welcome": {
+      "title": "Welcome to FinApp! 👋",
+      "subtitle": "Modern personal finance management app"
+    },
+    "step": "Step",
+    "of": "of",
+    "generateSampleData": "Demo data",
+    "cleanStart": "Clean start",
+    "sampleDataDesc": "Creates sample loans, expenses and incomes",
+    "cleanStartDesc": "Start with an empty database"
+  },
+  "theme": {
+    "light": "Light mode",
+    "dark": "Dark mode",
+    "system": "System mode"
+  }
+}
+

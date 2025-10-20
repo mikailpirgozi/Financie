@@ -78,8 +78,8 @@ export interface CategorizationRule {
   applyTo: 'expense' | 'income';
 }
 
-// Early repayment input
-export interface EarlyRepaymentInput {
+// Early repayment calculation input
+export interface EarlyRepaymentCalculationInput {
   loanType: LoanType;
   principal: number;
   annualRate: number;

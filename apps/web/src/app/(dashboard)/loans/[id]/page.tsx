@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { Button } from '@finapp/ui';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@finapp/ui';
 
 export default async function LoanDetailPage({ params }: { params: { id: string } }) {

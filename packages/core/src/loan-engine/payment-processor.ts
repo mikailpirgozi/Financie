@@ -6,8 +6,7 @@ import type { LoanScheduleEntry } from '../types';
  */
 export function processPayment(
   schedule: LoanScheduleEntry[],
-  paymentAmount: number,
-  paymentDate: Date
+  paymentAmount: number
 ): {
   updatedSchedule: LoanScheduleEntry[];
   appliedAmount: number;

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, Button } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import { registerForPushNotificationsAsync, savePushToken } from '../src/lib/notifications';
+import { registerForPushNotificationsAsync } from '../src/lib/notifications';
 
 export default function HomeScreen() {
   const [expoPushToken, setExpoPushToken] = useState<string>('');

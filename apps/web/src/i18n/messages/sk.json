@@ -1,0 +1,72 @@
+{
+  "common": {
+    "welcome": "Vitajte",
+    "logout": "Odhlásiť sa",
+    "save": "Uložiť",
+    "cancel": "Zrušiť",
+    "delete": "Zmazať",
+    "edit": "Upraviť",
+    "create": "Vytvoriť",
+    "back": "Späť",
+    "next": "Ďalej",
+    "finish": "Dokončiť",
+    "skip": "Preskočiť",
+    "loading": "Načítavam...",
+    "error": "Chyba",
+    "success": "Úspech"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "loans": "Úvery",
+    "expenses": "Výdavky",
+    "incomes": "Príjmy",
+    "assets": "Majetok",
+    "summaries": "Mesačné výkazy",
+    "categories": "Kategórie",
+    "rules": "Pravidlá"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Prehľad vašich financií",
+    "activeLoans": "Aktívne úvery",
+    "monthlyExpenses": "Mesačné výdavky",
+    "monthlyIncomes": "Mesačné príjmy",
+    "totalAssets": "Celkový majetok",
+    "thisMonth": "Tento mesiac",
+    "currentValue": "Aktuálna hodnota",
+    "totalPrincipal": "Celková istina",
+    "quickActions": "Rýchle akcie",
+    "upcomingPayments": "Nadchádzajúce splátky",
+    "next7Days": "Najbližšie 7 dní",
+    "noUpcomingPayments": "Zatiaľ žiadne nadchádzajúce splátky"
+  },
+  "loans": {
+    "title": "Úvery",
+    "newLoan": "Nový úver",
+    "loanDetails": "Detail úveru",
+    "simulate": "Simulácia",
+    "types": {
+      "annuity": "Anuita",
+      "fixed_principal": "Fixná istina",
+      "interest_only": "Interest-only"
+    }
+  },
+  "onboarding": {
+    "welcome": {
+      "title": "Vitajte v FinApp! 👋",
+      "subtitle": "Moderná aplikácia na správu osobných financií"
+    },
+    "step": "Krok",
+    "of": "z",
+    "generateSampleData": "Demo dáta",
+    "cleanStart": "Čistý štart",
+    "sampleDataDesc": "Vytvorí ukážkové úvery, výdavky a príjmy",
+    "cleanStartDesc": "Začnite s prázdnou databázou"
+  },
+  "theme": {
+    "light": "Svetlý režim",
+    "dark": "Tmavý režim",
+    "system": "Systémový režim"
+  }
+}
+

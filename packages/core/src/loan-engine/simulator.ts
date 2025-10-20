@@ -1,5 +1,5 @@
 import type {
-  EarlyRepaymentInput,
+  EarlyRepaymentCalculationInput,
   EarlyRepaymentResult,
   LoanSimulationInput,
   SimulationResult,
@@ -14,7 +14,7 @@ import { addMonths, calculateDayCountFactor } from './day-count';
  * Calculate early repayment scenario
  * Shows penalty, new schedule, and savings
  */
-export function calculateEarlyRepayment(input: EarlyRepaymentInput): EarlyRepaymentResult {
+export function calculateEarlyRepayment(input: EarlyRepaymentCalculationInput): EarlyRepaymentResult {
   const {
     loanType,
     principal,
@@ -65,7 +65,7 @@ export function calculateEarlyRepayment(input: EarlyRepaymentInput): EarlyRepaym
       penaltyAmount,
       remainingBalance: 0,
       newSchedule: [],
-      totalSaved: calculateSavings(originalResult.schedule, currentInstallment, termMonths),
+      totalSaved: calculateSavings(originalResult.schedule, currentInstallment),
       effectiveRate: 0,
     };
   }
@@ -140,10 +140,6 @@ export function simulateLoanScenarios(input: LoanSimulationInput): LoanCompariso
 
   const results: SimulationResult[] = scenarios.map((scenario) => {
     let schedule: LoanScheduleEntry[] = [...baselineResult.schedule];
-    let currentBalance = principal + feeSetup;
-    let totalInterest = 0;
-    let totalFees = feeSetup;
-    let totalPayment = feeSetup;
     let actualTermMonths = termMonths;
 
     // Apply extra monthly payments
@@ -168,30 +164,19 @@ export function simulateLoanScenarios(input: LoanSimulationInput): LoanCompariso
 
     // Apply one-time extra payments
     if (scenario.extraPaymentOneTime && scenario.extraPaymentOneTime.length > 0) {
-      schedule = applyOneTimePayments(schedule, scenario.extraPaymentOneTime, {
-        loanType,
-        annualRate,
-        dayCountConvention,
-        feeMonthly,
-        insuranceMonthly,
-      });
+      schedule = applyOneTimePayments(schedule, scenario.extraPaymentOneTime);
       actualTermMonths = schedule.length;
     }
 
     // Apply rate change
     if (scenario.rateChange) {
-      schedule = applyRateChange(schedule, scenario.rateChange, {
-        loanType,
-        dayCountConvention,
-        feeMonthly,
-        insuranceMonthly,
-      });
+      schedule = applyRateChange(schedule, scenario.rateChange);
     }
 
     // Calculate totals
-    totalInterest = schedule.reduce((sum, entry) => sum + entry.interestDue, 0);
-    totalFees = schedule.reduce((sum, entry) => sum + entry.feesDue, 0) + feeSetup;
-    totalPayment = schedule.reduce((sum, entry) => sum + entry.totalDue, 0) + feeSetup;
+    const totalInterest = schedule.reduce((sum, entry) => sum + entry.interestDue, 0);
+    const totalFees = schedule.reduce((sum, entry) => sum + entry.feesDue, 0) + feeSetup;
+    const totalPayment = schedule.reduce((sum, entry) => sum + entry.totalDue, 0) + feeSetup;
 
     const monthsSaved = termMonths - actualTermMonths;
     const totalSaved = baselineResult.totalPayment - totalPayment;
@@ -313,14 +298,7 @@ function applyExtraMonthlyPayments(
  */
 function applyOneTimePayments(
   schedule: LoanScheduleEntry[],
-  payments: { installmentNo: number; amount: number }[],
-  config: {
-    loanType: string;
-    annualRate: number;
-    dayCountConvention: string;
-    feeMonthly: number;
-    insuranceMonthly: number;
-  }
+  payments: { installmentNo: number; amount: number }[]
 ): LoanScheduleEntry[] {
   // Sort payments by installment number
   const sortedPayments = [...payments].sort((a, b) => a.installmentNo - b.installmentNo);
@@ -363,13 +341,7 @@ function applyOneTimePayments(
  */
 function applyRateChange(
   schedule: LoanScheduleEntry[],
-  rateChange: { fromInstallment: number; newRate: number },
-  config: {
-    loanType: string;
-    dayCountConvention: string;
-    feeMonthly: number;
-    insuranceMonthly: number;
-  }
+  rateChange: { fromInstallment: number; newRate: number }
 ): LoanScheduleEntry[] {
   // Simplified implementation
   // In production, would need full recalculation from the rate change point
@@ -396,8 +368,7 @@ function applyRateChange(
  */
 function calculateSavings(
   schedule: LoanScheduleEntry[],
-  currentInstallment: number,
-  termMonths: number
+  currentInstallment: number
 ): number {
   const remaining = schedule.slice(currentInstallment);
   return remaining.reduce((sum, entry) => sum + entry.interestDue + entry.feesDue, 0);

@@ -2,7 +2,11 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "jsx": "preserve",
     "module": "esnext",
     "moduleResolution": "bundler",
@@ -15,12 +19,25 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@finapp/core": ["../../packages/core/src"],
-      "@finapp/ui": ["../../packages/ui/src"]
-    }
+      "@/*": [
+        "./src/*"
+      ],
+      "@finapp/core": [
+        "../../packages/core/src"
+      ],
+      "@finapp/ui": [
+        "../../packages/ui/src"
+      ]
+    },
+    "noEmit": true
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
-

@@ -1,5 +1,4 @@
 import type { LoanScheduleEntry } from '../types';
-import { addMonths } from './day-count';
 
 /**
  * Regenerate schedule after early repayment

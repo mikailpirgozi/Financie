@@ -3,7 +3,7 @@ import { getLoan, deleteLoan } from '@/lib/api/loans';
 import { createClient } from '@/lib/supabase/server';
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -27,7 +27,7 @@ export async function GET(
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {

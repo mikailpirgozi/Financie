@@ -38,7 +38,7 @@ export function CategoryPieChart({ data }: CategoryPieChartProps) {
     }).format(value);
   };
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number; payload: { fill: string; total: number } }> }) => {
     if (active && payload && payload.length) {
       const data = payload[0];
       return (

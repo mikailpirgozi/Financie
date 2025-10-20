@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { calculateEarlyRepayment } from '@finapp/core';
-import type { EarlyRepaymentInput } from '@finapp/core';
+import type { EarlyRepaymentCalculationInput } from '@finapp/core';
 
 export async function POST(
   request: NextRequest,
@@ -54,7 +54,7 @@ export async function POST(
     }
 
     // Prepare early repayment input
-    const earlyRepaymentInput: EarlyRepaymentInput = {
+    const earlyRepaymentInput: EarlyRepaymentCalculationInput = {
       loanType: loan.loan_type,
       principal: Number(loan.principal),
       annualRate: Number(loan.annual_rate),

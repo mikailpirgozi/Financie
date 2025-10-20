@@ -3,4 +3,5 @@ export * from './schemas';
 export * from './loan-engine';
 export * from './types';
 export * from './utils';
+export * from './categorization';
 
