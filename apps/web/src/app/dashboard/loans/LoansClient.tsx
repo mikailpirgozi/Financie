@@ -47,22 +47,30 @@ export function LoansClient({ loans }: LoansClientProps) {
 
   useEffect(() => {
     async function fetchSchedules() {
-      const loansWithScheduleData = await Promise.all(
-        loans.map(async (loan) => {
-          const response = await fetch(`/api/loans/${loan.id}/schedule`);
-          if (response.ok) {
-            const data = await response.json();
-            // API returns { schedule: [...], count: ..., pages: ..., metrics: ... }
-            return { ...loan, schedule: data.schedule || [] };
-          }
-          return { ...loan, schedule: [] };
-        })
-      );
-      setLoansWithSchedule(loansWithScheduleData);
+      const loanIds = loans.map(l => l.id).join(',');
+      const response = await fetch(`/api/loans/schedules?loanIds=${loanIds}`);
+      
+      if (response.ok) {
+        const schedulesMap = await response.json();
+        
+        const loansWithScheduleData = loans.map((loan) => ({
+          ...loan,
+          schedule: schedulesMap[loan.id] || [],
+        }));
+        
+        setLoansWithSchedule(loansWithScheduleData);
+      } else {
+        setLoansWithSchedule(loans.map(l => ({ ...l, schedule: [] })));
+      }
+      
       setLoading(false);
     }
 
-    fetchSchedules();
+    if (loans.length > 0) {
+      fetchSchedules();
+    } else {
+      setLoading(false);
+    }
   }, [loans]);
 
   const handleDelete = async (id: string) => {

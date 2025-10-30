@@ -2,7 +2,40 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { Button } from '@finapp/ui';
 import { Card, CardContent } from '@finapp/ui';
+import { unstable_cache } from 'next/cache';
 import { LoansClient } from './LoansClient';
+
+// Cache loans data for 5 minutes
+const getLoans = unstable_cache(
+  async (userId: string) => {
+    const supabase = await createClient();
+    
+    // Get user's household
+    const { data: membership } = await supabase
+      .from('household_members')
+      .select('household_id')
+      .eq('user_id', userId)
+      .single();
+
+    if (!membership) {
+      return null;
+    }
+
+    // Get loans
+    const { data: loans } = await supabase
+      .from('loans')
+      .select('*')
+      .eq('household_id', membership.household_id)
+      .order('created_at', { ascending: false });
+
+    return { membership, loans };
+  },
+  ['loans-list'],
+  { 
+    revalidate: 300, // 5 minutes
+    tags: ['loans-list']
+  }
+);
 
 export default async function LoansPage() {
   const supabase = await createClient();
@@ -12,14 +45,9 @@ export default async function LoansPage() {
 
   if (!user) return null;
 
-  // Get user's household
-  const { data: membership } = await supabase
-    .from('household_members')
-    .select('household_id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!membership) {
+  const loansData = await getLoans(user.id);
+  
+  if (!loansData || !loansData.membership) {
     return (
       <div className="space-y-6">
         <div>
@@ -39,12 +67,7 @@ export default async function LoansPage() {
     );
   }
 
-  // Get loans
-  const { data: loans } = await supabase
-    .from('loans')
-    .select('*')
-    .eq('household_id', membership.household_id)
-    .order('created_at', { ascending: false });
+  const { loans } = loansData;
 
   return (
     <div className="space-y-6">
