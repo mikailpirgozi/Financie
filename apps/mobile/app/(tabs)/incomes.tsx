@@ -276,7 +276,7 @@ export default function IncomesScreen() {
             {!searchQuery && (
               <Button
                 onPress={() => router.push('/(tabs)/incomes/new')}
-                style={{ marginTop: 16 }}
+                style={styles.emptyButton}
               >
                 Pridať prvý príjem
               </Button>
@@ -456,6 +456,9 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  emptyButton: {
+    marginTop: 16,
   },
 });
 
