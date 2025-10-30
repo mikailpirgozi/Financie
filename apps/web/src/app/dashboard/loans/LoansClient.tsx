@@ -51,8 +51,9 @@ export function LoansClient({ loans }: LoansClientProps) {
         loans.map(async (loan) => {
           const response = await fetch(`/api/loans/${loan.id}/schedule`);
           if (response.ok) {
-            const schedule = await response.json();
-            return { ...loan, schedule: schedule || [] };
+            const data = await response.json();
+            // API returns { schedule: [...], count: ..., pages: ..., metrics: ... }
+            return { ...loan, schedule: data.schedule || [] };
           }
           return { ...loan, schedule: [] };
         })
