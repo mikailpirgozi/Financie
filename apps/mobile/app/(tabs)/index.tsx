@@ -10,6 +10,7 @@ import { DashboardKPICard } from '../../src/components/DashboardKPICard';
 import { LoansSummaryCard } from '../../src/components/LoansSummaryCard';
 import { AssetsSummaryCard } from '../../src/components/AssetsSummaryCard';
 import { MonthlyHistoryCard } from '../../src/components/MonthlyHistoryCard';
+import { SimpleLineChart, SimplePieChart } from '../../src/components/charts';
 
 export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
@@ -186,11 +187,51 @@ export default function DashboardScreen() {
         />
       </View>
 
-      {/* Loans & Assets Summary */}
-      <View style={styles.summarySection}>
-        <LoansSummaryCard data={currentMonth} />
-        <AssetsSummaryCard data={currentMonth} />
-      </View>
+      {/* Charts Section */}
+      {history.length > 0 && (
+        <View style={styles.chartsSection}>
+          <SimpleLineChart
+            title="📈 Príjmy a Výdaje (trendy)"
+            data={history.slice(0, 6).map((month) => ({
+              label: month.month.split(' ')[0],
+              value: parseFloat(month.totalIncome),
+            }))}
+            color="#10b981"
+            formatter={(v) => `€${Math.round(v)}`}
+          />
+          
+          <SimpleLineChart
+            title="📊 Čistá hodnota (trend)"
+            data={history.slice(0, 6).map((month) => ({
+              label: month.month.split(' ')[0],
+              value: parseFloat(month.netWorth),
+            }))}
+            color="#8b5cf6"
+            formatter={(v) => `€${Math.round(v)}`}
+          />
+
+          <SimplePieChart
+            title="💸 Rozdelenie výdavkov (posledný mesiac)"
+            data={[
+              {
+                label: 'Výdavky',
+                value: parseFloat(currentMonth.totalExpenses),
+                color: '#ef4444',
+              },
+              {
+                label: 'Príjmy',
+                value: parseFloat(currentMonth.totalIncome),
+                color: '#10b981',
+              },
+              {
+                label: 'Zvyšok',
+                value: Math.max(0, parseFloat(currentMonth.netCashFlow)),
+                color: '#0070f3',
+              },
+            ]}
+          />
+        </View>
+      )}
 
       {/* Monthly History */}
       {history.length > 0 && (
@@ -201,6 +242,12 @@ export default function DashboardScreen() {
           ))}
         </View>
       )}
+
+      {/* Loans & Assets Summary */}
+      <View style={styles.summarySection}>
+        <LoansSummaryCard data={currentMonth} />
+        <AssetsSummaryCard data={currentMonth} />
+      </View>
 
       {/* Quick Actions */}
       <View style={styles.quickActions}>
@@ -291,5 +338,16 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  chartsSection: {
+    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
 });
