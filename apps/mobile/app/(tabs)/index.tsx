@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, RefreshCon
 import { useRouter } from 'expo-router';
 import { supabase } from '../../src/lib/supabase';
 import { getCurrentHousehold, getDashboardData, type DashboardData } from '../../src/lib/api';
+import { setupDashboardRealtimeSubscriptions, cleanupRealtimeSubscriptions } from '../../src/lib/realtime';
 import { LoadingSpinner } from '../../src/components/LoadingSpinner';
 import { ErrorMessage } from '../../src/components/ErrorMessage';
 import { DashboardKPICard } from '../../src/components/DashboardKPICard';
@@ -15,10 +16,35 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [channel, setChannel] = useState<any>(null);
   const router = useRouter();
 
   useEffect(() => {
     loadDashboard();
+  }, []);
+
+  useEffect(() => {
+    const setupRealtime = async () => {
+      try {
+        const household = await getCurrentHousehold();
+        const realtimeChannel = setupDashboardRealtimeSubscriptions(household.id, (type) => {
+          // Auto-refresh dashboard when data changes
+          console.log(`Data changed: ${type}`);
+          loadDashboard();
+        });
+        setChannel(realtimeChannel);
+      } catch (err) {
+        console.error('Failed to setup realtime:', err);
+      }
+    };
+
+    setupRealtime();
+
+    return () => {
+      if (channel) {
+        cleanupRealtimeSubscriptions(channel);
+      }
+    };
   }, []);
 
   const loadDashboard = async () => {
