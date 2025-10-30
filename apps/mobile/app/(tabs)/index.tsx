@@ -14,7 +14,6 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [householdId, setHouseholdId] = useState<string | null>(null);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const router = useRouter();
 
@@ -34,7 +33,6 @@ export default function DashboardScreen() {
       }
 
       const household = await getCurrentHousehold();
-      setHouseholdId(household.id);
 
       const data = await getDashboardData(household.id, 6);
       setDashboardData(data);

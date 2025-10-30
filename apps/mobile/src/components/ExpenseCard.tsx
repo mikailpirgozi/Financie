@@ -23,7 +23,7 @@ export function ExpenseCard({ expense, onPress }: ExpenseCardProps) {
     });
   };
 
-  const CardWrapper = onPress ? TouchableOpacity : View;
+  const CardWrapper: React.ElementType = onPress ? TouchableOpacity : View;
 
   return (
     <CardWrapper style={styles.card} onPress={onPress}>

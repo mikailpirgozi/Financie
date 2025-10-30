@@ -1,6 +1,8 @@
 import { supabase } from './supabase';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = typeof window !== 'undefined' && process?.env?.EXPO_PUBLIC_API_URL 
+  ? process.env.EXPO_PUBLIC_API_URL 
+  : 'http://localhost:3000';
 
 /**
  * Base fetch wrapper with auth headers
@@ -11,10 +13,14 @@ async function apiFetch<T>(
 ): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession();
 
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
   };
+
+  // Merge existing headers if they exist
+  if (options.headers && typeof options.headers === 'object') {
+    Object.assign(headers, options.headers);
+  }
 
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`;
@@ -49,6 +55,16 @@ export interface Loan {
   created_at: string;
 }
 
+export interface LoanSchedule {
+  id: string;
+  payment_date: string;
+  payment: number;
+  principal: number;
+  interest: number;
+  fees: number;
+  balance_remaining: number;
+}
+
 export async function getLoans(householdId: string): Promise<Loan[]> {
   const { loans } = await apiFetch<{ loans: Loan[] }>(
     `/api/loans?householdId=${householdId}`
@@ -56,11 +72,19 @@ export async function getLoans(householdId: string): Promise<Loan[]> {
   return loans;
 }
 
-export async function getLoan(loanId: string): Promise<{ loan: Loan; schedule: any[] }> {
+export async function getLoan(loanId: string): Promise<{ loan: Loan; schedule: LoanSchedule[] }> {
   return apiFetch(`/api/loans/${loanId}`);
 }
 
-export async function createLoan(data: any): Promise<{ loan: Loan }> {
+export interface CreateLoanData {
+  lender: string;
+  loan_type: 'annuity' | 'fixed_principal' | 'interest_only';
+  principal: number;
+  annual_rate: number;
+  term_months: number;
+}
+
+export async function createLoan(data: CreateLoanData): Promise<{ loan: Loan }> {
   return apiFetch('/api/loans', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -71,7 +95,7 @@ export async function payLoan(
   loanId: string,
   amount: number,
   date: string
-): Promise<any> {
+): Promise<{ success: boolean }> {
   return apiFetch(`/api/loans/${loanId}/pay`, {
     method: 'POST',
     body: JSON.stringify({ amount, date }),
@@ -93,6 +117,14 @@ export interface Expense {
   created_at: string;
 }
 
+export interface CreateExpenseData {
+  date: string;
+  amount: number;
+  category_id: string;
+  merchant?: string;
+  note?: string;
+}
+
 export async function getExpenses(householdId: string): Promise<Expense[]> {
   const { expenses } = await apiFetch<{ expenses: Expense[] }>(
     `/api/expenses?householdId=${householdId}`
@@ -100,7 +132,7 @@ export async function getExpenses(householdId: string): Promise<Expense[]> {
   return expenses;
 }
 
-export async function createExpense(data: any): Promise<{ expense: Expense }> {
+export async function createExpense(data: CreateExpenseData): Promise<{ expense: Expense }> {
   return apiFetch('/api/expenses', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -128,6 +160,14 @@ export interface Income {
   created_at: string;
 }
 
+export interface CreateIncomeData {
+  date: string;
+  amount: number;
+  category_id: string;
+  source?: string;
+  note?: string;
+}
+
 export async function getIncomes(householdId: string): Promise<Income[]> {
   const { incomes } = await apiFetch<{ incomes: Income[] }>(
     `/api/incomes?householdId=${householdId}`
@@ -135,7 +175,7 @@ export async function getIncomes(householdId: string): Promise<Income[]> {
   return incomes;
 }
 
-export async function createIncome(data: any): Promise<{ income: Income }> {
+export async function createIncome(data: CreateIncomeData): Promise<{ income: Income }> {
   return apiFetch('/api/incomes', {
     method: 'POST',
     body: JSON.stringify(data),

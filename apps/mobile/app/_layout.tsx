@@ -25,7 +25,6 @@ export default function RootLayout() {
     if (isAuthenticated === null) return;
 
     const inAuthGroup = segments[0] === '(auth)';
-    const inTabsGroup = segments[0] === '(tabs)';
 
     if (!isAuthenticated && !inAuthGroup) {
       // Redirect to login if not authenticated

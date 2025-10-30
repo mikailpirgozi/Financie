@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
 import { getLoans, getCurrentHousehold, type Loan } from '../../src/lib/api';
 import { LoadingSpinner } from '../../src/components/LoadingSpinner';
 import { ErrorMessage } from '../../src/components/ErrorMessage';
@@ -10,7 +9,6 @@ export default function LoansScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loans, setLoans] = useState<Loan[]>([]);
-  const router = useRouter();
 
   useEffect(() => {
     loadLoans();
