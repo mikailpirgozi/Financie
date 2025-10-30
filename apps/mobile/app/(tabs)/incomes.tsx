@@ -232,12 +232,20 @@ export default function IncomesScreen() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.title}>Príjmy</Text>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => router.push('/(tabs)/incomes/new')}
-          >
-            <Text style={styles.addButtonText}>+ Pridať</Text>
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity
+              style={styles.templateButton}
+              onPress={() => router.push('/(tabs)/incomes/templates')}
+            >
+              <Text style={styles.templateButtonText}>📋 Šablóny</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => router.push('/(tabs)/incomes/new')}
+            >
+              <Text style={styles.addButtonText}>+ Pridať</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         {incomes.length > 0 && (
           <View style={styles.summary}>
@@ -433,6 +441,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6b7280',
     textAlign: 'center',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  templateButton: {
+    backgroundColor: '#4f46e5',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  templateButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

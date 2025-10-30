@@ -572,3 +572,58 @@ export async function getSubscriptionStatus(householdId: string): Promise<Subscr
   return 'plan' in response ? response : response.subscription;
 }
 
+// ============================================
+// INCOME TEMPLATES (LOCAL STORAGE)
+// ============================================
+
+export interface IncomeTemplate {
+  id: string;
+  name: string;
+  amount: number;
+  category_id: string;
+  source?: string;
+  note?: string;
+  created_at: string;
+}
+
+const TEMPLATES_STORAGE_KEY = 'income_templates';
+
+export async function getIncomeTemplates(): Promise<IncomeTemplate[]> {
+  try {
+    const stored = localStorage.getItem(TEMPLATES_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createIncomeTemplate(data: Omit<IncomeTemplate, 'id' | 'created_at'>): Promise<IncomeTemplate> {
+  const templates = await getIncomeTemplates();
+  const newTemplate: IncomeTemplate = {
+    ...data,
+    id: `template_${Date.now()}`,
+    created_at: new Date().toISOString(),
+  };
+  
+  templates.push(newTemplate);
+  localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
+  
+  return newTemplate;
+}
+
+export async function deleteIncomeTemplate(templateId: string): Promise<void> {
+  const templates = await getIncomeTemplates();
+  const filtered = templates.filter((t) => t.id !== templateId);
+  localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(filtered));
+}
+
+export async function applyIncomeTemplate(template: IncomeTemplate, date: string): Promise<Income> {
+  return createIncome({
+    date,
+    amount: template.amount,
+    category_id: template.category_id,
+    source: template.source,
+    note: template.note,
+  });
+}
+
