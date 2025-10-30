@@ -1,42 +1,118 @@
 import { supabase } from './supabase';
+import { env } from './env';
 
-const API_URL = typeof window !== 'undefined' && process?.env?.EXPO_PUBLIC_API_URL 
-  ? process.env.EXPO_PUBLIC_API_URL 
-  : 'http://localhost:3000';
+const API_URL = env.EXPO_PUBLIC_API_URL;
+const REQUEST_TIMEOUT = 30000; // 30 seconds
+
+interface ApiError {
+  error: string;
+  message?: string;
+  statusCode?: number;
+}
+
+class ApiTimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ApiTimeoutError';
+  }
+}
+
+class ApiNetworkError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ApiNetworkError';
+  }
+}
 
 /**
- * Base fetch wrapper with auth headers
+ * Create an AbortSignal that times out after the specified duration
+ */
+function createTimeoutSignal(timeout: number): AbortSignal {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), timeout);
+  return controller.signal;
+}
+
+/**
+ * Retry logic for failed requests
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  retries: number = 2,
+  delay: number = 1000
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (retries === 0) throw error;
+    
+    // Don't retry on 4xx errors (client errors)
+    if (error instanceof Error && error.message.includes('HTTP 4')) {
+      throw error;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    return withRetry(fn, retries - 1, delay * 2);
+  }
+}
+
+/**
+ * Base fetch wrapper with auth headers, timeout, and retry logic
  */
 async function apiFetch<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  useRetry: boolean = true
 ): Promise<T> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const fetchFn = async (): Promise<T> => {
+    const { data: { session } } = await supabase.auth.getSession();
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Merge existing headers if they exist
+    if (options.headers && typeof options.headers === 'object') {
+      Object.assign(headers, options.headers);
+    }
+
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+
+    const timeoutSignal = createTimeoutSignal(REQUEST_TIMEOUT);
+    const combinedSignal = options.signal || timeoutSignal;
+
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        ...options,
+        headers,
+        signal: combinedSignal,
+      });
+
+      if (!response.ok) {
+        const error: ApiError = await response.json().catch(() => ({ 
+          error: 'Unknown error',
+          statusCode: response.status 
+        }));
+        throw new Error(error.message || error.error || `HTTP ${response.status}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new ApiTimeoutError('Request timed out. Please check your internet connection.');
+        }
+        if (error.message.includes('Network request failed') || error.message.includes('Failed to fetch')) {
+          throw new ApiNetworkError('Network error. Please check your internet connection.');
+        }
+      }
+      throw error;
+    }
   };
 
-  // Merge existing headers if they exist
-  if (options.headers && typeof options.headers === 'object') {
-    Object.assign(headers, options.headers);
-  }
-
-  if (session?.access_token) {
-    headers['Authorization'] = `Bearer ${session.access_token}`;
-  }
-
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || `HTTP ${response.status}`);
-  }
-
-  return response.json();
+  return useRetry ? withRetry(fetchFn) : fetchFn();
 }
 
 // ============================================
@@ -50,8 +126,16 @@ export interface Loan {
   loan_type: 'annuity' | 'fixed_principal' | 'interest_only';
   principal: number;
   annual_rate: number;
+  rate: number; // Same as annual_rate
   term_months: number;
+  term: number; // Same as term_months
   status: 'active' | 'paid_off' | 'defaulted';
+  amount_paid: number;
+  remaining_balance: number;
+  monthly_payment: number;
+  start_date: string;
+  end_date: string;
+  next_payment_due_date: string | null;
   created_at: string;
 }
 
@@ -212,6 +296,12 @@ export async function getCategories(
   return categories;
 }
 
+export async function deleteCategory(categoryId: string): Promise<void> {
+  await apiFetch(`/api/categories/${categoryId}`, {
+    method: 'DELETE',
+  });
+}
+
 // ============================================
 // HOUSEHOLD API
 // ============================================
@@ -258,5 +348,227 @@ export async function getDashboardData(
   return apiFetch<DashboardData>(
     `/api/dashboard?householdId=${householdId}&monthsCount=${monthsCount}`
   );
+}
+
+// ============================================
+// RULES API
+// ============================================
+
+export interface Rule {
+  id: string;
+  household_id: string;
+  match_type: 'contains' | 'exact' | 'starts_with' | 'ends_with';
+  match_value: string;
+  target_category_id: string;
+  applies_to: 'expense' | 'income';
+  created_at: string;
+  target_category?: Category;
+}
+
+export interface CreateRuleData {
+  household_id: string;
+  match_type: 'contains' | 'exact' | 'starts_with' | 'ends_with';
+  match_value: string;
+  target_category_id: string;
+  applies_to: 'expense' | 'income';
+}
+
+export async function getRules(householdId: string): Promise<Rule[]> {
+  const response = await apiFetch<Rule[] | { rules: Rule[] }>(
+    `/api/rules?householdId=${householdId}`
+  );
+  // Handle both array response and { rules: [] } response
+  return Array.isArray(response) ? response : response.rules;
+}
+
+export async function createRule(data: CreateRuleData): Promise<Rule> {
+  const response = await apiFetch<Rule | { rule: Rule }>('/api/rules', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  // Handle both direct Rule response and { rule: Rule } response
+  return 'id' in response ? response : response.rule;
+}
+
+export async function deleteRule(ruleId: string): Promise<void> {
+  await apiFetch(`/api/rules/${ruleId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function updateRule(ruleId: string, data: Partial<CreateRuleData>): Promise<Rule> {
+  const response = await apiFetch<Rule | { rule: Rule }>(`/api/rules/${ruleId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  return 'id' in response ? response : response.rule;
+}
+
+// ============================================
+// AUDIT LOG API
+// ============================================
+
+export interface AuditLogEntry {
+  id: string;
+  user_id: string;
+  household_id: string;
+  action: 'create' | 'update' | 'delete';
+  entity_type: 'expense' | 'income' | 'loan' | 'asset' | 'category';
+  entity_id: string;
+  changes: Record<string, unknown>;
+  timestamp: string;
+  user?: {
+    email: string;
+    full_name: string | null;
+  };
+}
+
+export interface AuditLogFilters {
+  entityType?: string;
+  action?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export async function getAuditLog(
+  householdId: string,
+  filters?: AuditLogFilters
+): Promise<AuditLogEntry[]> {
+  const params = new URLSearchParams({ householdId });
+  
+  if (filters?.entityType) params.append('entityType', filters.entityType);
+  if (filters?.action) params.append('action', filters.action);
+  if (filters?.startDate) params.append('startDate', filters.startDate);
+  if (filters?.endDate) params.append('endDate', filters.endDate);
+  
+  const response = await apiFetch<{ entries: AuditLogEntry[] } | AuditLogEntry[]>(
+    `/api/audit?${params.toString()}`
+  );
+  
+  return Array.isArray(response) ? response : response.entries || [];
+}
+
+// ============================================
+// CATEGORY CRUD (extending existing)
+// ============================================
+
+export interface CreateCategoryData {
+  name: string;
+  kind: 'expense' | 'income' | 'asset' | 'loan';
+  parent_id?: string;
+  household_id: string;
+}
+
+export async function createCategory(data: CreateCategoryData): Promise<Category> {
+  const response = await apiFetch<{ category: Category } | Category>('/api/categories', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return 'id' in response ? response : response.category;
+}
+
+export async function updateCategory(
+  id: string,
+  data: Partial<CreateCategoryData>
+): Promise<Category> {
+  const response = await apiFetch<{ category: Category } | Category>(
+    `/api/categories/${id}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }
+  );
+  return 'id' in response ? response : response.category;
+}
+
+// ============================================
+// LOAN EARLY REPAYMENT API
+// ============================================
+
+export interface EarlyRepaymentPreview {
+  new_remaining_principal: number;
+  saved_interest: number;
+  new_installment_count: number;
+}
+
+export interface EarlyRepaymentRequest {
+  amount: number;
+  payment_date: string;
+  preview?: boolean;
+}
+
+export async function previewEarlyRepayment(
+  loanId: string,
+  data: EarlyRepaymentRequest
+): Promise<EarlyRepaymentPreview> {
+  return apiFetch(`/api/loans/${loanId}/early-repayment`, {
+    method: 'POST',
+    body: JSON.stringify({ ...data, preview: true }),
+  });
+}
+
+export async function processEarlyRepayment(
+  loanId: string,
+  data: Omit<EarlyRepaymentRequest, 'preview'>
+): Promise<{ success: boolean; loan: Loan }> {
+  return apiFetch(`/api/loans/${loanId}/early-repayment`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// ============================================
+// LOAN SIMULATE API
+// ============================================
+
+export interface SimulationParams {
+  new_rate?: number;
+  new_term?: number;
+  extra_payment_monthly?: number;
+}
+
+export interface SimulationResult {
+  original: {
+    total_interest: number;
+    total_cost: number;
+    monthly_payment: number;
+  };
+  simulated: {
+    total_interest: number;
+    total_cost: number;
+    monthly_payment: number;
+  };
+  savings: {
+    interest_saved: number;
+    time_saved_months: number;
+  };
+}
+
+export async function simulateLoan(
+  loanId: string,
+  params: SimulationParams
+): Promise<SimulationResult> {
+  return apiFetch(`/api/loans/${loanId}/simulate`, {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
+// ============================================
+// SUBSCRIPTION API
+// ============================================
+
+export interface SubscriptionStatus {
+  plan: 'free' | 'pro' | 'premium';
+  status: 'active' | 'cancelled' | 'expired';
+  current_period_start?: string;
+  current_period_end?: string;
+}
+
+export async function getSubscriptionStatus(householdId: string): Promise<SubscriptionStatus> {
+  const response = await apiFetch<SubscriptionStatus | { subscription: SubscriptionStatus }>(
+    `/api/subscription/status?householdId=${householdId}`
+  );
+  return 'plan' in response ? response : response.subscription;
 }
 

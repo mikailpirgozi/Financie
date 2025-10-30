@@ -1,6 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
+import { supabase } from './supabase';
+import { env } from './env';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -50,20 +52,66 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
 }
 
 /**
- * Save push token to database
+ * Save push token to backend
  */
-export async function savePushToken(token: string, userId: string): Promise<void> {
+export async function savePushToken(token: string): Promise<void> {
   try {
-    // TODO: Implement API call to save token
-    // await fetch('/api/push-tokens', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ token, userId }),
-    // });
-    console.log('Push token saved:', token, userId);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.warn('No active session, cannot save push token');
+      return;
+    }
+
+    const response = await fetch(`${env.EXPO_PUBLIC_API_URL}/api/push-tokens`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        token,
+        platform: Platform.OS,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to save push token');
+    }
+
+    console.log('Push token saved successfully');
   } catch (error) {
     console.error('Error saving push token:', error);
   }
+}
+
+/**
+ * Setup notification listeners
+ */
+export function setupNotificationListeners(
+  onNotificationReceived?: (notification: Notifications.Notification) => void,
+  onNotificationTapped?: (response: Notifications.NotificationResponse) => void
+): () => void {
+  // Notification received while app is foregrounded
+  const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
+    console.log('Notification received:', notification);
+    if (onNotificationReceived) {
+      onNotificationReceived(notification);
+    }
+  });
+
+  // Notification tapped
+  const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+    console.log('Notification tapped:', response);
+    if (onNotificationTapped) {
+      onNotificationTapped(response);
+    }
+  });
+
+  // Return cleanup function
+  return () => {
+    receivedSubscription.remove();
+    responseSubscription.remove();
+  };
 }
 
 /**

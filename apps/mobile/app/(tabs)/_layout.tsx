@@ -18,6 +18,13 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="assets"
+        options={{
+          title: 'Majetok',
+          tabBarIcon: () => '🏠',
+        }}
+      />
+      <Tabs.Screen
         name="expenses"
         options={{
           title: 'Výdavky',
@@ -29,6 +36,50 @@ export default function TabsLayout() {
         options={{
           title: 'Príjmy',
           tabBarIcon: () => '💵',
+        }}
+      />
+      <Tabs.Screen
+        name="categories"
+        options={{
+          title: 'Kategórie',
+          tabBarIcon: () => '🏷️',
+        }}
+      />
+      <Tabs.Screen
+        name="summaries"
+        options={{
+          title: 'Súhrny',
+          tabBarIcon: () => '📈',
+        }}
+      />
+      <Tabs.Screen
+        name="household"
+        options={{
+          title: 'Domácnosť',
+          tabBarIcon: () => '👥',
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Nastavenia',
+          tabBarIcon: () => '⚙️',
+        }}
+      />
+      <Tabs.Screen
+        name="rules"
+        options={{
+          title: 'Pravidlá',
+          tabBarIcon: () => '⚡',
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="audit"
+        options={{
+          title: 'Audit Log',
+          tabBarIcon: () => '📝',
+          href: null,
         }}
       />
     </Tabs>

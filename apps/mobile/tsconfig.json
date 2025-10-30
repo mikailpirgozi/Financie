@@ -4,8 +4,16 @@
     "jsx": "react-native",
     "lib": ["ES2020", "DOM"],
     "types": ["node"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
     "paths": {
       "@/*": ["./src/*"],
+      "@/components": ["./src/components"],
+      "@/lib": ["./src/lib"],
+      "@/hooks": ["./src/hooks"],
       "@finapp/core": ["../../packages/core/src"]
     }
   },
