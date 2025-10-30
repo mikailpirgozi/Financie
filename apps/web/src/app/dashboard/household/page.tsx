@@ -47,7 +47,10 @@ export default async function HouseholdPage() {
   const { data: members } = await supabase
     .from('household_members')
     .select(`
-      *,
+      id,
+      user_id,
+      role,
+      created_at,
       profiles:user_id (
         email,
         display_name
@@ -57,6 +60,23 @@ export default async function HouseholdPage() {
     .order('created_at', { ascending: true });
 
   const isOwner = membership.role === 'owner';
+
+  // Type-cast members to handle Supabase response properly
+  interface MemberResponse {
+    id: string;
+    user_id: string;
+    role: string;
+    created_at: string;
+    profiles: Array<{ email: string; display_name?: string }> | { email: string; display_name?: string };
+  }
+
+  const typedMembers = (members as MemberResponse[] || []).map((m) => ({
+    id: m.id,
+    user_id: m.user_id,
+    role: m.role as 'owner' | 'admin' | 'member' | 'viewer',
+    created_at: m.created_at,
+    profiles: Array.isArray(m.profiles) ? m.profiles[0] : m.profiles,
+  }));
 
   return (
     <div className="space-y-6">
@@ -114,7 +134,7 @@ export default async function HouseholdPage() {
         </CardHeader>
         <CardContent>
           <HouseholdMembers 
-            members={members || []} 
+            members={typedMembers} 
             currentUserId={user.id}
             isOwner={isOwner}
             householdId={membership.household_id}
