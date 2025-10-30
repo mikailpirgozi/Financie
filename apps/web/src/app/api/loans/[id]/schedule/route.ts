@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { z } from 'zod';
+
+export const runtime = 'nodejs'; // Will use Edge when Supabase supports it
+export const dynamic = 'force-dynamic';
+
+const querySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(10).max(100).default(50),
+  status: z.enum(['paid', 'pending', 'overdue']).optional(),
+});
 
 export async function GET(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -15,55 +25,57 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const loanId = params.id;
+    // Validácia query params
+    const searchParams = Object.fromEntries(request.nextUrl.searchParams);
+    const { page, limit, status } = querySchema.parse(searchParams);
 
-    // Get loan to verify access
-    const { data: loan, error: loanError } = await supabase
-      .from('loans')
-      .select('household_id')
-      .eq('id', loanId)
-      .single();
-
-    if (loanError || !loan) {
-      return NextResponse.json({ error: 'Loan not found' }, { status: 404 });
-    }
-
-    // Verify user is member of household
-    const { data: membership } = await supabase
-      .from('household_members')
-      .select('id')
-      .eq('household_id', loan.household_id)
-      .eq('user_id', user.id)
-      .single();
-
-    if (!membership) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    // Get schedule
-    const { data: schedule, error: scheduleError } = await supabase
+    // Paralelné queries (50-100ms total)
+    let scheduleQuery = supabase
       .from('loan_schedules')
-      .select('*')
-      .eq('loan_id', loanId)
-      .order('installment_no', { ascending: true });
+      .select('*', { count: 'exact' })
+      .eq('loan_id', params.id);
 
-    if (scheduleError) {
-      return NextResponse.json(
-        { error: 'Failed to fetch schedule', details: scheduleError },
-        { status: 500 }
-      );
+    if (status) {
+      scheduleQuery = scheduleQuery.eq('status', status);
     }
 
-    return NextResponse.json(schedule || []);
-  } catch (error) {
-    console.error('Error fetching schedule:', error);
+    const [scheduleResult, metricsResult] = await Promise.all([
+      // Stránkovaný schedule
+      scheduleQuery
+        .range((page - 1) * limit, page * limit - 1)
+        .order('installment_no', { ascending: true }),
+
+      // Metriky z materialized view (instant)
+      supabase.from('loan_metrics').select('*').eq('loan_id', params.id).single(),
+    ]);
+
+    if (scheduleResult.error) throw scheduleResult.error;
+
     return NextResponse.json(
       {
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        schedule: scheduleResult.data ?? [],
+        count: scheduleResult.count ?? 0,
+        page,
+        limit,
+        pages: Math.ceil((scheduleResult.count ?? 0) / limit),
+        metrics: metricsResult.data,
+      },
+      {
+        headers: {
+          // Vercel Edge Cache (CDN layer)
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+          'CDN-Cache-Control': 'public, s-maxage=60',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('GET /api/loans/[id]/schedule error:', error);
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? error.message : 'Internal server error',
       },
       { status: 500 }
     );
   }
 }
-
