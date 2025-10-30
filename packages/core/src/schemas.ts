@@ -8,7 +8,7 @@ export const nonNegativeNumberSchema = z.number().nonnegative();
 export const percentageSchema = z.number().min(0).max(100);
 
 // Loan schemas
-export const loanTypeSchema = z.enum(['annuity', 'fixed_principal', 'interest_only']);
+export const loanTypeSchema = z.enum(['annuity', 'fixed_principal', 'interest_only', 'auto_loan']);
 export const rateTypeSchema = z.enum(['fixed', 'variable']);
 export const dayCountConventionSchema = z.enum(['30E/360', 'ACT/360', 'ACT/365']);
 export const loanStatusSchema = z.enum(['active', 'paid_off', 'defaulted']);
@@ -28,6 +28,8 @@ export const createLoanSchema = z.object({
   feeMonthly: nonNegativeNumberSchema.optional(),
   insuranceMonthly: nonNegativeNumberSchema.optional(),
   earlyRepaymentPenaltyPct: percentageSchema.optional(),
+  fixedMonthlyPayment: positiveNumberSchema.optional(),
+  fixedPrincipalPayment: positiveNumberSchema.optional(),
 });
 
 export const payLoanSchema = z.object({
@@ -60,6 +62,34 @@ export const createIncomeSchema = z.object({
   amount: positiveNumberSchema,
   source: z.string().min(1).max(200),
   categoryId: uuidSchema,
+  note: z.string().max(500).optional(),
+  incomeTemplateId: uuidSchema.optional(),
+});
+
+// Income template schemas
+export const createIncomeTemplateSchema = z.object({
+  householdId: uuidSchema,
+  name: z.string().min(1).max(200),
+  categoryId: uuidSchema,
+  defaultAmount: positiveNumberSchema.optional(),
+  note: z.string().max(500).optional(),
+  isActive: z.boolean().default(true),
+  sortOrder: z.number().int().nonnegative().default(0),
+});
+
+export const updateIncomeTemplateSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  categoryId: uuidSchema.optional(),
+  defaultAmount: positiveNumberSchema.nullable().optional(),
+  note: z.string().max(500).nullable().optional(),
+  isActive: z.boolean().optional(),
+  sortOrder: z.number().int().nonnegative().optional(),
+});
+
+export const createIncomeFromTemplateSchema = z.object({
+  templateId: uuidSchema,
+  date: dateSchema,
+  amount: positiveNumberSchema,
   note: z.string().max(500).optional(),
 });
 
@@ -137,6 +167,9 @@ export type PayLoanInput = z.infer<typeof payLoanSchema>;
 export type EarlyRepaymentInput = z.infer<typeof earlyRepaymentSchema>;
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
 export type CreateIncomeInput = z.infer<typeof createIncomeSchema>;
+export type CreateIncomeTemplateInput = z.infer<typeof createIncomeTemplateSchema>;
+export type UpdateIncomeTemplateInput = z.infer<typeof updateIncomeTemplateSchema>;
+export type CreateIncomeFromTemplateInput = z.infer<typeof createIncomeFromTemplateSchema>;
 export type CreateAssetInput = z.infer<typeof createAssetSchema>;
 export type UpdateAssetValueInput = z.infer<typeof updateAssetValueSchema>;
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;

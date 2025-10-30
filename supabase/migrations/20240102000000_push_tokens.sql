@@ -38,3 +38,5 @@ CREATE POLICY "Users can delete own push tokens"
 CREATE TRIGGER update_push_tokens_updated_at BEFORE UPDATE ON push_tokens
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+
+

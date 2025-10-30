@@ -17,6 +17,7 @@ const navigation = [
   { name: 'Kategórie', href: '/dashboard/categories', icon: '🏷️' },
   { name: 'Domácnosť', href: '/dashboard/household', icon: '👥' },
   { name: 'Predplatné', href: '/dashboard/subscription', icon: '💳' },
+  { name: 'Audit Log', href: '/dashboard/audit', icon: '📝' },
 ];
 
 interface SidebarProps {
@@ -27,8 +28,13 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen = true, onClose, households, currentHouseholdId }: SidebarProps) {
-  const pathname = usePathname();
+  const [pathname, setPathname] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const pathnameFromHook = usePathname();
+
+  useEffect(() => {
+    setPathname(pathnameFromHook);
+  }, [pathnameFromHook]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -67,7 +73,7 @@ export function Sidebar({ isOpen = true, onClose, households, currentHouseholdId
       )}
       <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
         {navigation.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+          const isActive = pathname ? (pathname === item.href || pathname.startsWith(item.href + '/')) : false;
           return (
             <Link
               key={item.name}

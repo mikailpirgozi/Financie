@@ -14,10 +14,11 @@ interface HeaderProps {
       display_name?: string;
     };
   };
+  locale: string;
   onMenuClick?: () => void;
 }
 
-export function Header({ user, onMenuClick }: HeaderProps) {
+export function Header({ user, locale, onMenuClick }: HeaderProps) {
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -42,7 +43,7 @@ export function Header({ user, onMenuClick }: HeaderProps) {
         </h2>
       </div>
       <div className="flex items-center gap-2 md:gap-4">
-        <LanguageSwitcher />
+        <LanguageSwitcher currentLocale={locale} />
         <ThemeToggle />
         <Button variant="outline" onClick={handleLogout} className="text-xs md:text-sm">
           Odhlásiť sa

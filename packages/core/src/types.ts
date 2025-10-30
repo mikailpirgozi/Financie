@@ -1,5 +1,5 @@
 // Loan types
-export type LoanType = 'annuity' | 'fixed_principal' | 'interest_only';
+export type LoanType = 'annuity' | 'fixed_principal' | 'interest_only' | 'auto_loan';
 export type RateType = 'fixed' | 'variable';
 export type DayCountConvention = '30E/360' | 'ACT/360' | 'ACT/365';
 export type LoanStatus = 'active' | 'paid_off' | 'defaulted';
@@ -40,6 +40,8 @@ export interface LoanCalculationInput {
   feeMonthly?: number;
   insuranceMonthly?: number;
   balloonAmount?: number;
+  fixedMonthlyPayment?: number; // For annuity: use this exact payment instead of calculating
+  fixedPrincipalPayment?: number; // For fixed_principal: use this exact principal payment instead of calculating
 }
 
 // Loan calculation result

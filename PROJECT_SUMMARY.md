@@ -332,3 +332,5 @@ Projekt FinApp má **solídny základ** s:
 **Status:** Fáza 2 dokončená (80% celkového projektu)  
 **Ďalší milestone:** Fáza 3 - Advanced Features
 
+
+

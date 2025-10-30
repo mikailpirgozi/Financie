@@ -37,7 +37,11 @@ export default function RegisterPage() {
     try {
       const supabase = createClient();
       
-      // Register user
+      console.log('🚀 Starting registration...');
+      console.log('Email:', email);
+      console.log('Display name:', displayName);
+      
+      // Register user - trigger will handle profile, household, and categories
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -48,70 +52,32 @@ export default function RegisterPage() {
         },
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Registrácia zlyhala');
+      console.log('Auth response:', { authData, authError });
 
-      // Create profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: authData.user.id,
-          email: authData.user.email!,
-          display_name: displayName,
-        });
+      if (authError) {
+        console.error('❌ Auth error:', authError);
+        throw authError;
+      }
+      
+      if (!authData.user) {
+        console.error('❌ No user data returned');
+        throw new Error('Registrácia zlyhala - žiadne user data');
+      }
 
-      if (profileError) throw profileError;
+      console.log('✅ User created:', authData.user.id);
+      console.log('✅ Registration successful! Redirecting...');
 
-      // Create default household
-      const { data: household, error: householdError } = await supabase
-        .from('households')
-        .insert({
-          name: `${displayName}'s Household`,
-        })
-        .select()
-        .single();
+      // Wait a bit for trigger to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      if (householdError) throw householdError;
-
-      // Add user as household owner
-      const { error: memberError } = await supabase
-        .from('household_members')
-        .insert({
-          household_id: household.id,
-          user_id: authData.user.id,
-          role: 'owner',
-        });
-
-      if (memberError) throw memberError;
-
-      // Create default categories
-      const defaultCategories = [
-        { kind: 'expense', name: 'Potraviny' },
-        { kind: 'expense', name: 'Bývanie' },
-        { kind: 'expense', name: 'Doprava' },
-        { kind: 'expense', name: 'Zdravie' },
-        { kind: 'expense', name: 'Zábava' },
-        { kind: 'income', name: 'Mzda' },
-        { kind: 'income', name: 'Podnikanie' },
-        { kind: 'income', name: 'Investície' },
-      ];
-
-      const { error: categoriesError } = await supabase
-        .from('categories')
-        .insert(
-          defaultCategories.map((cat) => ({
-            household_id: household.id,
-            kind: cat.kind,
-            name: cat.name,
-          }))
-        );
-
-      if (categoriesError) throw categoriesError;
-
-      router.push('/dashboard');
+      // Redirect to home (dashboard layout will handle the rest)
+      window.location.href = '/';
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registrácia zlyhala');
+      console.error('❌ Registration error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Registrácia zlyhala';
+      console.error('Error message:', errorMessage);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -206,4 +172,5 @@ export default function RegisterPage() {
     </div>
   );
 }
+
 

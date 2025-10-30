@@ -23,15 +23,29 @@ export function calculateLoan(input: LoanCalculationInput): LoanCalculationResul
     case 'interest_only':
       schedule = calculateInterestOnly(input, effectivePrincipal);
       break;
+    case 'auto_loan':
+      schedule = calculateAutoLoan(input, effectivePrincipal);
+      break;
   }
 
   // Calculate totals
   const totalInterest = schedule.reduce((sum, entry) => sum + entry.interestDue, 0);
-  const totalFees = schedule.reduce((sum, entry) => sum + entry.feesDue, 0) + feeSetup;
-  const totalPayment = schedule.reduce((sum, entry) => sum + entry.totalDue, 0) + feeSetup;
+  
+  // For auto_loan, setup fee is already included in the schedule (financed)
+  // For other loan types, setup fee is paid separately upfront
+  const totalFees = loanType === 'auto_loan' 
+    ? schedule.reduce((sum, entry) => sum + entry.feesDue, 0)
+    : schedule.reduce((sum, entry) => sum + entry.feesDue, 0) + feeSetup;
+  
+  const totalPayment = loanType === 'auto_loan'
+    ? schedule.reduce((sum, entry) => sum + entry.totalDue, 0)
+    : schedule.reduce((sum, entry) => sum + entry.totalDue, 0) + feeSetup;
 
   // Calculate effective rate (RPMN)
-  const effectiveRate = calculateEffectiveRate(principal, totalPayment, input.termMonths);
+  // If no fees, RPMN = nominal rate
+  const effectiveRate = totalFees === 0 
+    ? input.annualRate 
+    : calculateEffectiveRate(principal, schedule, feeSetup);
 
   return {
     schedule,
@@ -45,17 +59,22 @@ export function calculateLoan(input: LoanCalculationInput): LoanCalculationResul
 /**
  * Annuity loan - fixed monthly payment
  * Payment = Principal * (r * (1+r)^n) / ((1+r)^n - 1)
+ * If fixedMonthlyPayment is provided, uses that exact amount
  */
 function calculateAnnuity(
   input: LoanCalculationInput,
   effectivePrincipal: number
 ): LoanScheduleEntry[] {
-  const { annualRate, termMonths, startDate, dayCountConvention, feeMonthly = 0, insuranceMonthly = 0 } = input;
+  const { annualRate, termMonths, startDate, dayCountConvention, feeMonthly = 0, insuranceMonthly = 0, fixedMonthlyPayment } = input;
   
   const monthlyRate = annualRate / 100 / 12;
-  const monthlyPayment = effectivePrincipal * 
+  
+  // Use fixed payment if provided, otherwise calculate
+  const calculatedPayment = effectivePrincipal * 
     (monthlyRate * Math.pow(1 + monthlyRate, termMonths)) / 
     (Math.pow(1 + monthlyRate, termMonths) - 1);
+  
+  const monthlyPayment = fixedMonthlyPayment ?? calculatedPayment;
 
   const schedule: LoanScheduleEntry[] = [];
   let balance = effectivePrincipal;
@@ -67,7 +86,15 @@ function calculateAnnuity(
     const dayCountFactor = calculateDayCountFactor(prevDate, dueDate, dayCountConvention);
     const interestDue = roundToTwo(balance * (annualRate / 100) * dayCountFactor);
     const feesDue = roundToTwo(feeMonthly + insuranceMonthly);
-    const principalDue = roundToTwo(monthlyPayment - interestDue);
+    
+    // For last payment, adjust to pay off remaining balance exactly
+    let principalDue: number;
+    if (i === termMonths) {
+      // Last payment: pay off exact remaining balance
+      principalDue = roundToTwo(balance);
+    } else {
+      principalDue = roundToTwo(monthlyPayment - interestDue);
+    }
     
     balance = roundToTwo(Math.max(0, balance - principalDue));
 
@@ -94,9 +121,12 @@ function calculateFixedPrincipal(
   input: LoanCalculationInput,
   effectivePrincipal: number
 ): LoanScheduleEntry[] {
-  const { annualRate, termMonths, startDate, dayCountConvention, feeMonthly = 0, insuranceMonthly = 0 } = input;
+  const { annualRate, termMonths, startDate, dayCountConvention, feeMonthly = 0, insuranceMonthly = 0, fixedPrincipalPayment } = input;
   
-  const principalPayment = effectivePrincipal / termMonths;
+  // Use fixed principal payment if provided, otherwise calculate
+  const calculatedPrincipalPayment = effectivePrincipal / termMonths;
+  const principalPayment = fixedPrincipalPayment ?? calculatedPrincipalPayment;
+  
   const schedule: LoanScheduleEntry[] = [];
   let balance = effectivePrincipal;
 
@@ -107,7 +137,15 @@ function calculateFixedPrincipal(
     const dayCountFactor = calculateDayCountFactor(prevDate, dueDate, dayCountConvention);
     const interestDue = roundToTwo(balance * (annualRate / 100) * dayCountFactor);
     const feesDue = roundToTwo(feeMonthly + insuranceMonthly);
-    const principalDue = roundToTwo(principalPayment);
+    
+    // For last payment, adjust to pay off remaining balance exactly
+    let principalDue: number;
+    if (i === termMonths) {
+      // Last payment: pay off exact remaining balance
+      principalDue = roundToTwo(balance);
+    } else {
+      principalDue = roundToTwo(principalPayment);
+    }
     
     balance = roundToTwo(Math.max(0, balance - principalDue));
 
@@ -176,17 +214,125 @@ function calculateInterestOnly(
 }
 
 /**
- * Calculate effective annual rate (RPMN)
- * Using simple approximation formula
+ * Auto loan (leasing) - annuity with setup fee included in principal
+ * Setup fee is added to principal for interest calculation
+ * This matches typical leasing contracts where setup fee is financed
  */
-function calculateEffectiveRate(principal: number, totalPayment: number, termMonths: number): number {
-  const totalInterest = totalPayment - principal;
-  const avgMonthlyInterest = totalInterest / termMonths;
-  const avgBalance = principal / 2;
-  const monthlyRate = avgMonthlyInterest / avgBalance;
-  const annualRate = monthlyRate * 12 * 100;
+function calculateAutoLoan(
+  input: LoanCalculationInput,
+  effectivePrincipal: number
+): LoanScheduleEntry[] {
+  const { annualRate, termMonths, startDate, dayCountConvention, feeMonthly = 0, insuranceMonthly = 0, fixedMonthlyPayment } = input;
   
-  return roundToTwo(annualRate);
+  const monthlyRate = annualRate / 100 / 12;
+  
+  // Use fixed payment if provided, otherwise calculate from effective principal
+  const calculatedPayment = effectivePrincipal * 
+    (monthlyRate * Math.pow(1 + monthlyRate, termMonths)) / 
+    (Math.pow(1 + monthlyRate, termMonths) - 1);
+  
+  const monthlyPayment = fixedMonthlyPayment ?? calculatedPayment;
+
+  const schedule: LoanScheduleEntry[] = [];
+  let balance = effectivePrincipal;
+
+  for (let i = 1; i <= termMonths; i++) {
+    const dueDate = addMonths(startDate, i);
+    const prevDate = i === 1 ? startDate : addMonths(startDate, i - 1);
+    
+    const dayCountFactor = calculateDayCountFactor(prevDate, dueDate, dayCountConvention);
+    const interestDue = roundToTwo(balance * (annualRate / 100) * dayCountFactor);
+    const feesDue = roundToTwo(feeMonthly + insuranceMonthly);
+    
+    // For last payment, adjust to pay off remaining balance exactly
+    let principalDue: number;
+    if (i === termMonths) {
+      principalDue = roundToTwo(balance);
+    } else {
+      principalDue = roundToTwo(monthlyPayment - interestDue);
+    }
+    
+    balance = roundToTwo(Math.max(0, balance - principalDue));
+
+    schedule.push({
+      installmentNo: i,
+      dueDate,
+      principalDue,
+      interestDue,
+      feesDue,
+      totalDue: roundToTwo(principalDue + interestDue + feesDue),
+      principalBalanceAfter: balance,
+      status: 'pending',
+    });
+  }
+
+  return schedule;
+}
+
+/**
+ * Calculate effective annual rate (RPMN)
+ * Uses IRR (Internal Rate of Return) with actual payment schedule
+ */
+function calculateEffectiveRate(
+  principal: number, 
+  schedule: LoanScheduleEntry[],
+  feeSetup: number
+): number {
+  // Amount received (principal minus setup fee)
+  const amountReceived = principal - feeSetup;
+  
+  // Use Newton-Raphson to find monthly rate that makes NPV = 0
+  let rate = 0.008; // Start with ~10% annual
+  const tolerance = 0.01; // 1 cent tolerance
+  const maxIterations = 100;
+  
+  for (let i = 0; i < maxIterations; i++) {
+    // Calculate NPV: -amountReceived + sum of discounted payments
+    let npv = -amountReceived;
+    let npvDerivative = 0;
+    
+    for (let month = 1; month <= schedule.length; month++) {
+      const entry = schedule[month - 1];
+      if (!entry) continue;
+      
+      const payment = entry.totalDue;
+      const discountFactor = Math.pow(1 + rate, month);
+      
+      npv += payment / discountFactor;
+      npvDerivative -= (month * payment) / Math.pow(1 + rate, month + 1);
+    }
+    
+    // Add setup fee payment at month 0
+    if (feeSetup > 0) {
+      npv += feeSetup;
+    }
+    
+    // Check convergence
+    if (Math.abs(npv) < tolerance) {
+      return roundToTwo(rate * 12 * 100);
+    }
+    
+    // Check derivative
+    if (Math.abs(npvDerivative) < 0.0001) {
+      break;
+    }
+    
+    // Newton-Raphson update
+    rate = rate - npv / npvDerivative;
+    
+    // Keep rate in reasonable bounds
+    if (rate < 0) rate = 0.0001;
+    if (rate > 0.5) rate = 0.5;
+  }
+  
+  // Fallback: simple approximation
+  const totalPaid = schedule.reduce((sum, entry) => sum + entry.totalDue, 0) + feeSetup;
+  const totalInterestAndFees = totalPaid - principal;
+  const avgMonthlyInterest = totalInterestAndFees / schedule.length;
+  const avgBalance = amountReceived / 2;
+  const monthlyRate = avgBalance > 0 ? avgMonthlyInterest / avgBalance : 0;
+  
+  return roundToTwo(monthlyRate * 12 * 100);
 }
 
 /**

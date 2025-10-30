@@ -29,7 +29,8 @@ export default function LoginPage() {
 
       if (error) throw error;
 
-      router.push('/dashboard');
+      // Redirect to home
+      window.location.href = '/';
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Prihlásenie zlyhalo');
@@ -99,4 +100,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
 

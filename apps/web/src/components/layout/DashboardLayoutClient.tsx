@@ -14,10 +14,11 @@ interface DashboardLayoutClientProps {
   };
   householdId?: string;
   households?: Array<{ id: string; name: string; role: string }>;
+  locale: string;
   children: React.ReactNode;
 }
 
-export function DashboardLayoutClient({ user, householdId, households, children }: DashboardLayoutClientProps) {
+export function DashboardLayoutClient({ user, householdId, households, locale, children }: DashboardLayoutClientProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const content = (
@@ -29,7 +30,7 @@ export function DashboardLayoutClient({ user, householdId, households, children 
         currentHouseholdId={householdId}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header user={user} onMenuClick={() => setIsSidebarOpen(true)} />
+        <Header user={user} locale={locale} onMenuClick={() => setIsSidebarOpen(true)} />
         <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
       </div>
     </div>

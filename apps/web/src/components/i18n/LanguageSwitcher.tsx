@@ -9,7 +9,11 @@ const languages = [
   { code: 'en', name: 'English', flag: '🇬🇧' },
 ];
 
-export function LanguageSwitcher() {
+interface LanguageSwitcherProps {
+  currentLocale: string;
+}
+
+export function LanguageSwitcher({ currentLocale }: LanguageSwitcherProps) {
   const [isPending, startTransition] = useTransition();
 
   const handleLanguageChange = (locale: string) => {
@@ -18,11 +22,6 @@ export function LanguageSwitcher() {
       window.location.reload();
     });
   };
-
-  const currentLocale = 
-    typeof document !== 'undefined' 
-      ? document.cookie.split('; ').find(row => row.startsWith('locale='))?.split('=')[1] || 'sk'
-      : 'sk';
 
   const currentLanguage = languages.find(lang => lang.code === currentLocale) || languages[0];
 

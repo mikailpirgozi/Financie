@@ -54,6 +54,8 @@ export async function createLoan(input: CreateLoanInput) {
     feeMonthly: input.feeMonthly,
     insuranceMonthly: input.insuranceMonthly,
     balloonAmount: input.balloonAmount,
+    fixedMonthlyPayment: input.fixedMonthlyPayment,
+    fixedPrincipalPayment: input.fixedPrincipalPayment,
   });
 
   // Insert schedule

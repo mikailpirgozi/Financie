@@ -1,7 +1,18 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Button } from '@finapp/ui';
+import { createClient } from '@/lib/supabase/server';
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Check if user is authenticated
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // If authenticated, redirect to dashboard
+  if (user) {
+    redirect('/dashboard');
+  }
+
   return (
     <main className="flex min-h-screen flex-col">
       {/* Hero Section */}

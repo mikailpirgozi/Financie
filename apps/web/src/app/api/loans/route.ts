@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createLoanSchema } from '@finapp/core';
 import { createLoan, getLoans } from '@/lib/api/loans';
 import { createClient } from '@/lib/supabase/server';
+import { logAudit } from '@/lib/audit/logger';
+import { checkSubscriptionLimits } from '@/lib/stripe/subscriptions';
 
 export async function GET(request: NextRequest) {
   try {
@@ -48,7 +50,34 @@ export async function POST(request: NextRequest) {
       startDate: new Date(body.startDate),
     });
 
+    // Check subscription limits
+    const limitsCheck = await checkSubscriptionLimits(user.id, 'loans');
+    if (!limitsCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: 'Subscription limit reached',
+          message: `You have reached the maximum number of loans (${limitsCheck.limit}) for your plan. Please upgrade to create more loans.`,
+          current: limitsCheck.current,
+          limit: limitsCheck.limit,
+        },
+        { status: 403 }
+      );
+    }
+
     const result = await createLoan(validatedInput);
+
+    // Log audit
+    await logAudit({
+      householdId: validatedInput.householdId,
+      userId: user.id,
+      action: 'create',
+      entityType: 'loan',
+      entityId: result.loan.id,
+      changes: {
+        new_value: validatedInput,
+      },
+      request,
+    });
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

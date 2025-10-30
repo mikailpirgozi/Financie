@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { sendHouseholdInviteEmail } from '@/lib/email';
+import { checkSubscriptionLimits } from '@/lib/stripe/subscriptions';
 
 export async function POST(request: Request) {
   try {
@@ -21,6 +23,20 @@ export async function POST(request: Request) {
 
     if (!['admin', 'member', 'viewer'].includes(role)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+    }
+
+    // Check subscription limits for members
+    const limitsCheck = await checkSubscriptionLimits(user.id, 'members');
+    if (!limitsCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: 'Subscription limit reached',
+          message: `You have reached the maximum number of members (${limitsCheck.limit}) for your plan. Please upgrade to add more members.`,
+          current: limitsCheck.current,
+          limit: limitsCheck.limit,
+        },
+        { status: 403 }
+      );
     }
 
     // Check if user is owner or admin
@@ -67,6 +83,19 @@ export async function POST(request: Request) {
       );
     }
 
+    // Get household name and inviter name
+    const { data: household } = await supabase
+      .from('households')
+      .select('name')
+      .eq('id', householdId)
+      .single();
+
+    const { data: inviterProfile } = await supabase
+      .from('profiles')
+      .select('display_name, email')
+      .eq('id', user.id)
+      .single();
+
     // Add user to household
     const { error: insertError } = await supabase
       .from('household_members')
@@ -81,7 +110,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to add member' }, { status: 500 });
     }
 
-    // TODO: Send email notification to invited user
+    // Send email notification to invited user
+    try {
+      const inviterName = inviterProfile?.display_name || inviterProfile?.email || 'Someone';
+      const householdName = household?.name || 'a household';
+      const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard/household`;
+
+      await sendHouseholdInviteEmail(email, inviterName, householdName, inviteUrl, role);
+    } catch (emailError) {
+      console.error('Failed to send invite email:', emailError);
+      // Don't fail the request if email fails
+    }
 
     return NextResponse.json({ success: true, message: 'Member added successfully' });
   } catch (error) {

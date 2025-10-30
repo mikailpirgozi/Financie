@@ -18,7 +18,8 @@ export function OnboardingWrapper({ householdId, children }: OnboardingWrapperPr
   useEffect(() => {
     // Check if user has completed onboarding
     const hasCompletedOnboarding = localStorage.getItem('finapp_onboarding_completed');
-    if (!hasCompletedOnboarding) {
+    // Only show onboarding for new users (not in development)
+    if (!hasCompletedOnboarding && process.env.NODE_ENV !== 'development') {
       setShowWelcome(true);
     }
   }, []);

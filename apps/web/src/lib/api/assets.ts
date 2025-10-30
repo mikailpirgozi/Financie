@@ -66,15 +66,28 @@ export async function updateAsset(
 
   const updateData: Record<string, unknown> = {};
 
+  if (updates.kind) {
+    updateData.kind = updates.kind;
+  }
   if (updates.name) {
     updateData.name = updates.name;
+  }
+  if (updates.acquisitionValue !== undefined) {
+    updateData.acquisition_value = updates.acquisitionValue;
   }
   if (updates.currentValue !== undefined) {
     updateData.current_value = updates.currentValue;
   }
+  if (updates.acquisitionDate) {
+    updateData.acquisition_date = updates.acquisitionDate instanceof Date
+      ? updates.acquisitionDate.toISOString().split('T')[0]
+      : updates.acquisitionDate;
+  }
   if (updates.indexRule !== undefined) {
     updateData.index_rule = updates.indexRule;
   }
+
+  updateData.updated_at = new Date().toISOString();
 
   const { data, error } = await supabase
     .from('assets')

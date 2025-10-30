@@ -1,0 +1,9 @@
+# Supabase Database Connection String
+
+Choď sem a skopíruj Database Password:
+https://supabase.com/dashboard/project/agccohbrvpjknlhltqzc/settings/database
+
+Potom spusti:
+
+psql "postgresql://postgres:TVOJE_HESLO@db.agccohbrvpjknlhltqzc.supabase.co:5432/postgres" -f FIX_REGISTRATION.sql
+
