@@ -101,6 +101,8 @@ export function setupRealtimeSubscriptions(
   channel.subscribe((status) => {
     if (status === 'SUBSCRIBED') {
       console.log(`Realtime subscriptions active for household ${householdId}`);
+    } else if (status === 'CHANNEL_ERROR') {
+      console.warn(`Realtime subscription error for household ${householdId} - may require authentication`);
     }
   });
 
