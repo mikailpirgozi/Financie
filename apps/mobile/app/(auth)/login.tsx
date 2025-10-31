@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../src/lib/supabase';
+import { env } from '../../src/lib/env';
 import { LoadingSpinner } from '../../src/components/LoadingSpinner';
 
 export default function LoginScreen() {
@@ -24,6 +25,31 @@ export default function LoginScreen() {
       });
 
       if (error) throw error;
+
+      // Get session to include in init call
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        // Initialize user on backend (creates household if needed)
+        try {
+          const response = await fetch(`${env.EXPO_PUBLIC_API_URL}/api/auth/init`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            console.warn('User init error (non-critical):', error);
+            // Continue anyway - user might already have household
+          }
+        } catch (initError) {
+          console.warn('Failed to initialize user:', initError);
+          // Continue anyway - this is non-critical
+        }
+      }
 
       router.replace('/(tabs)');
     } catch (error) {
