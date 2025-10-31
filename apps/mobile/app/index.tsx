@@ -2,24 +2,25 @@ import { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import { registerForPushNotificationsAsync } from '../src/lib/notifications';
+// import { registerForPushNotificationsAsync } from '../src/lib/notifications';
 
 export default function HomeScreen() {
-  const [expoPushToken, setExpoPushToken] = useState<string>('');
+  // const [expoPushToken, setExpoPushToken] = useState<string>('');
   const [notification, setNotification] = useState<Notifications.Notification | null>(null);
   const notificationListener = useRef<Notifications.Subscription>();
   const responseListener = useRef<Notifications.Subscription>();
   const router = useRouter();
 
   useEffect(() => {
+    // TODO: Re-enable push notifications after setting up EAS project
     // Register for push notifications
-    registerForPushNotificationsAsync().then((token) => {
-      if (token) {
-        setExpoPushToken(token);
-        // TODO: Get user ID from auth and save token
-        // savePushToken(token, userId);
-      }
-    });
+    // registerForPushNotificationsAsync().then((token) => {
+    //   if (token) {
+    //     setExpoPushToken(token);
+    //     // TODO: Get user ID from auth and save token
+    //     // savePushToken(token, userId);
+    //   }
+    // });
 
     // Listen for notifications
     notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
@@ -46,14 +47,15 @@ export default function HomeScreen() {
       <Text style={styles.title}>FinApp</Text>
       <Text style={styles.subtitle}>Inteligentná správa osobných financií</Text>
 
-      {expoPushToken && (
+      {/* Push token display - re-enable after EAS setup */}
+      {/* {expoPushToken && (
         <View style={styles.tokenContainer}>
           <Text style={styles.tokenLabel}>Push Token:</Text>
           <Text style={styles.token} numberOfLines={2}>
             {expoPushToken}
           </Text>
         </View>
-      )}
+      )} */}
 
       {notification && (
         <View style={styles.notificationContainer}>

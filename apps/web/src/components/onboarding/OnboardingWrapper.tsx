@@ -14,8 +14,12 @@ export function OnboardingWrapper({ householdId, children }: OnboardingWrapperPr
   const [showWelcome, setShowWelcome] = useState(false);
   const [showDataChoice, setShowDataChoice] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    // Mark as mounted to avoid hydration mismatch
+    setIsMounted(true);
+    
     // Check if user has completed onboarding
     const hasCompletedOnboarding = localStorage.getItem('finapp_onboarding_completed');
     // Only show onboarding for new users (not in development)
@@ -53,6 +57,11 @@ export function OnboardingWrapper({ householdId, children }: OnboardingWrapperPr
     localStorage.setItem('finapp_onboarding_completed', 'true');
     setShowDataChoice(false);
   };
+
+  // Don't render modals until mounted to prevent hydration issues
+  if (!isMounted) {
+    return <>{children}</>;
+  }
 
   return (
     <>
