@@ -69,7 +69,13 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await deleteIncome(params.id);
+    // Delete the income
+    const { error } = await supabase
+      .from('incomes')
+      .delete()
+      .eq('id', params.id);
+
+    if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch (error) {

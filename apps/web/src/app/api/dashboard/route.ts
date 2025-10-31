@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getMonthlySummaries } from '@/lib/api/summaries';
 import { createClient } from '@/lib/supabase/server';
-import { dashboardQuerySchema, type DashboardData, type MonthlyDashboardData } from '@finapp/core';
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,86 +8,80 @@ export async function GET(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      console.error('Dashboard API: No user found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const searchParams = request.nextUrl.searchParams;
     const householdId = searchParams.get('householdId');
-    const monthsCount = searchParams.get('monthsCount');
-
-    console.log('Dashboard API request:', { householdId, monthsCount, userId: user.id });
+    const monthsCountStr = searchParams.get('monthsCount') || '12';
+    const monthsCount = parseInt(monthsCountStr, 10);
 
     if (!householdId) {
       return NextResponse.json({ error: 'householdId is required' }, { status: 400 });
     }
 
-    // Validate query parameters
-    const validatedQuery = dashboardQuerySchema.parse({
-      householdId,
-      monthsCount: monthsCount ? parseInt(monthsCount, 10) : 12,
-    });
-
-    console.log('Calling get_dashboard_data with:', validatedQuery);
-
-    // Call the database function
-    const { data, error } = await supabase.rpc('get_dashboard_data', {
-      p_household_id: validatedQuery.householdId,
-      p_months_count: validatedQuery.monthsCount,
-    });
-
-    if (error) {
-      console.error('Database error:', error);
-      throw error;
+    if (isNaN(monthsCount) || monthsCount < 1) {
+      return NextResponse.json({ error: 'monthsCount must be a positive number' }, { status: 400 });
     }
 
-    console.log('Dashboard data received:', data ? `${data.length} months` : 'null');
+    const summaries = await getMonthlySummaries(householdId);
 
-    if (!data || data.length === 0) {
-      return NextResponse.json({
-        currentMonth: createEmptyMonthData(new Date().toISOString().slice(0, 7)),
-        history: [],
-      } as DashboardData);
-    }
-
-    // Transform database response to API format
-    const transformedData: MonthlyDashboardData[] = data.map((row: {
-      month: string;
-      total_income: string;
-      total_expenses: string;
-      net_cash_flow: string;
-      loan_payments_total: string;
-      loan_principal_paid: string;
-      loan_interest_paid: string;
-      loan_fees_paid: string;
-      loan_balance_remaining: string;
-      total_assets: string;
-      net_worth: string;
-      net_worth_change: string;
-    }) => ({
-      month: row.month,
-      totalIncome: row.total_income,
-      totalExpenses: row.total_expenses,
-      netCashFlow: row.net_cash_flow,
-      loanPaymentsTotal: row.loan_payments_total,
-      loanPrincipalPaid: row.loan_principal_paid,
-      loanInterestPaid: row.loan_interest_paid,
-      loanFeesPaid: row.loan_fees_paid,
-      loanBalanceRemaining: row.loan_balance_remaining,
-      totalAssets: row.total_assets,
-      netWorth: row.net_worth,
-      netWorthChange: row.net_worth_change,
+    // Format summaries for mobile app
+    // Take the first monthsCount items (already sorted descending by month)
+    const history = summaries.slice(1, monthsCount).map((summary: any) => ({
+      month: summary.month,
+      totalIncome: summary.total_income?.toString() ?? '0',
+      totalExpenses: summary.total_expenses?.toString() ?? '0',
+      netCashFlow: (parseFloat(summary.total_income ?? 0) - parseFloat(summary.total_expenses ?? 0)).toString(),
+      loanPaymentsTotal: summary.loan_payments_total?.toString() ?? '0',
+      loanPrincipalPaid: summary.loan_principal_paid?.toString() ?? '0',
+      loanInterestPaid: summary.loan_interest_paid?.toString() ?? '0',
+      loanFeesPaid: summary.loan_fees_paid?.toString() ?? '0',
+      loanBalanceRemaining: summary.loan_balance_remaining?.toString() ?? '0',
+      totalAssets: summary.total_assets?.toString() ?? '0',
+      netWorth: summary.net_worth?.toString() ?? '0',
+      netWorthChange: summary.net_worth_change?.toString() ?? '0',
     }));
 
-    // Sort by month descending (newest first)
-    transformedData.sort((a, b) => b.month.localeCompare(a.month));
+    // Current month is the first one
+    const currentMonth = summaries.length > 0 ? summaries[0] : null;
+    if (!currentMonth) {
+      return NextResponse.json({
+        currentMonth: {
+          month: new Date().toLocaleDateString('sk-SK', { year: 'numeric', month: 'long' }),
+          totalIncome: '0',
+          totalExpenses: '0',
+          netCashFlow: '0',
+          loanPaymentsTotal: '0',
+          loanPrincipalPaid: '0',
+          loanInterestPaid: '0',
+          loanFeesPaid: '0',
+          loanBalanceRemaining: '0',
+          totalAssets: '0',
+          netWorth: '0',
+          netWorthChange: '0',
+        },
+        history,
+      });
+    }
 
-    const response: DashboardData = {
-      currentMonth: transformedData[0],
-      history: transformedData,
-    };
-
-    return NextResponse.json(response);
+    return NextResponse.json({
+      currentMonth: {
+        month: currentMonth.month,
+        totalIncome: currentMonth.total_income?.toString() ?? '0',
+        totalExpenses: currentMonth.total_expenses?.toString() ?? '0',
+        netCashFlow: (parseFloat(currentMonth.total_income ?? 0) - parseFloat(currentMonth.total_expenses ?? 0)).toString(),
+        loanPaymentsTotal: currentMonth.loan_payments_total?.toString() ?? '0',
+        loanPrincipalPaid: currentMonth.loan_principal_paid?.toString() ?? '0',
+        loanInterestPaid: currentMonth.loan_interest_paid?.toString() ?? '0',
+        loanFeesPaid: currentMonth.loan_fees_paid?.toString() ?? '0',
+        loanBalanceRemaining: currentMonth.loan_balance_remaining?.toString() ?? '0',
+        totalAssets: currentMonth.total_assets?.toString() ?? '0',
+        netWorth: currentMonth.net_worth?.toString() ?? '0',
+        netWorthChange: currentMonth.net_worth_change?.toString() ?? '0',
+      },
+      history,
+    });
   } catch (error) {
     console.error('GET /api/dashboard error:', error);
     return NextResponse.json(
@@ -95,22 +89,5 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-function createEmptyMonthData(month: string): MonthlyDashboardData {
-  return {
-    month,
-    totalIncome: '0.00',
-    totalExpenses: '0.00',
-    netCashFlow: '0.00',
-    loanPaymentsTotal: '0.00',
-    loanPrincipalPaid: '0.00',
-    loanInterestPaid: '0.00',
-    loanFeesPaid: '0.00',
-    loanBalanceRemaining: '0.00',
-    totalAssets: '0.00',
-    netWorth: '0.00',
-    netWorthChange: '0.00',
-  };
 }
 

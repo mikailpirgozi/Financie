@@ -13,12 +13,21 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const household = await getCurrentHousehold(user.id);
+    const memberData = await getCurrentHousehold(user.id);
+
+    // Extract household details from the nested structure
+    const householdData = memberData.households;
+    
+    if (!householdData) {
+      return NextResponse.json({ error: 'Household not found' }, { status: 404 });
+    }
 
     return NextResponse.json({
-      householdId: household.household_id,
-      role: household.role,
-      household: household.households,
+      household: {
+        id: householdData.id,
+        name: householdData.name,
+        created_at: householdData.created_at,
+      },
     });
   } catch (error) {
     console.error('GET /api/households/current error:', error);

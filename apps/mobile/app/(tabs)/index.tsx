@@ -41,7 +41,8 @@ export default function DashboardScreen() {
         });
         setChannel(realtimeChannel);
       } catch (err) {
-        console.error('Failed to setup realtime:', err);
+        // Log but don't fail - realtime is nice-to-have, not critical
+        console.warn('Failed to setup realtime:', err instanceof Error ? err.message : String(err));
       }
     };
 

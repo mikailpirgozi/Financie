@@ -1,4 +1,5 @@
 import { Tabs } from 'expo-router';
+import { Text } from 'react-native';
 
 export default function TabsLayout() {
   return (
@@ -13,70 +14,70 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Dashboard',
-          tabBarIcon: () => '📊',
+          tabBarIcon: () => <Text>📊</Text>,
         }}
       />
       <Tabs.Screen
         name="loans"
         options={{
           title: 'Úvery',
-          tabBarIcon: () => '💰',
+          tabBarIcon: () => <Text>💰</Text>,
         }}
       />
       <Tabs.Screen
         name="assets"
         options={{
           title: 'Majetok',
-          tabBarIcon: () => '🏠',
+          tabBarIcon: () => <Text>🏠</Text>,
         }}
       />
       <Tabs.Screen
         name="expenses"
         options={{
           title: 'Výdavky',
-          tabBarIcon: () => '💸',
+          tabBarIcon: () => <Text>💸</Text>,
         }}
       />
       <Tabs.Screen
         name="incomes"
         options={{
           title: 'Príjmy',
-          tabBarIcon: () => '💵',
+          tabBarIcon: () => <Text>💵</Text>,
         }}
       />
       <Tabs.Screen
         name="categories"
         options={{
           title: 'Kategórie',
-          tabBarIcon: () => '🏷️',
+          tabBarIcon: () => <Text>🏷️</Text>,
         }}
       />
       <Tabs.Screen
         name="summaries"
         options={{
           title: 'Súhrny',
-          tabBarIcon: () => '📈',
+          tabBarIcon: () => <Text>📈</Text>,
         }}
       />
       <Tabs.Screen
         name="household"
         options={{
           title: 'Domácnosť',
-          tabBarIcon: () => '👥',
+          tabBarIcon: () => <Text>👥</Text>,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Nastavenia',
-          tabBarIcon: () => '⚙️',
+          tabBarIcon: () => <Text>⚙️</Text>,
         }}
       />
       <Tabs.Screen
         name="rules"
         options={{
           title: 'Pravidlá',
-          tabBarIcon: () => '⚡',
+          tabBarIcon: () => <Text>⚡</Text>,
           href: null,
         }}
       />
@@ -84,7 +85,7 @@ export default function TabsLayout() {
         name="audit"
         options={{
           title: 'Audit Log',
-          tabBarIcon: () => '📝',
+          tabBarIcon: () => <Text>📝</Text>,
           href: null,
         }}
       />

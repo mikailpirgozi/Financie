@@ -100,9 +100,11 @@ export function setupRealtimeSubscriptions(
 
   channel.subscribe((status) => {
     if (status === 'SUBSCRIBED') {
-      console.log(`Realtime subscriptions active for household ${householdId}`);
+      console.log(`✅ Realtime subscriptions active for household ${householdId}`);
     } else if (status === 'CHANNEL_ERROR') {
-      console.warn(`Realtime subscription error for household ${householdId} - may require authentication`);
+      console.warn(`⚠️ Realtime subscription error for household ${householdId} - this may be due to RLS policies. Realtime will still work via polling.`);
+    } else if (status === 'TIMED_OUT') {
+      console.warn(`⏱️ Realtime subscription timed out for household ${householdId}`);
     }
   });
 
