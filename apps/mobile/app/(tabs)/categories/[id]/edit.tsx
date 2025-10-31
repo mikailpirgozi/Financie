@@ -20,7 +20,7 @@ type CategoryKind = 'expense' | 'income' | 'asset' | 'loan';
 export default function EditCategoryScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const categoryId = Array.isArray(id) ? id[0] : id;
+  const categoryId = Array.isArray(id) ? id[0] : id || '';
 
   const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);

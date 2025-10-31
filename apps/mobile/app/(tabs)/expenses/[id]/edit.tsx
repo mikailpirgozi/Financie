@@ -16,7 +16,7 @@ import { FormInput } from '@/components/forms/FormInput';
 import { FormDatePicker } from '@/components/forms/FormDatePicker';
 import { CurrencyInput } from '@/components/forms/CurrencyInput';
 import { Button } from '@/components/ui/Button';
-import { getCurrentHousehold, getCategories, type Category, type Expense } from '@/lib/api';
+import { getCurrentHousehold, getCategories, type Category } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { Toast } from '@/components/ui/Toast';
 import { CategoryPicker } from '@/components/CategoryPicker';

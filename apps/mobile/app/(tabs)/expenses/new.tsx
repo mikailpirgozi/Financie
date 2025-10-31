@@ -6,7 +6,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useForm } from 'react-hook-form';

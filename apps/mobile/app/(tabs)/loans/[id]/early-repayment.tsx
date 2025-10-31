@@ -13,7 +13,6 @@ import {
   getLoan,
   EarlyRepaymentPreview,
 } from '@/lib/api';
-import { getCurrentHousehold } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -43,7 +42,6 @@ export default function EarlyRepaymentScreen() {
   const {
     watch,
     setValue,
-    handleSubmit,
     formState: { errors },
   } = useForm<EarlyRepaymentFormData>({
     resolver: zodResolver(earlyRepaymentSchema),

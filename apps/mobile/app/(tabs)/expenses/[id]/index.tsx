@@ -4,12 +4,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { type Expense, getCategories, type Category } from '@/lib/api';
+import { getExpense, deleteExpense } from '../../../src/lib/api';
 import { supabase } from '@/lib/supabase';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -21,8 +20,8 @@ export default function ExpenseDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [loading, setLoading] = useState(true);
-  const [expense, setExpense] = useState<Expense | null>(null);
-  const [category, setCategory] = useState<Category | null>(null);
+  const [expense, setExpense] = useState<any | null>(null);
+  const [category, setCategory] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
     visible: false,

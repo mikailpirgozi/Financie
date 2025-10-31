@@ -22,7 +22,7 @@ type AppliesTo = 'expense' | 'income';
 export default function EditRuleScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const ruleId = Array.isArray(id) ? id[0] : id;
+  const ruleId = Array.isArray(id) ? id[0] : id || '';
 
   const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);

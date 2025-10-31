@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
-  TouchableOpacity,
-  Alert,
+  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
 import {
@@ -23,22 +22,22 @@ import { getCurrentHousehold } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
+import { ErrorMessage } from '@/components/ErrorMessage';
 
 export default function IncomeTemplatesScreen() {
   const router = useRouter();
   const [templates, setTemplates] = useState<IncomeTemplate[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
 
   const loadData = async () => {
     try {
-      setLoading(true);
       const [tempsData, household] = await Promise.all([
         getIncomeTemplates(),
         getCurrentHousehold(),
@@ -52,7 +51,7 @@ export default function IncomeTemplatesScreen() {
     } catch (err) {
       console.error('Failed to load templates:', err);
     } finally {
-      setLoading(false);
+      // setLoading(false); // This line was removed as per the edit hint
     }
   };
 

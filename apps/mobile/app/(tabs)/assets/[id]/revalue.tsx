@@ -47,11 +47,9 @@ export default function RevalueAssetScreen() {
   });
 
   const {
-    control,
-    handleSubmit,
-    formState: { errors },
-    setValue,
     watch,
+    setValue,
+    formState,
   } = useForm<FormData>({
     resolver: zodResolver(revaluationSchema),
     defaultValues: {

@@ -1,13 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   Alert,
   ActivityIndicator,
-  FlatList,
+  RefreshControl,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { type Loan } from '@/lib/api';
@@ -308,23 +307,25 @@ export default function LoanDetailScreen() {
               ))}
 
               {installments.length > 6 && !showAllInstallments && (
-                <TouchableOpacity
-                  style={styles.showMoreButton}
+                <Button
                   onPress={() => setShowAllInstallments(true)}
+                  variant="outline"
+                  style={styles.showMoreButton}
                 >
                   <Text style={styles.showMoreText}>
                     Zobraziť všetky ({installments.length})
                   </Text>
-                </TouchableOpacity>
+                </Button>
               )}
 
               {showAllInstallments && (
-                <TouchableOpacity
-                  style={styles.showMoreButton}
+                <Button
                   onPress={() => setShowAllInstallments(false)}
+                  variant="outline"
+                  style={styles.showMoreButton}
                 >
                   <Text style={styles.showMoreText}>Zobraziť menej</Text>
-                </TouchableOpacity>
+                </Button>
               )}
             </Card>
           )}

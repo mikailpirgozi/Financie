@@ -7,11 +7,11 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Swipeable } from 'react-native-gesture-handler';
 import { getCurrentHousehold, getRules, deleteRule, type Rule } from '../../src/lib/api';
-import { LoadingSpinner } from '../../src/components/LoadingSpinner';
 import { ErrorMessage } from '../../src/components/ErrorMessage';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';

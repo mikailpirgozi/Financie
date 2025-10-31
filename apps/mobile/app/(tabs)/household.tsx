@@ -5,7 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getCurrentHousehold } from '../../src/lib/api';

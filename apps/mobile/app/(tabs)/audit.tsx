@@ -6,13 +6,12 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { getCurrentHousehold, getAuditLog, type AuditLogEntry, type AuditLogFilters } from '../../src/lib/api';
-import { LoadingSpinner } from '../../src/components/LoadingSpinner';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { getAuditLog, getCurrentHousehold, type AuditLogEntry, type AuditLogFilters } from '../../src/lib/api';
 import { ErrorMessage } from '../../src/components/ErrorMessage';
 import { Badge } from '@/components/ui/Badge';
-import { Card } from '@/components/ui/Card';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 
 export default function AuditScreen() {
