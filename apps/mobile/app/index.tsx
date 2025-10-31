@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import { useRouter } from 'expo-router';
 import { registerForPushNotificationsAsync } from '../src/lib/notifications';
 
 export default function HomeScreen() {
@@ -8,6 +9,7 @@ export default function HomeScreen() {
   const [notification, setNotification] = useState<Notifications.Notification | null>(null);
   const notificationListener = useRef<Notifications.Subscription>();
   const responseListener = useRef<Notifications.Subscription>();
+  const router = useRouter();
 
   useEffect(() => {
     // Register for push notifications
@@ -90,6 +92,10 @@ export default function HomeScreen() {
           </Text>
         </View>
       </View>
+
+      <TouchableOpacity style={styles.startButton} onPress={() => router.push('/auth/login')}>
+        <Text style={styles.startButtonText}>Začať</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -176,5 +182,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+  },
+  startButton: {
+    marginTop: 32,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: '#8B5CF6',
+    borderRadius: 8,
+    alignSelf: 'center',
+  },
+  startButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
