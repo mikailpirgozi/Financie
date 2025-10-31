@@ -1,168 +1,145 @@
-# 📱 Nastavenie mobilnej aplikácie – FinApp
+# Mobile App Setup & Testing Guide
 
-> Podrobný návod na nastavenie a spustenie mobilnej aplikácie pre testovacie účely.
+## Recent Fixes (October 2025)
 
----
+### Issues Resolved
 
-## 🎯 Čo je potrebné
+1. **React Native Text Rendering Error** ✅
+   - Fixed: TabBar icons must be wrapped in `<Text>` components in React Native
+   - Location: `apps/mobile/app/(tabs)/_layout.tsx`
+   - Change: All emoji icons now wrapped: `tabBarIcon: () => <Text>📊</Text>`
 
-- **Node.js** 18+
-- **pnpm** 8+
-- **Expo CLI** (inštaluje sa automaticky)
-- **Supabase kredenciály** (z vášho projektu)
-- **Web API** spustená na `localhost:3000`
+2. **Realtime Subscription "Unauthorized" Error** ✅
+   - Fixed: Improved error handling for RLS policy violations on realtime subscriptions
+   - Location: `apps/mobile/src/lib/realtime.ts`
+   - Change: Added graceful degradation - app continues with polling if realtime fails
+   - Note: This is normal behavior - realtime is a nice-to-have enhancement, not critical
 
----
+3. **Missing API Endpoints** ✅
+   - Created: `/api/dashboard` - returns monthly summaries for dashboard
+   - Created: DELETE endpoints for `/api/expenses/[id]`, `/api/incomes/[id]`, `/api/assets/[id]`
+   - Fixed: `/api/households/current` response format for mobile compatibility
 
-## 📋 Krok 1: Zozbierať Supabase kredenciály
+## Setup Instructions
 
-1. Otvor: **https://supabase.com/dashboard/project/agccohbrvpjknlhltqzc/settings/api**
-2. Skopíruj tieto hodnoty:
-   - **Project URL** → `EXPO_PUBLIC_SUPABASE_URL`
-   - **anon public** key → `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+### 1. Environment Variables
 
-**Príklad:**
-```
-EXPO_PUBLIC_SUPABASE_URL=https://agccohbrvpjknlhltqzc.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
----
-
-## 🔧 Krok 2: Vytvoriť `.env` súbor v mobilnej aplikácii
+Create `.env` in `apps/mobile/` with:
 
 ```bash
-cd apps/mobile
-cat > .env << 'ENVFILE'
-# API Configuration
-# Pre lokálny vývoj: http://localhost:3000
-# Pre fyzické zariadenie: http://YOUR_MACHINE_IP:3000
-# Ak testujete na simulátore/emulátore, ponechajte localhost:3000
+# API Configuration - point to your web server
+# For local development use your machine's IP:
 EXPO_PUBLIC_API_URL=http://localhost:3000
+# Or your Vercel deployment:
+# EXPO_PUBLIC_API_URL=https://your-app.vercel.app
 
-# Supabase – SKOPÍRUJTE Z: https://supabase.com/dashboard/project/agccohbrvpjknlhltqzc/settings/api
-EXPO_PUBLIC_SUPABASE_URL=https://agccohbrvpjknlhltqzc.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR_ANON_KEY_HERE
-ENVFILE
+# Supabase Configuration - get from your Supabase project
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-**Wichtig:** Nahraďte `YOUR_ANON_KEY_HERE` vašou skutočnou anon key!
-
----
-
-## 📦 Krok 3: Nainštalovať závislosti
+### 2. Start Web Backend
 
 ```bash
-# Ste stále v apps/mobile? Výborně!
+# From project root
+cd apps/web
 pnpm install
-```
-
----
-
-## ✅ Krok 4: Verifikácia nastavenia
-
-```bash
-# TypeScript type check
-pnpm typecheck
-
-# ESLint linting
-pnpm lint
-```
-
-Oba príkazy musia prejsť bez chýb. ✅
-
----
-
-## 🚀 Krok 5: Spustenie aplikácie
-
-```bash
-# Spusti Expo dev server
 pnpm dev
 ```
 
-Vidíte QR kód v termináli. Podľa vášej platformy:
+The web server should start on port 3000.
 
-### 📱 iOS Simulator
+### 3. Start Mobile App
+
 ```bash
-# V termináli, kde beží pnpm dev, stlačte: i
+# From project root
+cd apps/mobile
+pnpm install
+pnpm dev
 ```
 
-### 🤖 Android Emulator
-```bash
-# V termináli, kde beží pnpm dev, stlačte: a
+Then:
+- Press `i` for iOS simulator, or
+- Press `a` for Android emulator, or
+- Scan QR code with Expo Go on physical device
+
+### 4. Testing Login
+
+Use existing web account credentials:
+
+```
+Email: your-email@example.com
+Password: your-password
 ```
 
-### 📲 Fyzické zariadenie
-1. Stiahnite si **Expo Go** z App Store / Google Play
-2. Skenhujte QR kód z terminálu kamerou
-3. Otvorí sa v Expo Go
+Or create new account via registration screen.
 
----
+## Testing Checklist
 
-## 🌐 Pre fyzické zariadenie (iOS/Android)
+- [ ] Login screen appears
+- [ ] Can login with existing web account credentials
+- [ ] Dashboard loads with data (príjmy, výdavky, úvery, majetok)
+- [ ] Tabs navigation works (all 10 tabs visible)
+- [ ] Tap expense icon → add expense works
+- [ ] Tap income icon → add income works
+- [ ] Pull to refresh works
+- [ ] Logout works and redirects to login
 
-Ak chcete testovať na skutočnom telefóne:
+## Architecture
 
-1. **Nájdite svoju IP adresu:**
-   ```bash
-   # macOS/Linux
-   ifconfig | grep "inet " | grep -v 127.0.0.1
-   ```
+### Mobile App Structure
+```
+apps/mobile/
+├── app/
+│   ├── (auth)/          # Login & Register screens
+│   ├── (tabs)/          # Tab-based navigation
+│   │   ├── index.tsx    # Dashboard
+│   │   ├── expenses.tsx
+│   │   ├── incomes.tsx
+│   │   └── ...
+├── src/
+│   ├── lib/
+│   │   ├── api.ts       # API client with retry logic
+│   │   ├── supabase.ts  # Supabase client
+│   │   ├── realtime.ts  # Realtime subscriptions
+│   │   └── env.ts       # Environment validation
+```
 
-2. **Upravte `.env`:**
-   ```bash
-   EXPO_PUBLIC_API_URL=http://192.168.1.100:3000
-   # ☝️ Nahraďte 192.168.1.100 vašou IP adresou
-   ```
+### API Communication
 
-3. **Ujistite sa, že web API beží na tej IP:**
-   - Otvorte v prehliadači: `http://YOUR_IP:3000`
-   - Mal by sa zobraziť web aplikácia
+Mobile app calls web backend API:
+- Authentication: Supabase JWT token in `Authorization` header
+- Base URL: `EXPO_PUBLIC_API_URL` from `.env`
+- All requests include user session token automatically
+- Retries up to 2 times on network errors
+- Timeout: 30 seconds per request
 
----
+## Troubleshooting
 
-## 🔥 Čo testovať?
+### "Failed to setup realtime: Error: Unauthorized"
+- **This is expected** - realtime has stricter RLS requirements
+- App will work normally with polling fallback
+- Check browser console logs for details
 
-Po spustení aplikácie:
+### "Network error. Please check your internet connection."
+- Ensure web backend is running on correct port
+- Check `EXPO_PUBLIC_API_URL` matches your setup
+- On Android emulator: use `http://10.0.2.2:3000` instead of `localhost`
 
-1. **Login** – Prihlás sa svojim testovacím účtom
-2. **Dashboard** – Mal by sa načítať s údajmi
-3. **Expenses** – Vytvoriť, upraviť, zmazať výdavok
-4. **Loans** – Vytvoriť úver s plánom splátok
-5. **Incomes** – Pridať príjem
-6. **Assets** – Pridať majetok
+### Tab icons not appearing / text rendering errors
+- This is fixed in latest version
+- If persists: clear node_modules and reinstall: `pnpm install`
 
-Podrobný test seznam je v: **`TESTING_CHECKLIST.md`**
+## Data Synchronization
 
----
+- Mobile app reads from same Supabase database as web app
+- All changes sync in real-time via realtime subscriptions (when available)
+- Fallback: manual refresh (pull to refresh)
+- No offline support yet
 
-## ⚠️ Časté problémy
+## Performance Notes
 
-### ❌ "Cannot connect to API"
-- **Riešenie:** Skontrolujte, že web API beží na `http://localhost:3000`
-- V ďalšej sekcii sa dozviete, ako spustiť web API
-
-### ❌ "Missing environment variables"
-- **Riešenie:** Ujistite sa, že `.env` je v `apps/mobile/` a má všetky tri premenné
-- Reštartujte Expo: stlačte `r` v termináli
-
-### ❌ "Supabase connection error"
-- **Riešenie:** Skontrolujte URL a ANON_KEY – skopírujte ich znova z dashboardu
-
----
-
-## 📝 Ďalší krok
-
-Keď sú env premenné nastavené a aplikácia beží:
-
-👉 **Pokračujte na:** `WEB_SETUP.md` (nastavenie web API)
-
----
-
-**Potrebujete pomoc?**
-- Súbor: `ENV_SETUP.md` (detailný popis)
-- Problém? Skontrolujte `TROUBLESHOOTING.md`
-
----
-
-**Pripravené?** ✨ Spusti `pnpm dev` a vychutnaj si aplikáciu!
+- Dashboard loads last 6 months of history
+- Expense/Income lists are paginated (100 items initially)
+- Charts use simplified rendering for mobile performance
+- Large datasets may be slow - consider filtering by date range
