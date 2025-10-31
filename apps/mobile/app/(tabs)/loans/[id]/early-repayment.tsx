@@ -23,8 +23,7 @@ const earlyRepaymentSchema = z.object({
   amount: z
     .string()
     .min(1, 'Zadajte sumu')
-    .transform(Number)
-    .refine((n) => n > 0, 'Suma musí byť väčšia ako 0'),
+    .refine((s) => !isNaN(Number(s)) && Number(s) > 0, 'Suma musí byť väčšia ako 0'),
   payment_date: z.date({ invalid_type_error: 'Vyberte dátum' }),
 });
 
@@ -71,7 +70,8 @@ export default function EarlyRepaymentScreen() {
     const amount = watch('amount');
     const payment_date = watch('payment_date');
 
-    if (!amount || parseFloat(amount.toString()) <= 0) {
+    const numAmount = Number(amount);
+    if (!amount || isNaN(numAmount) || numAmount <= 0) {
       setError('Zadajte platnú sumu');
       return;
     }
@@ -81,7 +81,7 @@ export default function EarlyRepaymentScreen() {
       setError(null);
 
       const previewData = await previewEarlyRepayment(id, {
-        amount: parseFloat(amount.toString()),
+        amount: numAmount,
         payment_date: payment_date.toISOString(),
         preview: true,
       });
@@ -123,7 +123,7 @@ export default function EarlyRepaymentScreen() {
       const payment_date = watch('payment_date');
 
       await processEarlyRepayment(id, {
-        amount: parseFloat(amount.toString()),
+        amount: Number(amount),
         payment_date: payment_date.toISOString(),
       });
 
@@ -164,7 +164,7 @@ export default function EarlyRepaymentScreen() {
             label="Suma na splatenie"
             placeholder="0.00"
             keyboardType="decimal-pad"
-            value={watch('amount')?.toString() || ''}
+            value={watch('amount') || ''}
             onChangeText={(value) => setValue('amount', value)}
             error={errors.amount?.message}
           />

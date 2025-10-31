@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -50,6 +50,7 @@ export function Toast({
 
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [visible, duration, translateY, opacity]);
 
   const handleDismiss = () => {

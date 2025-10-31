@@ -202,9 +202,10 @@ export interface Expense {
 }
 
 export interface CreateExpenseData {
+  householdId: string;
   date: string;
   amount: number;
-  category_id: string;
+  categoryId: string;
   merchant?: string;
   note?: string;
 }
@@ -245,9 +246,10 @@ export interface Income {
 }
 
 export interface CreateIncomeData {
+  householdId: string;
   date: string;
   amount: number;
-  category_id: string;
+  categoryId: string;
   source?: string;
   note?: string;
 }
@@ -618,12 +620,14 @@ export async function deleteIncomeTemplate(templateId: string): Promise<void> {
 }
 
 export async function applyIncomeTemplate(template: IncomeTemplate, date: string): Promise<Income> {
+  const household = await getCurrentHousehold();
   return createIncome({
+    householdId: household.id,
     date,
     amount: template.amount,
-    category_id: template.category_id,
+    categoryId: template.category_id,
     source: template.source,
     note: template.note,
-  });
+  }).then(r => r.income);
 }
 

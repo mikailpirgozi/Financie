@@ -95,10 +95,10 @@ export default function NewIncomeScreen() {
     try {
       await createIncome({
         householdId,
-        date: new Date(data.date),
+        date: data.date,
+        categoryId: data.categoryId,
         amount: data.amount,
         source: data.source,
-        categoryId: data.categoryId,
         note: data.note || undefined,
       });
 

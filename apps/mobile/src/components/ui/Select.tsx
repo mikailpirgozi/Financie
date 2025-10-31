@@ -65,8 +65,8 @@ export function Select({
       <TouchableOpacity
         style={[
           styles.selectContainer,
-          error && styles.selectContainerError,
-          disabled && styles.disabled,
+          ...(error ? [styles.selectContainerError] : []),
+          ...(disabled ? [styles.disabled] : []),
         ]}
         onPress={() => !disabled && setModalVisible(true)}
         disabled={disabled}

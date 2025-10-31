@@ -75,10 +75,6 @@ export default function SummariesScreen() {
     setRefreshing(false);
   };
 
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ visible: true, message, type });
-  };
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('sk-SK', {
       style: 'currency',

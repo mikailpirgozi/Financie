@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   TextInput,
@@ -22,6 +22,7 @@ interface InputProps extends Omit<TextInputProps, 'style'> {
   onClear?: () => void;
   containerStyle?: ViewStyle;
   showClearButton?: boolean;
+  style?: TextInputProps['style'];
 }
 
 export function Input({
@@ -35,9 +36,9 @@ export function Input({
   value,
   onFocus,
   onBlur,
+  style,
   ...textInputProps
 }: InputProps) {
-  const [isFocused, setIsFocused] = useState(false);
   const borderColor = useSharedValue('#e5e7eb');
 
   const animatedBorderStyle = useAnimatedStyle(() => ({
@@ -45,13 +46,11 @@ export function Input({
   }));
 
   const handleFocus = (e: any) => {
-    setIsFocused(true);
     borderColor.value = withTiming(error ? '#ef4444' : '#0070f3', { duration: 200 });
     onFocus?.(e);
   };
 
   const handleBlur = (e: any) => {
-    setIsFocused(false);
     borderColor.value = withTiming(error ? '#ef4444' : '#e5e7eb', { duration: 200 });
     onBlur?.(e);
   };
@@ -66,7 +65,7 @@ export function Input({
         style={[
           styles.inputContainer,
           animatedBorderStyle,
-          error && styles.inputContainerError,
+          ...(error ? [styles.inputContainerError] : []),
         ]}
       >
         {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
@@ -74,8 +73,9 @@ export function Input({
         <TextInput
           style={[
             styles.input,
-            leftIcon && styles.inputWithLeftIcon,
-            (rightIcon || showClear) && styles.inputWithRightIcon,
+            ...(leftIcon ? [styles.inputWithLeftIcon] : []),
+            ...((rightIcon || showClear) ? [styles.inputWithRightIcon] : []),
+            style,
           ]}
           value={value}
           onFocus={handleFocus}

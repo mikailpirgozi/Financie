@@ -110,7 +110,7 @@ export default function EditLoanScreen() {
         .eq('status', 'paid')
         .limit(1);
 
-      setHasPayments(installments && installments.length > 0);
+      setHasPayments(Boolean(installments && installments.length > 0));
 
       // Populate form
       reset({
@@ -279,7 +279,7 @@ export default function EditLoanScreen() {
                 <Text style={styles.chevron}>▼</Text>
               </TouchableOpacity>
               {errors.loanType && (
-                <Text style={styles.errorText}>{errors.loanType.message}</Text>
+                <Text style={styles.fieldErrorText}>{errors.loanType.message}</Text>
               )}
             </View>
 
@@ -312,7 +312,7 @@ export default function EditLoanScreen() {
                 <Text style={styles.chevron}>▼</Text>
               </TouchableOpacity>
               {errors.rateType && (
-                <Text style={styles.errorText}>{errors.rateType.message}</Text>
+                <Text style={styles.fieldErrorText}>{errors.rateType.message}</Text>
               )}
             </View>
 
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginLeft: 8,
   },
-  errorText: {
+  fieldErrorText: {
     fontSize: 12,
     color: '#ef4444',
     marginTop: 4,

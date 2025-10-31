@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
-  ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -22,7 +22,6 @@ import { getCurrentHousehold } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { ErrorMessage } from '@/components/ErrorMessage';
 
 export default function IncomeTemplatesScreen() {
   const router = useRouter();
@@ -141,7 +140,7 @@ export default function IncomeTemplatesScreen() {
         <Button
           onPress={() => handleApply(item)}
           variant="primary"
-          size="small"
+          size="sm"
           style={styles.applyButton}
         >
           Použiť dnes
@@ -149,7 +148,7 @@ export default function IncomeTemplatesScreen() {
         <Button
           onPress={() => handleDelete(item)}
           variant="destructive"
-          size="small"
+          size="sm"
           style={styles.deleteButton}
         >
           Zmazať

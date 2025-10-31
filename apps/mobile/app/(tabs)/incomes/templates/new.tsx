@@ -28,8 +28,7 @@ const templateSchema = z.object({
   amount: z
     .string()
     .min(1, 'Zadajte sumu')
-    .transform(Number)
-    .refine((n) => n > 0, 'Suma musí byť väčšia ako 0'),
+    .refine((s) => !isNaN(Number(s)) && Number(s) > 0, 'Suma musí byť väčšia ako 0'),
   category_id: z.string().min(1, 'Vyberte kategóriu'),
   source: z.string().optional(),
   note: z.string().optional(),
@@ -89,7 +88,7 @@ export default function NewTemplateScreen() {
 
       const data = {
         name: watch('name'),
-        amount: parseFloat(watch('amount').toString()),
+        amount: Number(watch('amount')),
         category_id: watch('category_id'),
         source: watch('source'),
         note: watch('note'),
@@ -140,7 +139,7 @@ export default function NewTemplateScreen() {
             label="Suma (€)"
             placeholder="0.00"
             keyboardType="decimal-pad"
-            value={watch('amount')?.toString() || ''}
+            value={watch('amount') || ''}
             onChangeText={(value) => setValue('amount', value)}
             error={errors.amount?.message}
           />
@@ -149,8 +148,8 @@ export default function NewTemplateScreen() {
             <Text style={styles.label}>Kategória príjmu *</Text>
             <Select
               options={categoryOptions}
-              selectedValue={watch('category_id')}
-              onValueChange={(value) => setValue('category_id', value)}
+              value={watch('category_id')}
+              onChange={(value) => setValue('category_id', value)}
               error={errors.category_id?.message}
             />
           </View>

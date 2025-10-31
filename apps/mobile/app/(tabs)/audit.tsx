@@ -6,9 +6,8 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { getAuditLog, getCurrentHousehold, type AuditLogEntry, type AuditLogFilters } from '../../src/lib/api';
 import { ErrorMessage } from '../../src/components/ErrorMessage';
 import { Badge } from '@/components/ui/Badge';

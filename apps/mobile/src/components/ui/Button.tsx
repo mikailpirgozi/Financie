@@ -119,7 +119,7 @@ export function Button({
     opacity.value = withTiming(disabled || loading ? 0.5 : 1, { duration: 200 });
   }, [disabled, loading, opacity]);
 
-  const containerStyle: ViewStyle[] = [
+  const containerStyle: (ViewStyle | false | undefined)[] = [
     styles.container,
     variantStyles[variant].container,
     sizeStyles[size].container,
@@ -127,7 +127,7 @@ export function Button({
     style,
   ];
 
-  const textStyle: TextStyle[] = [
+  const textStyle: (TextStyle | undefined)[] = [
     styles.text,
     variantStyles[variant].text,
     sizeStyles[size].text,

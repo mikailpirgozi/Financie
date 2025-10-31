@@ -47,7 +47,7 @@ export default function PayLoanScreen() {
   const {
     control,
     handleSubmit,
-    formState: { errors },
+    formState: {},
     setValue,
     watch,
   } = useForm<FormData>({

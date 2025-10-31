@@ -88,7 +88,7 @@ export default function SubscriptionScreen() {
     }
   };
 
-  const handleUpgrade = (planId: string) => {
+  const handleUpgrade = (_planId: string) => {
     Alert.alert(
       'Upgrade predplatného',
       'Pre upgrade plána navštívte webovú aplikáciu alebo kontaktujte podporu.',
@@ -137,7 +137,7 @@ export default function SubscriptionScreen() {
       {error && (
         <Card style={styles.errorCard}>
           <Text style={styles.errorText}>{error}</Text>
-          <Button onPress={loadSubscription} variant="outline" size="small" fullWidth>
+          <Button onPress={loadSubscription} variant="outline" size="sm" fullWidth>
             Skúsiť znova
           </Button>
         </Card>
@@ -150,7 +150,7 @@ export default function SubscriptionScreen() {
           return (
             <Card
               key={plan.id}
-              style={[styles.planCard, isCurrentPlan && styles.currentPlanCard]}
+              style={[styles.planCard, ...(isCurrentPlan ? [styles.currentPlanCard] : [])]}
             >
               {isCurrentPlan && (
                 <View style={styles.currentBadge}>
@@ -207,7 +207,7 @@ export default function SubscriptionScreen() {
 
         <Card style={styles.supportCard}>
           <Text style={styles.supportTitle}>💬 Potrebujete pomoc?</Text>
-          <Button variant="outline" fullWidth>
+          <Button variant="outline" fullWidth onPress={() => {}}>
             Kontaktovať podporu
           </Button>
         </Card>

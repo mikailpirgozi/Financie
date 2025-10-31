@@ -27,19 +27,16 @@ const simulationSchema = z.object({
   new_rate: z
     .string()
     .optional()
-    .transform((v) => (v ? Number(v) : undefined))
-    .refine((n) => n === undefined || (n > 0 && n < 100), 'Sadzba musí byť medzi 0 a 100%'),
+    .refine((s) => s === undefined || (!isNaN(Number(s)) && Number(s) > 0 && Number(s) < 100), 'Sadzba musí byť medzi 0 a 100%'),
   new_term: z
     .string()
     .optional()
-    .transform((v) => (v ? Number(v) : undefined))
-    .refine((n) => n === undefined || n > 0, 'Počet mesiacov musí byť väčší ako 0'),
+    .refine((s) => s === undefined || (!isNaN(Number(s)) && Number(s) > 0), 'Počet mesiacov musí byť väčší ako 0'),
   extra_payment_monthly: z
     .string()
     .optional()
-    .transform((v) => (v ? Number(v) : undefined))
     .refine(
-      (n) => n === undefined || n >= 0,
+      (s) => s === undefined || (!isNaN(Number(s)) && Number(s) >= 0),
       'Mesačná nadplatba musí byť väčšia alebo rovná 0'
     ),
 });
@@ -97,10 +94,10 @@ export default function SimulateScreen() {
       const extra_payment_monthly = watch('extra_payment_monthly');
 
       const params: SimulationParams = {};
-      if (new_rate !== undefined) params.new_rate = new_rate;
-      if (new_term !== undefined) params.new_term = new_term;
-      if (extra_payment_monthly !== undefined)
-        params.extra_payment_monthly = extra_payment_monthly;
+      if (new_rate !== undefined && new_rate !== '') params.new_rate = Number(new_rate);
+      if (new_term !== undefined && new_term !== '') params.new_term = Number(new_term);
+      if (extra_payment_monthly !== undefined && extra_payment_monthly !== '')
+        params.extra_payment_monthly = Number(extra_payment_monthly);
 
       const simulationResult = await simulateLoan(id, params);
       setResult(simulationResult);
@@ -135,7 +132,7 @@ export default function SimulateScreen() {
             label="Nová úroková sadzba (%)"
             placeholder={loan?.annual_rate?.toString()}
             keyboardType="decimal-pad"
-            value={watch('new_rate')?.toString() || ''}
+            value={watch('new_rate') || ''}
             onChangeText={(value) => setValue('new_rate', value)}
             error={errors.new_rate?.message}
           />
@@ -144,7 +141,7 @@ export default function SimulateScreen() {
             label="Nová doba splácania (mesiace)"
             placeholder={loan?.term_months?.toString()}
             keyboardType="number-pad"
-            value={watch('new_term')?.toString() || ''}
+            value={watch('new_term') || ''}
             onChangeText={(value) => setValue('new_term', value)}
             error={errors.new_term?.message}
           />
@@ -153,7 +150,7 @@ export default function SimulateScreen() {
             label="Mesačná nadplatba (€)"
             placeholder="0.00"
             keyboardType="decimal-pad"
-            value={watch('extra_payment_monthly')?.toString() || ''}
+            value={watch('extra_payment_monthly') || ''}
             onChangeText={(value) => setValue('extra_payment_monthly', value)}
             error={errors.extra_payment_monthly?.message}
           />

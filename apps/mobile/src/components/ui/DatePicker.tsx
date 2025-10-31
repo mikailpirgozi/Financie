@@ -10,7 +10,6 @@ import {
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
-import { Button } from './Button';
 
 interface DatePickerProps {
   label?: string;
@@ -74,8 +73,8 @@ export function DatePicker({
       <TouchableOpacity
         style={[
           styles.inputContainer,
-          error && styles.inputContainerError,
-          disabled && styles.disabled,
+          ...(error ? [styles.inputContainerError] : []),
+          ...(disabled ? [styles.disabled] : []),
         ]}
         onPress={() => !disabled && setShow(true)}
         disabled={disabled}

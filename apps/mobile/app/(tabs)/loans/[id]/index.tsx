@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-  RefreshControl,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { type Loan } from '@/lib/api';
@@ -287,7 +286,7 @@ export default function LoanDetailScreen() {
                 </Text>
               </View>
 
-              {displayedInstallments.map((installment, index) => (
+              {displayedInstallments.map((installment) => (
                 <View key={installment.id} style={styles.installmentRow}>
                   <View style={styles.installmentLeft}>
                     <Text style={styles.installmentNumber}>#{installment.sequence_number}</Text>
@@ -312,9 +311,7 @@ export default function LoanDetailScreen() {
                   variant="outline"
                   style={styles.showMoreButton}
                 >
-                  <Text style={styles.showMoreText}>
-                    Zobraziť všetky ({installments.length})
-                  </Text>
+                  {`Zobraziť všetky (${installments.length})`}
                 </Button>
               )}
 
@@ -324,7 +321,7 @@ export default function LoanDetailScreen() {
                   variant="outline"
                   style={styles.showMoreButton}
                 >
-                  <Text style={styles.showMoreText}>Zobraziť menej</Text>
+                  Zobraziť menej
                 </Button>
               )}
             </Card>

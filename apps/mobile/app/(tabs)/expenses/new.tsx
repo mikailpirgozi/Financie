@@ -10,7 +10,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createExpenseSchema, type CreateExpenseInput } from '@finapp/core';
+import { createExpenseSchema } from '@finapp/core';
 import { FormInput } from '@/components/forms/FormInput';
 import { FormDatePicker } from '@/components/forms/FormDatePicker';
 import { CurrencyInput } from '@/components/forms/CurrencyInput';
@@ -96,9 +96,9 @@ export default function NewExpenseScreen() {
     try {
       await createExpense({
         householdId,
-        date: new Date(data.date),
-        amount: data.amount,
+        date: data.date,
         categoryId: data.categoryId,
+        amount: data.amount,
         merchant: data.merchant || undefined,
         note: data.note || undefined,
       });

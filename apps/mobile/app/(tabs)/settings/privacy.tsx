@@ -9,7 +9,6 @@ import {
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
-import { supabase } from '@/lib/supabase';
 import * as Haptics from 'expo-haptics';
 
 export default function PrivacyScreen() {
