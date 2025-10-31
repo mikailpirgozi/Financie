@@ -27,6 +27,12 @@ export default function DashboardScreen() {
   useEffect(() => {
     const setupRealtime = async () => {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          // User not authenticated yet, skip realtime setup
+          return;
+        }
+
         const household = await getCurrentHousehold();
         const realtimeChannel = setupDashboardRealtimeSubscriptions(household.id, (type) => {
           // Auto-refresh dashboard when data changes
