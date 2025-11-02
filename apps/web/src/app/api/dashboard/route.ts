@@ -4,8 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 
 interface MonthlySummaryData {
   month: string;
-  total_income: number;
-  total_expenses: number;
+  total_income?: number | string;
+  total_expenses?: number | string;
   loan_balance_remaining?: number;
   total_assets?: number;
   net_worth?: number;
@@ -14,8 +14,6 @@ interface MonthlySummaryData {
   loan_interest_paid?: number | string;
   loan_fees_paid?: number | string;
   net_worth_change?: number | string;
-  total_income?: number | string;
-  total_expenses?: number | string;
 }
 
 /**
