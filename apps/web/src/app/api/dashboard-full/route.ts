@@ -61,7 +61,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const household = membership.households as { id: string; name: string; created_at: string };
+    const householdArray = membership.households as unknown as Array<{ id: string; name: string; created_at: string }>;
+    const household = householdArray[0];
     const householdId = household.id;
 
     // 2. Paralelne načítaj všetky potrebné dáta
@@ -175,7 +176,7 @@ export async function GET(request: NextRequest) {
  * Pomocná funkcia: dynamické kalkulovanie dashboard dát
  */
 async function calculateDashboardDataDynamic(
-  supabase: ReturnType<typeof createClient>,
+  supabaseClient: Awaited<ReturnType<typeof createClient>>,
   householdId: string,
   monthsCount: number
 ): Promise<MonthlySummaryData[]> {
@@ -190,23 +191,23 @@ async function calculateDashboardDataDynamic(
   // Paralelné queries pre všetky potrebné dáta
   const [incomesResult, expensesResult, metricsResult, assetsResult] =
     await Promise.all([
-      supabase
+      supabaseClient
         .from('incomes')
         .select('date, amount')
         .eq('household_id', householdId)
         .gte('date', `${months[months.length - 1]}-01`)
         .lte('date', `${months[0]}-31`),
       
-      supabase
+      supabaseClient
         .from('expenses')
         .select('date, amount')
         .eq('household_id', householdId)
         .gte('date', `${months[months.length - 1]}-01`)
         .lte('date', `${months[0]}-31`),
       
-      supabase.from('loan_metrics').select('*'),
+      supabaseClient.from('loan_metrics').select('*'),
       
-      supabase
+      supabaseClient
         .from('assets')
         .select('current_value')
         .eq('household_id', householdId),
@@ -221,28 +222,33 @@ async function calculateDashboardDataDynamic(
     const monthStart = `${month}-01`;
     const monthEnd = `${month}-31`;
 
-    const monthIncomes = incomes.filter(
-      (i) => i.date >= monthStart && i.date <= monthEnd
+    interface IncomeRecord { date: string; amount: number }
+    interface ExpenseRecord { date: string; amount: number }
+    interface MetricRecord { current_balance?: number }
+    interface AssetRecord { current_value: number }
+
+    const monthIncomes = (incomes as IncomeRecord[]).filter(
+      (i: IncomeRecord) => i.date >= monthStart && i.date <= monthEnd
     );
-    const monthExpenses = expenses.filter(
-      (e) => e.date >= monthStart && e.date <= monthEnd
+    const monthExpenses = (expenses as ExpenseRecord[]).filter(
+      (e: ExpenseRecord) => e.date >= monthStart && e.date <= monthEnd
     );
 
     const totalIncome = monthIncomes.reduce(
-      (sum, i) => sum + parseFloat(String(i.amount)),
+      (sum: number, i: IncomeRecord) => sum + parseFloat(String(i.amount)),
       0
     );
     const totalExpenses = monthExpenses.reduce(
-      (sum, e) => sum + parseFloat(String(e.amount)),
+      (sum: number, e: ExpenseRecord) => sum + parseFloat(String(e.amount)),
       0
     );
 
-    const loanBalanceRemaining = metrics.reduce(
-      (sum, m) => sum + parseFloat(String((m as { current_balance?: number }).current_balance ?? 0)),
+    const loanBalanceRemaining = (metrics as MetricRecord[]).reduce(
+      (sum: number, m: MetricRecord) => sum + parseFloat(String(m.current_balance ?? 0)),
       0
     );
-    const totalAssets = assets.reduce(
-      (sum, a) => sum + parseFloat(String((a as { current_value: number }).current_value)),
+    const totalAssets = (assets as AssetRecord[]).reduce(
+      (sum: number, a: AssetRecord) => sum + parseFloat(String(a.current_value)),
       0
     );
 
