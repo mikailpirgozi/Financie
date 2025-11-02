@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   calculateLoanData,
@@ -37,6 +38,7 @@ const LOAN_TYPES: Array<{ value: LoanType; label: string }> = [
 
 export default function NewLoanScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [householdId, setHouseholdId] = useState<string>('');
   const [showLoanTypePicker, setShowLoanTypePicker] = useState(false);
@@ -206,7 +208,7 @@ export default function NewLoanScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
-        <View style={styles.content}>
+        <View style={[styles.content, { paddingTop: insets.top + 16 }]}>
           <Text style={styles.title}>Nový úver</Text>
           <Text style={styles.subtitle}>
             Zadajte údaje - systém automaticky dopočíta chýbajúce hodnoty

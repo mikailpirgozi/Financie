@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createIncomeSchema } from '@finapp/core';
@@ -32,6 +33,7 @@ type FormData = {
 
 export default function EditIncomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -157,7 +159,7 @@ export default function EditIncomeScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
-        <View style={styles.content}>
+        <View style={[styles.content, { paddingTop: insets.top + 16 }]}>
           <Text style={styles.title}>Upraviť príjem</Text>
           <Text style={styles.subtitle}>Upravte údaje príjmu</Text>
 

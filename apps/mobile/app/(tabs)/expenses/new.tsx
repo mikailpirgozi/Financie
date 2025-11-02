@@ -8,6 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createExpenseSchema } from '@finapp/core';
@@ -30,6 +31,7 @@ type FormData = {
 
 export default function NewExpenseScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [householdId, setHouseholdId] = useState<string>('');
   const [categories, setCategories] = useState<Category[]>([]);
@@ -125,7 +127,7 @@ export default function NewExpenseScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
-        <View style={styles.content}>
+        <View style={[styles.content, { paddingTop: insets.top + 16 }]}>
           <Text style={styles.title}>Nový výdavok</Text>
           <Text style={styles.subtitle}>Zaznamenajte nový výdavok</Text>
 
