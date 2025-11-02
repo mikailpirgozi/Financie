@@ -17,7 +17,8 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.finapps.app",
-      "buildNumber": "2",
+      "buildNumber": "4",
+      "icon": "./assets/icon.png",
       "config": {
         "usesNonExemptEncryption": false
       },

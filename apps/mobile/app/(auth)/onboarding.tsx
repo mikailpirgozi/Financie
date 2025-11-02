@@ -9,13 +9,35 @@ const ONBOARDING_COMPLETED_KEY = '@onboarding_completed';
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const [isNavigating, setIsNavigating] = React.useState(false);
+
+  // Check if onboarding was already completed - prevent loops
+  React.useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const value = await AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY);
+        if (value === 'true' && !isNavigating) {
+          // Already completed, navigate away
+          router.replace('/(auth)/login');
+        }
+      } catch (error) {
+        console.error('Failed to check onboarding status:', error);
+      }
+    };
+    checkStatus();
+  }, []);
 
   const handleDone = async () => {
+    if (isNavigating) return; // Prevent multiple calls
+    setIsNavigating(true);
+    
     try {
       await AsyncStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
       console.log('Onboarding completed, saved to AsyncStorage');
-      // Navigate to login immediately after saving
-      router.replace('/(auth)/login');
+      // Small delay to ensure AsyncStorage write completes
+      setTimeout(() => {
+        router.replace('/(auth)/login');
+      }, 100);
     } catch (error) {
       console.error('Failed to save onboarding state:', error);
       router.replace('/(auth)/login');

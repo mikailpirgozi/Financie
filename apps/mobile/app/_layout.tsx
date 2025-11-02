@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { StyleSheet } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -76,32 +77,36 @@ export default function RootLayout() {
     if (isAuthenticated === null || hasSeenOnboarding === null) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const inTabsGroup = segments[0] === '(tabs)';
     const currentRoute = segments[segments.length - 1];
 
-    // Skip routing if we're on onboarding screen
+    // Skip routing if we're on onboarding screen to prevent loops
     if (currentRoute === 'onboarding') {
       return;
     }
 
-    // First time users - show onboarding
-    if (!hasSeenOnboarding) {
+    // First time users - show onboarding (only if not already there)
+    if (!hasSeenOnboarding && currentRoute !== 'onboarding') {
       router.replace('/(auth)/onboarding');
       return;
     }
 
-    // Authentication logic
-    if (!isAuthenticated && !inAuthGroup) {
-      // Redirect to login if not authenticated
-      router.replace('/(auth)/login');
-    } else if (isAuthenticated && inAuthGroup) {
-      // Redirect to tabs if authenticated
-      router.replace('/(tabs)');
+    // Skip routing if user has seen onboarding and is in the expected flow
+    if (hasSeenOnboarding) {
+      // Authentication logic
+      if (!isAuthenticated && !inAuthGroup) {
+        // Redirect to login if not authenticated
+        router.replace('/(auth)/login');
+      } else if (isAuthenticated && (inAuthGroup || (!inTabsGroup && !inAuthGroup))) {
+        // Redirect to tabs if authenticated and not already there
+        router.replace('/(tabs)');
+      }
     }
-  }, [isAuthenticated, hasSeenOnboarding, segments, router]);
+  }, [isAuthenticated, hasSeenOnboarding, segments]);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
+      <GestureHandlerRootView style={styles.container}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
@@ -112,4 +117,10 @@ export default function RootLayout() {
     </QueryClientProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});
 
