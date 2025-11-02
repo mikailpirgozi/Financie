@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -26,6 +27,7 @@ interface UserProfile {
 export default function SettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
@@ -70,6 +72,35 @@ export default function SettingsScreen() {
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ visible: true, message, type });
+  };
+
+  const handleClearCache = () => {
+    Alert.alert(
+      'Vyčistiť cache',
+      'Toto vymaže všetky načítané dáta a znova ich načíta zo servera. Použite to ak vidíte zastaralé dáta.',
+      [
+        { text: 'Zrušiť', style: 'cancel' },
+        {
+          text: 'Vyčistiť',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Clear all React Query cache
+              await queryClient.clear();
+              
+              showToast('Cache úspešne vymazaná!', 'success');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              
+              // Refresh current data
+              await queryClient.refetchQueries();
+            } catch (error) {
+              showToast('Nepodarilo sa vymazať cache', 'error');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleLogout = () => {
@@ -252,6 +283,24 @@ export default function SettingsScreen() {
                 <Badge variant="default">Free</Badge>
                 <Text style={styles.chevron}>›</Text>
               </View>
+            </TouchableOpacity>
+          </Card>
+
+          <Text style={styles.sectionTitle}>Pokročilé</Text>
+
+          <Card style={styles.menuCard}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                handleClearCache();
+              }}
+            >
+              <View style={styles.menuLeft}>
+                <Text style={styles.menuIcon}>🔄</Text>
+                <Text style={styles.menuLabel}>Vyčistiť cache</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
           </Card>
 
