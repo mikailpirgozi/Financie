@@ -12,7 +12,7 @@ import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/ca
 import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUpIcon, TrendingDownIcon, DollarSignIcon, WalletIcon } from 'lucide-react';
 
-export default function DashboardPage(): React.JSX.Element {
+export default function DashboardPage(): React.JSX.Element | null {
   const [householdId, setHouseholdId] = useState<string | null>(null);
   const supabase = createClient();
 
