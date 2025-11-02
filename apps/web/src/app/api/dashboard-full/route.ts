@@ -61,17 +61,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const householdArray = membership.households as unknown as Array<{ id: string; name: string; created_at: string }>;
+    // Handle both array and direct object formats
+    type HouseholdData = { id: string; name: string; created_at: string };
+    const householdData: HouseholdData = Array.isArray(membership.households)
+      ? membership.households[0]
+      : (membership.households as HouseholdData);
     
-    if (!householdArray || householdArray.length === 0) {
+    if (!householdData || !householdData.id) {
       return NextResponse.json(
         { error: 'No household found for user' },
         { status: 404 }
       );
     }
     
-    const household = householdArray[0];
-    const householdId = household.id;
+    const householdId = householdData.id;
 
     // 2. Paralelne načítaj všetky potrebné dáta
     const [summariesData, overdueResult, recentTransactions] = await Promise.all([
