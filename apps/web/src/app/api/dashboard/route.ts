@@ -56,10 +56,16 @@ async function calculateDashboardData(householdId: string, monthsCount: number) 
     .select('id, principal, status')
     .eq('household_id', householdId);
 
-  const { data: metrics } = await supabase
-    .from('loan_metrics')
-    .select('*')
-    .in('loan_id', loans?.map(l => l.id) || []);
+  // Only query loan_metrics if there are loans
+  // IMPORTANT: .in('loan_id', []) in Supabase returns ALL records, not zero!
+  let metrics = null;
+  if (loans && loans.length > 0) {
+    const { data } = await supabase
+      .from('loan_metrics')
+      .select('*')
+      .in('loan_id', loans.map(l => l.id));
+    metrics = data;
+  }
 
   // Get assets
   const { data: assets } = await supabase

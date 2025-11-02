@@ -33,6 +33,9 @@ importers:
       '@react-native-community/datetimepicker':
         specifier: ^8.4.4
         version: 8.4.4(expo@54.0.21)(react-native@0.81.5)(react@19.1.0)
+      '@react-native-community/slider':
+        specifier: ^5.1.0
+        version: 5.1.0
       '@react-navigation/bottom-tabs':
         specifier: ^7.7.3
         version: 7.7.3(@react-navigation/native@7.1.19)(react-native-safe-area-context@5.6.2)(react-native-screens@4.16.0)(react-native@0.81.5)(react@19.1.0)
@@ -4309,6 +4312,10 @@ packages:
       invariant: 2.2.4
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.28.5)(@types/react@18.2.79)(react@19.1.0)
+    dev: false
+
+  /@react-native-community/slider@5.1.0:
+    resolution: {integrity: sha512-79nzA7eXPgM6UMo5ZZ/rrJu8Gai0aRctN6stBHneQYh5Qst98hYD3piY+RQHJhDuCCrpQL85YwGVU4FdDOE3cA==}
     dev: false
 
   /@react-native/assets-registry@0.81.5:
