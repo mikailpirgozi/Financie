@@ -18,9 +18,9 @@ export function KPICard({
   change,
   changePercent,
   icon,
-  trend = 'neutral',
+  trend,
   subtitle,
-}: KPICardProps) {
+}: KPICardProps): React.JSX.Element {
   const isPositive = trend === 'up';
   const isNegative = trend === 'down';
 

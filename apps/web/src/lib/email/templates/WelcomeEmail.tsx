@@ -15,7 +15,7 @@ interface WelcomeEmailProps {
   loginUrl: string;
 }
 
-export function WelcomeEmail({ userName, loginUrl }: WelcomeEmailProps) {
+export function WelcomeEmail({ userName, loginUrl }: WelcomeEmailProps): React.ReactNode {
   return (
     <Html>
       <Head />

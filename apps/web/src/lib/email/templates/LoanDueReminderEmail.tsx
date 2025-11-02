@@ -26,7 +26,7 @@ export function LoanDueReminderEmail({
   amount,
   daysOverdue,
   loanUrl,
-}: LoanDueReminderEmailProps) {
+}: LoanDueReminderEmailProps): React.ReactNode {
   const formattedAmount = new Intl.NumberFormat('sk-SK', {
     style: 'currency',
     currency: 'EUR',

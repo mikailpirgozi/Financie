@@ -32,7 +32,7 @@ export function MonthlyReportEmail({
   loansPaid,
   netWorth,
   dashboardUrl,
-}: MonthlyReportEmailProps) {
+}: MonthlyReportEmailProps): React.ReactNode {
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('sk-SK', {
       style: 'currency',

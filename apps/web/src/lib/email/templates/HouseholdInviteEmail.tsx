@@ -22,7 +22,7 @@ export function HouseholdInviteEmail({
   householdName,
   inviteUrl,
   role,
-}: HouseholdInviteEmailProps) {
+}: HouseholdInviteEmailProps): React.ReactNode {
   const roleText = role === 'owner' ? 'správca' : 'člen';
 
   return (
