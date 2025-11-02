@@ -26,7 +26,7 @@ interface CategoriesClientProps {
   incomeCategories: Category[];
 }
 
-export function CategoriesClient({ expenseCategories, incomeCategories }: CategoriesClientProps) {
+export function CategoriesClient({ expenseCategories, incomeCategories }: CategoriesClientProps): React.JSX.Element {
   const router = useRouter();
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editName, setEditName] = useState('');

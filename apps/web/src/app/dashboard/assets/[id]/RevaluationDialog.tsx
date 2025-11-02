@@ -20,7 +20,7 @@ interface RevaluationDialogProps {
   currentValue: number;
 }
 
-export function RevaluationDialog({ assetId, assetName, currentValue }: RevaluationDialogProps) {
+export function RevaluationDialog({ assetId, assetName, currentValue }: RevaluationDialogProps): React.JSX.Element {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);

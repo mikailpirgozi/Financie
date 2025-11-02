@@ -21,7 +21,7 @@ interface IncomesClientProps {
   incomes: Income[];
 }
 
-export function IncomesClient({ incomes }: IncomesClientProps) {
+export function IncomesClient({ incomes }: IncomesClientProps): React.JSX.Element {
   const router = useRouter();
 
   const handleDelete = async (id: string) => {

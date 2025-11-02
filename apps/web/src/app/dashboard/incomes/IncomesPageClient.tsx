@@ -51,7 +51,7 @@ export function IncomesPageClient({
   categories,
   householdId,
   total,
-}: IncomesPageClientProps) {
+}: IncomesPageClientProps): React.JSX.Element {
   const [selectedTemplate, setSelectedTemplate] = useState<IncomeTemplate | null>(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [manageTemplatesOpen, setManageTemplatesOpen] = useState(false);

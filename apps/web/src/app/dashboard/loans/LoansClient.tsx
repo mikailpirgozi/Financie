@@ -40,7 +40,7 @@ interface LoansClientProps {
   loans: Loan[];
 }
 
-export function LoansClient({ loans }: LoansClientProps) {
+export function LoansClient({ loans }: LoansClientProps): React.JSX.Element {
   const router = useRouter();
   const [loansWithSchedule, setLoansWithSchedule] = useState<LoanWithSchedule[]>([]);
   const [loading, setLoading] = useState(true);

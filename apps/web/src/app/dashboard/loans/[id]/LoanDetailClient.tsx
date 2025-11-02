@@ -32,7 +32,7 @@ interface LoanDetailClientProps {
 export function LoanDetailClient({
   loanId,
   schedule,
-}: LoanDetailClientProps) {
+}: LoanDetailClientProps): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
 
   // React Query hooks

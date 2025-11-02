@@ -21,7 +21,7 @@ interface ExpensesClientProps {
   expenses: Expense[];
 }
 
-export function ExpensesClient({ expenses }: ExpensesClientProps) {
+export function ExpensesClient({ expenses }: ExpensesClientProps): React.JSX.Element {
   const router = useRouter();
 
   const handleDelete = async (id: string) => {

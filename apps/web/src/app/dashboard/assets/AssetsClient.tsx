@@ -18,7 +18,7 @@ interface AssetsClientProps {
   assets: Asset[];
 }
 
-export function AssetsClient({ assets }: AssetsClientProps) {
+export function AssetsClient({ assets }: AssetsClientProps): React.JSX.Element {
   const router = useRouter();
 
   const handleDelete = async (id: string) => {
