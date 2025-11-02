@@ -24,7 +24,8 @@ export default function DashboardScreen() {
   });
   const router = useRouter();
   
-  // 🚀 OPTIMALIZOVANÉ: Progressive loading s prioritami
+  // 🔄 DOČASNE: Používame legacy verziu kým nie je Vercel deployment hotový
+  // Po deployi sa automaticky prepne na optimalizovanú verziu
   const { 
     household, 
     dashboard: dashboardData, 
@@ -33,7 +34,7 @@ export default function DashboardScreen() {
     error,
     refetch,
     isBackgroundRefreshing,
-  } = useCriticalDashboard(6);
+  } = useCriticalDashboard(6); // Ak 404, automatický fallback na legacy
   
   // Smart refresh indikátor (len pri background refetch)
   const { showIndicator } = useSmartRefreshIndicator();

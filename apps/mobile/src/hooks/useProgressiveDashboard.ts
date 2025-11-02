@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { getDashboardFull } from '../lib/api';
+import { getDashboardFull, getCurrentHousehold, getDashboardData } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 /**
  * 🚀 PROGRESSIVE LOADING PATTERN + STALE-WHILE-REVALIDATE
@@ -37,7 +38,32 @@ export function useProgressiveDashboard(options: ProgressiveDashboardOptions = {
 
   const query = useQuery({
     queryKey: ['dashboard-full', monthsCount, includeRecent],
-    queryFn: () => getDashboardFull(monthsCount, includeRecent),
+    queryFn: async () => {
+      try {
+        // Skús nový optimalizovaný endpoint
+        return await getDashboardFull(monthsCount, includeRecent);
+      } catch (error) {
+        // Ak 404 (endpoint ešte nie je na Verceli), použi legacy approach
+        if (error instanceof Error && error.message.includes('404')) {
+          console.log('⚠️ /api/dashboard-full not available yet, using legacy endpoints');
+          
+          // Fallback: použij staré 3 endpointy
+          const household = await getCurrentHousehold();
+          const dashboard = await getDashboardData(household.id, monthsCount);
+          
+          const { data: overdueData } = await supabase
+            .rpc('count_overdue_installments', { p_household_id: household.id });
+          
+          return {
+            household,
+            dashboard,
+            overdueCount: overdueData ?? 0,
+            recentTransactions: undefined,
+          };
+        }
+        throw error;
+      }
+    },
     
     // 🔥 STALE-WHILE-REVALIDATE konfigurácia
     staleTime: staleTimeByPriority[priority],

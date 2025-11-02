@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const household = membership.households as any;
+    const household = membership.households as { id: string; name: string; created_at: string };
     const householdId = household.id;
 
     // 2. Paralelne načítaj všetky potrebné dáta
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
  * Pomocná funkcia: dynamické kalkulovanie dashboard dát
  */
 async function calculateDashboardDataDynamic(
-  supabase: any,
+  supabase: ReturnType<typeof createClient>,
   householdId: string,
   monthsCount: number
 ): Promise<MonthlySummaryData[]> {
@@ -188,7 +188,7 @@ async function calculateDashboardDataDynamic(
   }
 
   // Paralelné queries pre všetky potrebné dáta
-  const [incomesResult, expensesResult, loansResult, metricsResult, assetsResult] =
+  const [incomesResult, expensesResult, metricsResult, assetsResult] =
     await Promise.all([
       supabase
         .from('incomes')
@@ -204,11 +204,6 @@ async function calculateDashboardDataDynamic(
         .gte('date', `${months[months.length - 1]}-01`)
         .lte('date', `${months[0]}-31`),
       
-      supabase
-        .from('loans')
-        .select('id, principal, status')
-        .eq('household_id', householdId),
-      
       supabase.from('loan_metrics').select('*'),
       
       supabase
@@ -219,7 +214,6 @@ async function calculateDashboardDataDynamic(
 
   const incomes = incomesResult.data || [];
   const expenses = expensesResult.data || [];
-  const loans = loansResult.data || [];
   const metrics = metricsResult.data || [];
   const assets = assetsResult.data || [];
 
@@ -227,24 +221,28 @@ async function calculateDashboardDataDynamic(
     const monthStart = `${month}-01`;
     const monthEnd = `${month}-31`;
 
-    const monthIncomes = incomes.filter((i: any) => i.date >= monthStart && i.date <= monthEnd);
-    const monthExpenses = expenses.filter((e: any) => e.date >= monthStart && e.date <= monthEnd);
+    const monthIncomes = incomes.filter(
+      (i) => i.date >= monthStart && i.date <= monthEnd
+    );
+    const monthExpenses = expenses.filter(
+      (e) => e.date >= monthStart && e.date <= monthEnd
+    );
 
     const totalIncome = monthIncomes.reduce(
-      (sum: number, i: any) => sum + parseFloat(String(i.amount)),
+      (sum, i) => sum + parseFloat(String(i.amount)),
       0
     );
     const totalExpenses = monthExpenses.reduce(
-      (sum: number, e: any) => sum + parseFloat(String(e.amount)),
+      (sum, e) => sum + parseFloat(String(e.amount)),
       0
     );
 
     const loanBalanceRemaining = metrics.reduce(
-      (sum: number, m: any) => sum + parseFloat(String(m.current_balance ?? 0)),
+      (sum, m) => sum + parseFloat(String((m as { current_balance?: number }).current_balance ?? 0)),
       0
     );
     const totalAssets = assets.reduce(
-      (sum: number, a: any) => sum + parseFloat(String(a.current_value)),
+      (sum, a) => sum + parseFloat(String((a as { current_value: number }).current_value)),
       0
     );
 

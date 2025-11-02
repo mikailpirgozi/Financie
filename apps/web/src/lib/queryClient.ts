@@ -85,16 +85,16 @@ export const queryKeys = {
 /**
  * Utility: Invalidate všetky dashboard related queries
  */
-export function invalidateDashboard(householdId: string) {
+export function invalidateDashboard(_householdId: string) {
   queryClient.invalidateQueries({ 
     queryKey: ['dashboard'],
     refetchType: 'active',
   });
   queryClient.invalidateQueries({ 
-    queryKey: queryKeys.dashboardFull(householdId),
+    queryKey: ['dashboard-full'],
   });
   queryClient.invalidateQueries({ 
-    queryKey: queryKeys.overdue(householdId),
+    queryKey: ['overdue'],
   });
 }
 
