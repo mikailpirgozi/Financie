@@ -53,6 +53,7 @@ export async function GET() {
 
       // Return newly created household
       return NextResponse.json({
+        householdId: newHousehold.id,
         household: {
           id: newHousehold.id,
           name: newHousehold.name,
@@ -71,6 +72,7 @@ export async function GET() {
     }
 
     return NextResponse.json({
+      householdId: householdData.id,
       household: {
         id: householdData.id,
         name: householdData.name,
