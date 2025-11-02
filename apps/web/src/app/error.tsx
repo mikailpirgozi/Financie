@@ -9,7 +9,7 @@ export default function Error({
 }: {
   error: Error & { digest?: string };
   reset: () => void;
-}) {
+}): React.JSX.Element {
   useEffect(() => {
     // Log error to error reporting service (e.g., Sentry)
     console.error('Global error:', error);

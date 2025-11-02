@@ -1,6 +1,6 @@
 import { Card, CardHeader, CardContent } from '@finapp/ui';
 
-export default function DashboardLoading() {
+export default function DashboardLoading(): React.JSX.Element {
   return (
     <div className="container mx-auto p-6">
       <div className="space-y-6">
