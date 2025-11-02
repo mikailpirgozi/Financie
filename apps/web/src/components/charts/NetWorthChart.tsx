@@ -21,7 +21,9 @@ interface NetWorthChartProps {
   }[];
 }
 
-export function NetWorthChart({ data }: NetWorthChartProps): React.JSX.Element {
+export function NetWorthChart({
+  data,
+}: NetWorthChartProps): React.JSX.Element | null {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('sk-SK', {
       style: 'currency',

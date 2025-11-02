@@ -19,7 +19,9 @@ interface LoanScheduleChartProps {
   type?: 'line' | 'area';
 }
 
-export function LoanScheduleChart({ schedule, type = 'area' }: LoanScheduleChartProps): React.JSX.Element {
+export function LoanScheduleChart({
+  schedule,
+}: LoanScheduleChartProps): React.JSX.Element | null {
   const data = schedule.map((entry) => ({
     installment: entry.installmentNo,
     principal: entry.principalDue,
