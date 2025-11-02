@@ -43,8 +43,9 @@ export function useProgressiveDashboard(options: ProgressiveDashboardOptions = {
         // Skús nový optimalizovaný endpoint
         return await getDashboardFull(monthsCount, includeRecent);
       } catch (error) {
-        // Ak 404 (endpoint ešte nie je na Verceli), použi legacy approach
-        if (error instanceof Error && error.message.includes('404')) {
+        // Ak 404 alebo 500 (endpoint ešte nie je deploynutý alebo má bug), použi legacy approach
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        if (errorMsg.includes('404') || errorMsg.includes('500')) {
           console.log('⚠️ /api/dashboard-full not available yet, using legacy endpoints');
           
           // Fallback: použij staré 3 endpointy
@@ -68,6 +69,9 @@ export function useProgressiveDashboard(options: ProgressiveDashboardOptions = {
     // 🔥 STALE-WHILE-REVALIDATE konfigurácia
     staleTime: staleTimeByPriority[priority],
     gcTime: 5 * 60 * 1000, // 5 min cache
+    
+    // Retry logic - no retry for 500 errors (fallback sa aktivuje okamžite)
+    retry: 0,
     
     // Refetch stratégie
     refetchOnMount: 'always', // Vždy refresh pri mount (ale používa cache)
