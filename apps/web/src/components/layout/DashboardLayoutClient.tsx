@@ -18,7 +18,7 @@ interface DashboardLayoutClientProps {
   children: React.ReactNode;
 }
 
-export function DashboardLayoutClient({ user, householdId, households, locale, children }: DashboardLayoutClientProps) {
+export function DashboardLayoutClient({ user, householdId, households, locale, children }: DashboardLayoutClientProps): React.JSX.Element {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const content = (

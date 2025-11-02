@@ -5,7 +5,7 @@ import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { Button } from '@finapp/ui';
 import { cn } from '@/lib/utils';
 
-export function HouseholdSwitcher(): React.JSX.Element | null {
+export function HouseholdSwitcher({ households, currentHouseholdId }: { households: Array<{ id: string; name: string; role: string }>; currentHouseholdId: string }): React.JSX.Element | null {
   const [isOpen, setIsOpen] = useState(false);
 
   const currentHousehold = households.find(h => h.id === currentHouseholdId);

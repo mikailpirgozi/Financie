@@ -10,7 +10,7 @@ interface OnboardingWrapperProps {
   children: React.ReactNode;
 }
 
-export function OnboardingWrapper({ householdId, children }: OnboardingWrapperProps) {
+export function OnboardingWrapper({ householdId, children }: OnboardingWrapperProps): React.JSX.Element {
   const [showWelcome, setShowWelcome] = useState(false);
   const [showDataChoice, setShowDataChoice] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
