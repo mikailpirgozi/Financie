@@ -5,12 +5,6 @@ import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { Button } from '@finapp/ui';
 import { cn } from '@/lib/utils';
 
-interface Household {
-  id: string;
-  name: string;
-  role: string;
-}
-
 export function HouseholdSwitcher(): React.JSX.Element | null {
   const [isOpen, setIsOpen] = useState(false);
 
