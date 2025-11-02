@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     
     const loanIdArray = loanIds.split(',').filter(Boolean);
     
+    // IMPORTANT: .in('loan_id', []) returns ALL records, not zero!
     if (loanIdArray.length === 0) {
       return NextResponse.json({}, {
         headers: {

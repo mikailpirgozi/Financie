@@ -95,13 +95,19 @@ export async function getLoans(householdId: string) {
   if (!loans) return [];
 
   // Get metrics for all loans
-  const { data: metrics, error: metricsError } = await supabase
-    .from('loan_metrics')
-    .select('*')
-    .in('loan_id', loans.map(l => l.id));
+  // IMPORTANT: .in('loan_id', []) returns ALL records, not zero!
+  let metrics = null;
+  if (loans.length > 0) {
+    const { data, error: metricsError } = await supabase
+      .from('loan_metrics')
+      .select('*')
+      .in('loan_id', loans.map(l => l.id));
 
-  if (metricsError) {
-    console.warn('Failed to load loan_metrics:', metricsError);
+    if (metricsError) {
+      console.warn('Failed to load loan_metrics:', metricsError);
+    } else {
+      metrics = data;
+    }
   }
 
   // Merge loans with metrics
