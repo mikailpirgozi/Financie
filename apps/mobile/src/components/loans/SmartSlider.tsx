@@ -45,8 +45,8 @@ export function SmartSlider({
     const parsed = parseFloat(inputValue);
     if (!isNaN(parsed)) {
       const clamped = Math.max(minimumValue, Math.min(maximumValue, parsed));
-      // Round to step precision or 2 decimal places for money/percentages
-      const rounded = step < 1 ? Number(clamped.toFixed(2)) : Math.round(clamped / step) * step;
+      // Always round to 2 decimal places (cent precision) for manual input
+      const rounded = Number(clamped.toFixed(2));
       onValueChange(rounded);
       setInputValue(rounded.toString());
     } else {

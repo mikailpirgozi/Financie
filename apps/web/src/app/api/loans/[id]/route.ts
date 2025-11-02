@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { getLoan, deleteLoan } from '@/lib/api/loans';
 import { createClient } from '@/lib/supabase/server';
 
@@ -41,6 +42,9 @@ export async function DELETE(
     }
 
     await deleteLoan(params.id);
+
+    // Revalidate loans list cache
+    revalidateTag('loans-list');
 
     return NextResponse.json({ success: true });
   } catch (error) {

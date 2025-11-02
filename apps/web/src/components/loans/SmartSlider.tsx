@@ -50,8 +50,10 @@ export function SmartSlider({
     const parsed = parseFloat(inputValue);
     if (!isNaN(parsed)) {
       const clamped = Math.max(min, Math.min(max, parsed));
-      onChange(clamped);
-      setInputValue(clamped.toString());
+      // Always round to 2 decimal places (cent precision) for manual input
+      const rounded = Number(clamped.toFixed(2));
+      onChange(rounded);
+      setInputValue(rounded.toString());
     } else {
       setInputValue(value.toString());
     }
@@ -104,7 +106,7 @@ export function SmartSlider({
           onBlur={handleInputBlur}
           onKeyDown={handleInputKeyDown}
           disabled={disabled}
-          step={step}
+          step="0.01"
           min={min}
           max={max}
           className="flex-1"

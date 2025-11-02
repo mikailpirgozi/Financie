@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { createLoanSchema } from '@finapp/core';
 import { createLoan, getLoans } from '@/lib/api/loans';
 import { createClient } from '@/lib/supabase/server';
@@ -80,6 +81,9 @@ export async function POST(request: NextRequest) {
       },
       request,
     });
+
+    // Revalidate loans list cache
+    revalidateTag('loans-list');
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
