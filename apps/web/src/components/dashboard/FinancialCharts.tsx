@@ -24,7 +24,7 @@ interface FinancialChartsProps {
 }
 
 export function FinancialCharts({
-  householdId,
+  data,
 }: FinancialChartsProps): React.JSX.Element | null {
   // Sort data by month ascending for charts
   const sortedData = [...data].sort((a, b) => a.month.localeCompare(b.month));

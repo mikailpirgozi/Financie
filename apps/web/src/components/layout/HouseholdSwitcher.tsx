@@ -11,11 +11,6 @@ interface Household {
   role: string;
 }
 
-interface HouseholdSwitcherProps {
-  households: Household[];
-  currentHouseholdId: string;
-}
-
 export function HouseholdSwitcher(): React.JSX.Element | null {
   const [isOpen, setIsOpen] = useState(false);
 
