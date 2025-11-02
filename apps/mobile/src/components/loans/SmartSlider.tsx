@@ -29,11 +29,13 @@ export function SmartSlider({
   formatDisplay,
   disabled = false,
 }: SmartSliderProps) {
-  const [inputValue, setInputValue] = useState(value.toString());
+  const [inputValue, setInputValue] = useState(
+    step < 1 ? value.toFixed(2) : value.toString()
+  );
 
   useEffect(() => {
-    setInputValue(value.toString());
-  }, [value]);
+    setInputValue(step < 1 ? value.toFixed(2) : value.toString());
+  }, [value, step]);
 
   const handleInputChange = (text: string) => {
     setInputValue(text);

@@ -290,7 +290,7 @@ export default function NewLoanScreen() {
             maximumValue={500000}
             step={100}
             suffix=" €"
-            formatDisplay={(v) => `${v.toLocaleString('sk-SK')} €`}
+            formatDisplay={(v) => `${v.toFixed(2)} €`}
             disabled={loading}
           />
 
@@ -323,9 +323,9 @@ export default function NewLoanScreen() {
               onValueChange={(value) => setFormData({ ...formData, monthlyPayment: value })}
               minimumValue={50}
               maximumValue={10000}
-              step={10}
+              step={0.5}
               suffix=" €"
-              formatDisplay={(v) => `${v.toLocaleString('sk-SK')} €`}
+              formatDisplay={(v) => `${v.toFixed(2)} €`}
               disabled={loading}
             />
           )}
@@ -460,7 +460,7 @@ export default function NewLoanScreen() {
                 maximumValue={5000}
                 step={10}
                 suffix=" €"
-                formatDisplay={(v) => `${v.toLocaleString('sk-SK')} €`}
+                formatDisplay={(v) => `${v.toFixed(2)} €`}
                 disabled={loading}
               />
 
@@ -486,7 +486,7 @@ export default function NewLoanScreen() {
                 maximumValue={200}
                 step={1}
                 suffix=" €"
-                formatDisplay={(v) => `${v.toLocaleString('sk-SK')} €`}
+                formatDisplay={(v) => `${v.toFixed(2)} €`}
                 disabled={loading}
               />
 
@@ -500,7 +500,7 @@ export default function NewLoanScreen() {
                   maximumValue={formData.principal}
                   step={100}
                   suffix=" €"
-                  formatDisplay={(v) => `${v.toLocaleString('sk-SK')} €`}
+                  formatDisplay={(v) => `${v.toFixed(2)} €`}
                   disabled={loading}
                 />
               )}
