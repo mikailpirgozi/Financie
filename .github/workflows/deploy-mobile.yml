@@ -37,4 +37,7 @@ jobs:
       - name: Build on EAS
         working-directory: ./apps/mobile
         run: eas build --platform all --non-interactive --no-wait
+        continue-on-error: true
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
