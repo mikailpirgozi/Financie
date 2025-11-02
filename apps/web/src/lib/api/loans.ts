@@ -21,6 +21,7 @@ export async function createLoan(input: CreateLoanInput) {
     .from('loans')
     .insert({
       household_id: input.householdId,
+      name: input.name ?? null,
       lender: input.lender,
       loan_type: input.loanType,
       principal: input.principal,
