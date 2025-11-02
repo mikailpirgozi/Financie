@@ -14,13 +14,13 @@ export async function initializeSubscriptions(): Promise<void> {
   try {
     if (Platform.OS === 'ios') {
       if (!env.EXPO_PUBLIC_REVENUECAT_IOS_KEY) {
-        console.warn('RevenueCat iOS API key not configured');
+        console.log('⏭️ RevenueCat skipped (iOS API key not configured)');
         return;
       }
       Purchases.configure({ apiKey: env.EXPO_PUBLIC_REVENUECAT_IOS_KEY });
     } else if (Platform.OS === 'android') {
       if (!env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY) {
-        console.warn('RevenueCat Android API key not configured');
+        console.log('⏭️ RevenueCat skipped (Android API key not configured)');
         return;
       }
       Purchases.configure({ apiKey: env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY });
@@ -31,9 +31,9 @@ export async function initializeSubscriptions(): Promise<void> {
       Purchases.setLogLevel(LOG_LEVEL.DEBUG);
     }
 
-    console.log('RevenueCat initialized successfully');
+    console.log('✅ RevenueCat initialized successfully');
   } catch (error) {
-    console.error('Failed to initialize RevenueCat:', error);
+    console.error('❌ Failed to initialize RevenueCat:', error);
   }
 }
 

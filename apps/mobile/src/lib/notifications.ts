@@ -33,7 +33,7 @@ interface Loan {
  */
 export async function registerForPushNotifications(): Promise<string | null> {
   if (!Device.isDevice) {
-    console.warn('Push notifications only work on physical devices');
+    console.log('⏭️ Push notifications skipped (running on simulator/emulator)');
     return null;
   }
 

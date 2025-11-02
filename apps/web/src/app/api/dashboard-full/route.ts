@@ -62,6 +62,14 @@ export async function GET(request: NextRequest) {
     }
 
     const householdArray = membership.households as unknown as Array<{ id: string; name: string; created_at: string }>;
+    
+    if (!householdArray || householdArray.length === 0) {
+      return NextResponse.json(
+        { error: 'No household found for user' },
+        { status: 404 }
+      );
+    }
+    
     const household = householdArray[0];
     const householdId = household.id;
 
