@@ -18,7 +18,7 @@ interface HeaderProps {
   onMenuClick?: () => void;
 }
 
-export function Header({ user, locale, onMenuClick }: HeaderProps) {
+export function Header({ user, locale, onMenuClick }: HeaderProps): React.JSX.Element {
   const router = useRouter();
 
   const handleLogout = async () => {

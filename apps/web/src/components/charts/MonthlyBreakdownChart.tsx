@@ -20,7 +20,7 @@ interface MonthlyBreakdownChartProps {
   }[];
 }
 
-export function MonthlyBreakdownChart({ data }: MonthlyBreakdownChartProps) {
+export function MonthlyBreakdownChart({ data }: MonthlyBreakdownChartProps): React.JSX.Element {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('sk-SK', {
       style: 'currency',

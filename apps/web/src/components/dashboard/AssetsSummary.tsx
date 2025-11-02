@@ -7,7 +7,7 @@ interface AssetsSummaryProps {
   data: MonthlyDashboardData;
 }
 
-export function AssetsSummary({ data }: AssetsSummaryProps) {
+export function AssetsSummary({ data }: AssetsSummaryProps): React.JSX.Element {
   const formatCurrency = (value: string) => {
     return new Intl.NumberFormat('sk-SK', {
       style: 'currency',

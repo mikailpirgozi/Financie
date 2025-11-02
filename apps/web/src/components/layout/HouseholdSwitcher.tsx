@@ -16,7 +16,7 @@ interface HouseholdSwitcherProps {
   currentHouseholdId: string;
 }
 
-export function HouseholdSwitcher({ households, currentHouseholdId }: HouseholdSwitcherProps) {
+export function HouseholdSwitcher({ households, currentHouseholdId }: HouseholdSwitcherProps): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
 
   const currentHousehold = households.find(h => h.id === currentHouseholdId);

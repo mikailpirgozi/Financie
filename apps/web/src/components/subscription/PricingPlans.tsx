@@ -9,7 +9,7 @@ interface PricingPlansProps {
   currentPlan: string;
 }
 
-export function PricingPlans({ currentPlan }: PricingPlansProps) {
+export function PricingPlans({ currentPlan }: PricingPlansProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState<string | null>(null);
 
   const handleSubscribe = async (planId: PlanId) => {

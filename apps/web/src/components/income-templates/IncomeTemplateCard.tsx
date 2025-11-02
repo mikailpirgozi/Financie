@@ -26,7 +26,7 @@ export function IncomeTemplateCard({
   onQuickAdd,
   onEdit,
   onDelete,
-}: IncomeTemplateCardProps) {
+}: IncomeTemplateCardProps): React.JSX.Element {
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-4">

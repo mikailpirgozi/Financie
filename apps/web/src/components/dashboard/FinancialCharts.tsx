@@ -23,7 +23,7 @@ interface FinancialChartsProps {
   data: MonthlyDashboardData[];
 }
 
-export function FinancialCharts({ data }: FinancialChartsProps) {
+export function FinancialCharts({ data }: FinancialChartsProps): React.JSX.Element {
   // Sort data by month ascending for charts
   const sortedData = [...data].sort((a, b) => a.month.localeCompare(b.month));
 

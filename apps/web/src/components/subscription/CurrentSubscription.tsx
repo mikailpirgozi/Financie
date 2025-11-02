@@ -10,7 +10,7 @@ interface CurrentSubscriptionProps {
   periodEnd: string | null;
 }
 
-export function CurrentSubscription({ plan, status, periodEnd }: CurrentSubscriptionProps) {
+export function CurrentSubscription({ plan, status, periodEnd }: CurrentSubscriptionProps): React.JSX.Element {
   const planDetails = STRIPE_PLANS[plan as keyof typeof STRIPE_PLANS];
 
   const handleManageSubscription = async () => {

@@ -9,7 +9,7 @@ interface EarlyRepaymentFormProps {
   onSuccess?: () => void;
 }
 
-export function EarlyRepaymentForm({ loanId, onSuccess }: EarlyRepaymentFormProps) {
+export function EarlyRepaymentForm({ loanId, onSuccess }: EarlyRepaymentFormProps): React.JSX.Element {
   const [repaymentAmount, setRepaymentAmount] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<EarlyRepaymentResult | null>(null);

@@ -4,7 +4,7 @@ import { Moon, Sun, Monitor } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 import { Button } from '@finapp/ui';
 
-export function ThemeToggle() {
+export function ThemeToggle(): React.JSX.Element {
   const { theme, setTheme } = useTheme();
 
   const cycleTheme = () => {

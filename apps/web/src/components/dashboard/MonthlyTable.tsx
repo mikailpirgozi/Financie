@@ -15,7 +15,7 @@ interface MonthlyTableProps {
   data: MonthlyDashboardData[];
 }
 
-export function MonthlyTable({ data }: MonthlyTableProps) {
+export function MonthlyTable({ data }: MonthlyTableProps): React.JSX.Element {
   const formatCurrency = (value: string) => {
     return new Intl.NumberFormat('sk-SK', {
       style: 'currency',

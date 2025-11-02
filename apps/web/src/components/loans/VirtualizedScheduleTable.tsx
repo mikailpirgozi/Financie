@@ -27,7 +27,7 @@ export function VirtualizedScheduleTable({
   schedule,
   loading,
   onPay,
-}: Props) {
+}: Props): React.JSX.Element {
   const parentRef = useRef<HTMLDivElement>(null);
 
   // ✅ Memoizované výpočty (raz pri načítaní)

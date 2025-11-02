@@ -108,7 +108,7 @@ const steps = [
   },
 ];
 
-export function WelcomeFlow({ onComplete, onSkip }: WelcomeFlowProps) {
+export function WelcomeFlow({ onComplete, onSkip }: WelcomeFlowProps): React.JSX.Element {
   const [currentStep, setCurrentStep] = useState(0);
 
   const handleNext = () => {

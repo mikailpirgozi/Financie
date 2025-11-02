@@ -27,7 +27,7 @@ interface SidebarProps {
   currentHouseholdId?: string;
 }
 
-export function Sidebar({ isOpen = true, onClose, households, currentHouseholdId }: SidebarProps) {
+export function Sidebar({ isOpen = true, onClose, households, currentHouseholdId }: SidebarProps): React.JSX.Element {
   const [pathname, setPathname] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const pathnameFromHook = usePathname();

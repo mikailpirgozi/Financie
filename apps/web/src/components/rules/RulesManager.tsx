@@ -13,7 +13,7 @@ interface Rule {
   created_at: string;
 }
 
-export function RulesManager() {
+export function RulesManager(): React.JSX.Element {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);

@@ -8,7 +8,7 @@ interface InviteFormProps {
   householdId: string;
 }
 
-export function InviteForm({ householdId }: InviteFormProps) {
+export function InviteForm({ householdId }: InviteFormProps): React.JSX.Element {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'admin' | 'member' | 'viewer'>('member');
   const [isSubmitting, setIsSubmitting] = useState(false);

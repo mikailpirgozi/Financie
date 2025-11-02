@@ -43,7 +43,7 @@ const roleDescriptions = {
   viewer: 'Len čítanie, nemôže upravovať',
 };
 
-export function HouseholdMembers({ members, currentUserId, isOwner }: HouseholdMembersProps) {
+export function HouseholdMembers({ members, currentUserId, isOwner }: HouseholdMembersProps): React.JSX.Element {
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
 
   const handleRoleChange = async (memberId: string, newRole: string) => {

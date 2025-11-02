@@ -13,7 +13,7 @@ interface LanguageSwitcherProps {
   currentLocale: string;
 }
 
-export function LanguageSwitcher({ currentLocale }: LanguageSwitcherProps) {
+export function LanguageSwitcher({ currentLocale }: LanguageSwitcherProps): React.JSX.Element {
   const [isPending, startTransition] = useTransition();
 
   const handleLanguageChange = (locale: string) => {

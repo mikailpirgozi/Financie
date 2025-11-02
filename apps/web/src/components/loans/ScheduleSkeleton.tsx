@@ -1,4 +1,4 @@
-export function ScheduleSkeleton() {
+export function ScheduleSkeleton(): React.JSX.Element {
   return (
     <div className="space-y-2">
       <div className="h-10 bg-muted animate-pulse rounded" />

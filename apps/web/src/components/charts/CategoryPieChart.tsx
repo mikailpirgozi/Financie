@@ -28,7 +28,7 @@ const DEFAULT_COLORS = [
   '#84cc16',
 ];
 
-export function CategoryPieChart({ data }: CategoryPieChartProps) {
+export function CategoryPieChart({ data }: CategoryPieChartProps): React.JSX.Element {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('sk-SK', {
       style: 'currency',

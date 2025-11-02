@@ -44,7 +44,7 @@ export function ManageTemplatesDialog({
   onOpenChange,
   householdId,
   categories,
-}: ManageTemplatesDialogProps) {
+}: ManageTemplatesDialogProps): React.JSX.Element {
   const router = useRouter();
   const [templates, setTemplates] = useState<IncomeTemplate[]>([]);
   const [loading, setLoading] = useState(false);

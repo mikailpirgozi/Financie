@@ -10,7 +10,7 @@ interface DeleteDialogProps {
   trigger?: React.ReactNode;
 }
 
-export function DeleteDialog({ title, description, onConfirm, trigger }: DeleteDialogProps) {
+export function DeleteDialog({ title, description, onConfirm, trigger }: DeleteDialogProps): React.JSX.Element {
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {

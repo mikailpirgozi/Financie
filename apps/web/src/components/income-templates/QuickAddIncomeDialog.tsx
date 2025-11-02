@@ -34,7 +34,7 @@ export function QuickAddIncomeDialog({
   template,
   open,
   onOpenChange,
-}: QuickAddIncomeDialogProps) {
+}: QuickAddIncomeDialogProps): React.JSX.Element {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -5,7 +5,7 @@ interface LoansSummaryProps {
   data: MonthlyDashboardData;
 }
 
-export function LoansSummary({ data }: LoansSummaryProps) {
+export function LoansSummary({ data }: LoansSummaryProps): React.JSX.Element {
   const formatCurrency = (value: string) => {
     return new Intl.NumberFormat('sk-SK', {
       style: 'currency',
