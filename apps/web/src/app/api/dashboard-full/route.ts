@@ -139,9 +139,9 @@ export async function GET(request: NextRequest) {
 
     const response = {
       household: {
-        id: household.id,
-        name: household.name,
-        created_at: household.created_at,
+        id: householdData.id,
+        name: householdData.name,
+        created_at: householdData.created_at,
       },
       dashboard: {
         currentMonth: currentMonth
