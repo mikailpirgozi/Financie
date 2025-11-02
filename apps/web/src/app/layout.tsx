@@ -15,7 +15,7 @@ export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
-}) {
+}): React.JSX.Element {
   return (
     <html lang="sk" suppressHydrationWarning>
       <body className={inter.className}>

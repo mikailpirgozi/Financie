@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent } from '@finapp/ui';
 import { CategoriesClient } from './CategoriesClient';
 
-export default async function CategoriesPage() {
+export default async function CategoriesPage(): Promise<React.ReactNode> {
   const supabase = await createClient();
   const {
     data: { user },

@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@fina
 import { PricingPlans } from '@/components/subscription/PricingPlans';
 import { CurrentSubscription } from '@/components/subscription/CurrentSubscription';
 
-export default async function SubscriptionPage() {
+export default async function SubscriptionPage(): Promise<React.ReactNode> {
   const supabase = await createClient();
   const {
     data: { user },

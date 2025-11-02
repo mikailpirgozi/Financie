@@ -4,7 +4,7 @@ import { Button } from '@finapp/ui';
 import { Card, CardContent } from '@finapp/ui';
 import { ExpensesClient } from './ExpensesClient';
 
-export default async function ExpensesPage() {
+export default async function ExpensesPage(): Promise<React.ReactNode> {
   const supabase = await createClient();
   const {
     data: { user },

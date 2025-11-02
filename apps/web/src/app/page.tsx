@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { Button } from '@finapp/ui';
 import { createClient } from '@/lib/supabase/server';
 
-export default async function HomePage() {
+export default async function HomePage(): Promise<React.ReactNode> {
   // Check if user is authenticated
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

@@ -4,7 +4,7 @@ import { Button } from '@finapp/ui';
 import { Card, CardContent } from '@finapp/ui';
 import { AssetsClient } from './AssetsClient';
 
-export default async function AssetsPage() {
+export default async function AssetsPage(): Promise<React.ReactNode> {
   const supabase = await createClient();
   const {
     data: { user },

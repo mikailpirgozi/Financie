@@ -10,7 +10,7 @@ import type { LoanCalculationInput } from '@finapp/core';
 
 type CalculationMode = 'rate' | 'payment' | 'term' | 'auto';
 
-export default function NewLoanPage() {
+export default function NewLoanPage(): React.JSX.Element {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

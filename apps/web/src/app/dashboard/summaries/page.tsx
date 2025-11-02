@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardHeader, CardTitle, CardContent } from '@finapp/ui';
 
-export default async function SummariesPage() {
+export default async function SummariesPage(): Promise<React.ReactNode> {
   const supabase = await createClient();
   const {
     data: { user },

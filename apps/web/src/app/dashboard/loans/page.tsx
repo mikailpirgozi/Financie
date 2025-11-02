@@ -37,7 +37,7 @@ const getLoans = unstable_cache(
   }
 );
 
-export default async function LoansPage() {
+export default async function LoansPage(): Promise<React.ReactNode> {
   const supabase = await createClient();
   const {
     data: { user },

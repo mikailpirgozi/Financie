@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export default function DebugPage() {
+export default function DebugPage(): React.JSX.Element {
   const [info, setInfo] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
   const supabase = createClient();

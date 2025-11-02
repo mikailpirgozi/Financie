@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@fina
 import { HouseholdMembers } from '@/components/household/HouseholdMembers';
 import { InviteForm } from '@/components/household/InviteForm';
 
-export default async function HouseholdPage() {
+export default async function HouseholdPage(): Promise<React.ReactNode> {
   const supabase = await createClient();
   const {
     data: { user },

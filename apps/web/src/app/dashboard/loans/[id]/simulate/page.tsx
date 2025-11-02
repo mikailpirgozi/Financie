@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@finapp/ui';
 import { Button } from '@finapp/ui';
 import type { LoanComparisonResult, SimulationScenario } from '@finapp/core';
 
-export default function LoanSimulatePage() {
+export default function LoanSimulatePage(): React.JSX.Element {
   const params = useParams();
   const router = useRouter();
   const loanId = params.id as string;

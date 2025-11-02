@@ -11,7 +11,7 @@ interface Category {
   name: string;
 }
 
-export default function NewIncomePage() {
+export default function NewIncomePage(): React.JSX.Element {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

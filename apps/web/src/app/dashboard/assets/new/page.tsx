@@ -6,7 +6,7 @@ import { Button } from '@finapp/ui';
 import { Input } from '@finapp/ui';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@finapp/ui';
 
-export default function NewAssetPage() {
+export default function NewAssetPage(): React.JSX.Element {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

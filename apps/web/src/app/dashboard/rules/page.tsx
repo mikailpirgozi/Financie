@@ -1,6 +1,6 @@
 import { RulesManager } from '@/components/rules/RulesManager';
 
-export default function RulesPage() {
+export default function RulesPage(): React.JSX.Element {
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Categorization Rules</h1>
