@@ -3,6 +3,8 @@ import { createAssetSchema } from '@finapp/core';
 import { createAsset, getAssets } from '@/lib/api/assets';
 import { createClient } from '@/lib/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();

@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { calculateEarlyRepayment } from '@finapp/core';
 import type { EarlyRepaymentCalculationInput } from '@finapp/core';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }

@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { simulateLoanScenarios } from '@finapp/core';
 import type { LoanSimulationInput } from '@finapp/core';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }

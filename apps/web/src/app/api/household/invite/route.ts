@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { sendHouseholdInviteEmail } from '@/lib/email';
 import { checkSubscriptionLimits } from '@/lib/stripe/subscriptions';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();

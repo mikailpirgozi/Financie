@@ -3,6 +3,8 @@ import { createCategorySchema } from '@finapp/core';
 import { createCategory, getCategories } from '@/lib/api/categories';
 import { createClient } from '@/lib/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();

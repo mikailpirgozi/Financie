@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getMonthlySummaries } from '@/lib/api/summaries';
 import { createClient } from '@/lib/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
 interface MonthlySummaryData {
   month: string;
   total_income?: number | string;

@@ -3,6 +3,8 @@ import { updateAssetValueSchema } from '@finapp/core';
 import { addAssetValuation } from '@/lib/api/assets';
 import { createClient } from '@/lib/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }

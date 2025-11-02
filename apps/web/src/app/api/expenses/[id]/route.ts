@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getExpense, updateExpense } from '@/lib/api/expenses';
 import { createClient } from '@/lib/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }

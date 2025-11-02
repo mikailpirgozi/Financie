@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/server';
 import { STRIPE_PLANS } from '@/lib/stripe/config';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
   try {
     if (!stripe) {

@@ -3,6 +3,8 @@ import { createExpenseSchema } from '@finapp/core';
 import { createExpense, getExpenses } from '@/lib/api/expenses';
 import { createClient } from '@/lib/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();

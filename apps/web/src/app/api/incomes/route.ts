@@ -3,6 +3,8 @@ import { createIncomeSchema } from '@finapp/core';
 import { createIncome, getIncomes } from '@/lib/api/incomes';
 import { createClient } from '@/lib/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();

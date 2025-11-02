@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST() {
   try {
     if (!stripe) {
