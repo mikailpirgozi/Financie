@@ -12,7 +12,7 @@ interface Category {
   name: string;
 }
 
-export default function EditIncomePage({ params }: { params: { id: string } }) {
+export default function EditIncomePage({ params }: { params: { id: string } }): React.JSX.Element {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

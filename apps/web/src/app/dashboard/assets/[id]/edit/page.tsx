@@ -15,7 +15,7 @@ const ASSET_KINDS = [
   { value: 'other', label: '📦 Iné' },
 ];
 
-export default function EditAssetPage({ params }: { params: { id: string } }) {
+export default function EditAssetPage({ params }: { params: { id: string } }): React.JSX.Element {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

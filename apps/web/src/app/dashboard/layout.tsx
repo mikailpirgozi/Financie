@@ -7,7 +7,7 @@ export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
-}) {
+}): Promise<React.ReactNode> {
   const supabase = await createClient();
   const {
     data: { user },

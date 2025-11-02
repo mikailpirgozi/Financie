@@ -6,8 +6,8 @@ import { getAuditLogs, AuditAction, AuditEntityType } from '@/lib/audit/logger';
 export default async function AuditPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
-}) {
+  searchParams: Record<string, string | string[] | undefined>;
+}): Promise<React.ReactNode> {
   const supabase = await createClient();
   const {
     data: { user },

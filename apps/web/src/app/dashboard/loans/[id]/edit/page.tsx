@@ -7,7 +7,7 @@ import { Button } from '@finapp/ui';
 import { Input } from '@finapp/ui';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@finapp/ui';
 
-export default function EditLoanPage({ params }: { params: { id: string } }) {
+export default function EditLoanPage({ params }: { params: { id: string } }): React.JSX.Element {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

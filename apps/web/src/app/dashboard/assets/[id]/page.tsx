@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { Card, CardHeader, CardTitle, CardContent } from '@finapp/ui';
 import { RevaluationDialog } from './RevaluationDialog';
 
-export default async function AssetDetailPage({ params }: { params: { id: string } }) {
+export default async function AssetDetailPage({ params }: { params: { id: string } }): Promise<React.ReactNode> {
   const supabase = await createClient();
   const {
     data: { user },

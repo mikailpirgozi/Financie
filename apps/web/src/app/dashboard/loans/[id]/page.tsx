@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@finapp/ui';
 import { LoanDetailClient } from './LoanDetailClient';
 
-export default async function LoanDetailPage({ params }: { params: { id: string } }) {
+export default async function LoanDetailPage({ params }: { params: { id: string } }): Promise<React.ReactNode> {
   const supabase = await createClient();
   const {
     data: { user },
