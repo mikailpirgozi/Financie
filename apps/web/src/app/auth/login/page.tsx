@@ -8,7 +8,7 @@ import { Button } from '@finapp/ui';
 import { Input } from '@finapp/ui';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@finapp/ui';
 
-export default function LoginPage() {
+export default function LoginPage(): React.JSX.Element {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
