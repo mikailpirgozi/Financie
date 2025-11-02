@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getExpense, updateExpense, deleteExpense } from '@/lib/api/expenses';
+import { getExpense, updateExpense } from '@/lib/api/expenses';
 import { createClient } from '@/lib/supabase/server';
 
 export async function GET(

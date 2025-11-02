@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { getLoans, getCurrentHousehold, type Loan } from '../../src/lib/api';
 import { ErrorMessage } from '../../src/components/ErrorMessage';
@@ -28,6 +29,7 @@ type FilterStatus = 'all' | 'active' | 'paid_off';
 
 export default function LoansScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,13 +70,15 @@ export default function LoansScreen() {
   };
 
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | string) => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(num)) return '0 €';
     return new Intl.NumberFormat('sk-SK', {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount);
+    }).format(num);
   };
 
   const getStatusBadgeVariant = (status: string): 'default' | 'success' | 'warning' => {
@@ -90,8 +94,10 @@ export default function LoansScreen() {
   };
 
   const calculateProgress = (loan: Loan): number => {
-    if (loan.principal === 0) return 0;
-    return (loan.amount_paid / loan.principal) * 100;
+    const principal = typeof loan.principal === 'string' ? parseFloat(loan.principal) : loan.principal;
+    const amountPaid = typeof loan.amount_paid === 'string' ? parseFloat(loan.amount_paid) : loan.amount_paid;
+    if (principal === 0 || isNaN(principal) || isNaN(amountPaid)) return 0;
+    return (amountPaid / principal) * 100;
   };
 
   const filteredLoans = loans.filter((loan) => {
@@ -101,7 +107,10 @@ export default function LoansScreen() {
 
   const totalRemaining = loans
     .filter((l) => l.status === 'active')
-    .reduce((sum, l) => sum + l.remaining_balance, 0);
+    .reduce((sum, l) => {
+      const balance = typeof l.remaining_balance === 'string' ? parseFloat(l.remaining_balance) : l.remaining_balance;
+      return sum + (isNaN(balance) ? 0 : balance);
+    }, 0);
 
   const renderLoanCard = ({ item }: { item: Loan }) => {
     const progress = calculateProgress(item);
@@ -168,7 +177,7 @@ export default function LoansScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
           <Text style={styles.title}>Úvery</Text>
         </View>
         <View style={styles.content}>
@@ -189,7 +198,7 @@ export default function LoansScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <View style={styles.headerTop}>
           <Text style={styles.title}>Úvery</Text>
           <TouchableOpacity

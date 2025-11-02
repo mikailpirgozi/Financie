@@ -23,12 +23,40 @@ export function SimplePieChart({ data, size = 150, title }: SimplePieChartProps)
     );
   }
 
-  const total = data.reduce((sum, d) => sum + d.value, 0);
+  // Validate and filter data
+  const validData = data.filter(d => 
+    d.value != null && 
+    !isNaN(d.value) && 
+    isFinite(d.value) && 
+    d.value > 0
+  );
+
+  if (validData.length === 0) {
+    return (
+      <View style={styles.container}>
+        {title && <Text style={styles.title}>{title}</Text>}
+        <Text style={styles.emptyText}>Žiadne dáta na zobrazenie</Text>
+      </View>
+    );
+  }
+
+  const total = validData.reduce((sum, d) => sum + d.value, 0);
+  
+  // Safety check for total
+  if (total <= 0 || isNaN(total) || !isFinite(total)) {
+    return (
+      <View style={styles.container}>
+        {title && <Text style={styles.title}>{title}</Text>}
+        <Text style={styles.emptyText}>Žiadne dáta na zobrazenie</Text>
+      </View>
+    );
+  }
+
   const radius = size / 2 - 10;
   const center = size / 2;
 
   let currentAngle = -Math.PI / 2; // Start from top
-  const slices = data.map((item) => {
+  const slices = validData.map((item) => {
     const sliceAngle = (item.value / total) * Math.PI * 2;
     const startAngle = currentAngle;
     const endAngle = currentAngle + sliceAngle;

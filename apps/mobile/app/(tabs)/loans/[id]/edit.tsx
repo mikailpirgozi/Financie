@@ -115,10 +115,10 @@ export default function EditLoanScreen() {
       // Populate form
       reset({
         lender: loanData.lender,
-        loanType: loanData.loan_type as any,
+        loanType: loanData.loan_type as 'annuity' | 'fixed_principal' | 'interest_only' | 'auto_loan',
         principal: loanData.principal,
         annualRate: loanData.rate,
-        rateType: loanData.rate_type as any,
+        rateType: (loanData.rate_type ?? 'fixed') as 'fixed' | 'variable',
         startDate: loanData.start_date,
         termMonths: loanData.term,
         feeSetup: loanData.fee_setup || 0,

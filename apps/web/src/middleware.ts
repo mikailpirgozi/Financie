@@ -36,6 +36,16 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  // Skip auth check for API routes with Authorization header (mobile app)
+  // They will validate the token themselves
+  const authHeader = request.headers.get('authorization');
+  const hasBearerToken = authHeader?.startsWith('Bearer ');
+  
+  if (request.nextUrl.pathname.startsWith('/api/') && hasBearerToken) {
+    // Let API routes handle bearer token authentication
+    return response;
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

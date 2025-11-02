@@ -6,90 +6,86 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#0070f3',
-        tabBarInactiveTintColor: '#8B5CF6',
+        tabBarActiveTintColor: '#8b5cf6',
+        tabBarInactiveTintColor: '#9ca3af',
+        tabBarStyle: {
+          backgroundColor: '#ffffff',
+          borderTopWidth: 1,
+          borderTopColor: '#e5e7eb',
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 65,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Dashboard',
-          tabBarIcon: () => <Text>📊</Text>,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>📊</Text>,
+          href: '/(tabs)',
         }}
       />
       <Tabs.Screen
         name="loans"
         options={{
           title: 'Úvery',
-          tabBarIcon: () => <Text>💰</Text>,
-        }}
-      />
-      <Tabs.Screen
-        name="assets"
-        options={{
-          title: 'Majetok',
-          tabBarIcon: () => <Text>🏠</Text>,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>💰</Text>,
+          href: '/(tabs)/loans',
         }}
       />
       <Tabs.Screen
         name="expenses"
         options={{
           title: 'Výdavky',
-          tabBarIcon: () => <Text>💸</Text>,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>💸</Text>,
+          href: '/(tabs)/expenses',
         }}
       />
       <Tabs.Screen
         name="incomes"
         options={{
           title: 'Príjmy',
-          tabBarIcon: () => <Text>💵</Text>,
-        }}
-      />
-      <Tabs.Screen
-        name="categories"
-        options={{
-          title: 'Kategórie',
-          tabBarIcon: () => <Text>🏷️</Text>,
-        }}
-      />
-      <Tabs.Screen
-        name="summaries"
-        options={{
-          title: 'Súhrny',
-          tabBarIcon: () => <Text>📈</Text>,
-        }}
-      />
-      <Tabs.Screen
-        name="household"
-        options={{
-          title: 'Domácnosť',
-          tabBarIcon: () => <Text>👥</Text>,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>💵</Text>,
+          href: '/(tabs)/incomes',
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Nastavenia',
-          tabBarIcon: () => <Text>⚙️</Text>,
+          title: 'Viac',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>⋯</Text>,
+          href: '/(tabs)/settings',
         }}
       />
-      <Tabs.Screen
-        name="rules"
-        options={{
-          title: 'Pravidlá',
-          tabBarIcon: () => <Text>⚡</Text>,
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="audit"
-        options={{
-          title: 'Audit Log',
-          tabBarIcon: () => <Text>📝</Text>,
-          href: null,
-        }}
-      />
+      {/* Explicitly hide all nested routes from tab bar */}
+      <Tabs.Screen name="loans/[id]/index" options={{ href: null }} />
+      <Tabs.Screen name="loans/[id]/edit" options={{ href: null }} />
+      <Tabs.Screen name="loans/[id]/pay" options={{ href: null }} />
+      <Tabs.Screen name="loans/[id]/simulate" options={{ href: null }} />
+      <Tabs.Screen name="loans/[id]/early-repayment" options={{ href: null }} />
+      <Tabs.Screen name="loans/new" options={{ href: null }} />
+      <Tabs.Screen name="expenses/[id]/index" options={{ href: null }} />
+      <Tabs.Screen name="expenses/[id]/edit" options={{ href: null }} />
+      <Tabs.Screen name="expenses/new" options={{ href: null }} />
+      <Tabs.Screen name="incomes/[id]/index" options={{ href: null }} />
+      <Tabs.Screen name="incomes/[id]/edit" options={{ href: null }} />
+      <Tabs.Screen name="incomes/new" options={{ href: null }} />
+      <Tabs.Screen name="incomes/templates" options={{ href: null }} />
+      <Tabs.Screen name="incomes/templates/new" options={{ href: null }} />
+      <Tabs.Screen name="settings/profile" options={{ href: null }} />
+      <Tabs.Screen name="settings/notifications" options={{ href: null }} />
+      <Tabs.Screen name="settings/language" options={{ href: null }} />
+      <Tabs.Screen name="settings/about" options={{ href: null }} />
+      <Tabs.Screen name="settings/help" options={{ href: null }} />
+      <Tabs.Screen name="settings/privacy" options={{ href: null }} />
+      <Tabs.Screen name="settings/subscription" options={{ href: null }} />
     </Tabs>
   );
 }
+
 

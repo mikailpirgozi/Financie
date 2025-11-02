@@ -15,12 +15,34 @@ import { Button } from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
 import * as Haptics from 'expo-haptics';
 
+interface ExpenseData {
+  id: string;
+  household_id: string;
+  date: string;
+  amount: number;
+  description?: string;
+  merchant?: string;
+  note?: string;
+  category_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface CategoryData {
+  id: string;
+  household_id: string;
+  name: string;
+  kind: string;
+  parent_id: string | null;
+  created_at: string;
+}
+
 export default function ExpenseDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [loading, setLoading] = useState(true);
-  const [expense, setExpense] = useState<any | null>(null);
-  const [category, setCategory] = useState<any | null>(null);
+  const [expense, setExpense] = useState<ExpenseData | null>(null);
+  const [category, setCategory] = useState<CategoryData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
     visible: false,

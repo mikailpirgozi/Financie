@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 export interface RealtimePayload {
   type: 'INSERT' | 'UPDATE' | 'DELETE';
@@ -18,7 +19,7 @@ export interface RealtimeHandlers {
 export function setupRealtimeSubscriptions(
   householdId: string,
   handlers: RealtimeHandlers
-): any {
+): RealtimeChannel {
   const channel = supabase.channel(`household-${householdId}`, {
     config: {
       broadcast: { self: true },
@@ -35,11 +36,11 @@ export function setupRealtimeSubscriptions(
       table: 'expenses',
       filter: `household_id=eq.${householdId}`,
     },
-    (payload: any) => {
+    (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
       handlers.onExpenseChange?.({
-        type: payload.eventType.toUpperCase() as any,
-        new: payload.new || {},
-        old: payload.old || {},
+        type: (payload.eventType?.toUpperCase() ?? 'UPDATE') as 'INSERT' | 'UPDATE' | 'DELETE',
+        new: (payload.new ?? {}) as Record<string, unknown>,
+        old: (payload.old ?? {}) as Record<string, unknown>,
       });
     }
   );
@@ -53,11 +54,11 @@ export function setupRealtimeSubscriptions(
       table: 'incomes',
       filter: `household_id=eq.${householdId}`,
     },
-    (payload: any) => {
+    (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
       handlers.onIncomeChange?.({
-        type: payload.eventType.toUpperCase() as any,
-        new: payload.new || {},
-        old: payload.old || {},
+        type: (payload.eventType?.toUpperCase() ?? 'UPDATE') as 'INSERT' | 'UPDATE' | 'DELETE',
+        new: (payload.new ?? {}) as Record<string, unknown>,
+        old: (payload.old ?? {}) as Record<string, unknown>,
       });
     }
   );
@@ -71,11 +72,11 @@ export function setupRealtimeSubscriptions(
       table: 'loans',
       filter: `household_id=eq.${householdId}`,
     },
-    (payload: any) => {
+    (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
       handlers.onLoanChange?.({
-        type: payload.eventType.toUpperCase() as any,
-        new: payload.new || {},
-        old: payload.old || {},
+        type: (payload.eventType?.toUpperCase() ?? 'UPDATE') as 'INSERT' | 'UPDATE' | 'DELETE',
+        new: (payload.new ?? {}) as Record<string, unknown>,
+        old: (payload.old ?? {}) as Record<string, unknown>,
       });
     }
   );
@@ -89,11 +90,11 @@ export function setupRealtimeSubscriptions(
       table: 'assets',
       filter: `household_id=eq.${householdId}`,
     },
-    (payload: any) => {
+    (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
       handlers.onAssetChange?.({
-        type: payload.eventType.toUpperCase() as any,
-        new: payload.new || {},
-        old: payload.old || {},
+        type: (payload.eventType?.toUpperCase() ?? 'UPDATE') as 'INSERT' | 'UPDATE' | 'DELETE',
+        new: (payload.new ?? {}) as Record<string, unknown>,
+        old: (payload.old ?? {}) as Record<string, unknown>,
       });
     }
   );
@@ -111,7 +112,7 @@ export function setupRealtimeSubscriptions(
   return channel;
 }
 
-export function cleanupRealtimeSubscriptions(channel: any): void {
+export function cleanupRealtimeSubscriptions(channel: RealtimeChannel | null): void {
   if (channel) {
     supabase.removeChannel(channel);
   }
@@ -120,7 +121,7 @@ export function cleanupRealtimeSubscriptions(channel: any): void {
 export function setupDashboardRealtimeSubscriptions(
   householdId: string,
   onDataChange: (type: 'expense' | 'income' | 'loan' | 'asset') => void
-): any {
+): RealtimeChannel {
   return setupRealtimeSubscriptions(householdId, {
     onExpenseChange: () => onDataChange('expense'),
     onIncomeChange: () => onDataChange('income'),

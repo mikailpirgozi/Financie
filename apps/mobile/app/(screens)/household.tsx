@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getCurrentHousehold } from '../../src/lib/api';
 import { env } from '@/lib/env';
 import { supabase } from '@/lib/supabase';
@@ -38,6 +39,7 @@ interface HouseholdMember {
 
 export default function HouseholdScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [currentHousehold, setCurrentHousehold] = useState<Household | null>(null);
   const [members, setMembers] = useState<HouseholdMember[]>([]);
@@ -82,7 +84,18 @@ export default function HouseholdScreen() {
           .eq('user_id', user.id);
 
         if (userHouseholds) {
-          setAllHouseholds(userHouseholds.map((h: any) => h.household).filter(Boolean));
+          interface HouseholdMemberResponse {
+            household: Household | Household[] | null;
+          }
+          const households = userHouseholds
+            .map((h: HouseholdMemberResponse) => {
+              if (Array.isArray(h.household)) {
+                return h.household[0] ?? null;
+              }
+              return h.household;
+            })
+            .filter((h): h is Household => h !== null);
+          setAllHouseholds(households);
         }
       }
     } catch (err) {
@@ -158,7 +171,7 @@ export default function HouseholdScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingTop: insets.top }}>
         <View style={styles.content}>
           <View style={styles.header}>
             <Text style={styles.title}>Domácnosť</Text>
@@ -201,7 +214,7 @@ export default function HouseholdScreen() {
           <View style={styles.membersHeader}>
             <Text style={styles.sectionTitle}>Členovia</Text>
             <Button
-              onPress={() => router.push('/(tabs)/household/invite')}
+              onPress={() => router.push('/(screens)/household/invite')}
               size="sm"
             >
               + Pozvať
@@ -240,7 +253,7 @@ export default function HouseholdScreen() {
           {/* Actions */}
           <View style={styles.actions}>
             <Button
-              onPress={() => router.push('/(tabs)/household/settings')}
+              onPress={() => router.push('/(screens)/household/settings')}
               variant="outline"
               fullWidth
             >

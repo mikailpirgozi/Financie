@@ -33,7 +33,7 @@ export const supabase = createClient(
   env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   {
     auth: {
-      storage: customStorage as any,
+      storage: customStorage,
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,

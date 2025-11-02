@@ -45,12 +45,12 @@ export function Input({
     borderColor: borderColor.value,
   }));
 
-  const handleFocus = (e: any) => {
+  const handleFocus = (e: Parameters<NonNullable<TextInputProps['onFocus']>>[0]) => {
     borderColor.value = withTiming(error ? '#ef4444' : '#0070f3', { duration: 200 });
     onFocus?.(e);
   };
 
-  const handleBlur = (e: any) => {
+  const handleBlur = (e: Parameters<NonNullable<TextInputProps['onBlur']>>[0]) => {
     borderColor.value = withTiming(error ? '#ef4444' : '#e5e7eb', { duration: 200 });
     onBlur?.(e);
   };

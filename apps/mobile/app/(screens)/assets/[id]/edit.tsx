@@ -89,7 +89,7 @@ export default function EditAssetScreen() {
       if (!assetData) throw new Error('Majetok nebol nájdený');
 
       reset({
-        kind: assetData.kind as any,
+        kind: assetData.kind as 'real_estate' | 'vehicle' | 'business' | 'loan_receivable' | 'other',
         name: assetData.name,
         acquisitionValue: assetData.acquisition_value,
         currentValue: assetData.current_value,

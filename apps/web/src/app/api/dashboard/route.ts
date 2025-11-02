@@ -2,6 +2,84 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getMonthlySummaries } from '@/lib/api/summaries';
 import { createClient } from '@/lib/supabase/server';
 
+/**
+ * Calculate dashboard data dynamically from transactions
+ */
+async function calculateDashboardData(householdId: string, monthsCount: number) {
+  const supabase = await createClient();
+  
+  // Get current date for month calculations
+  const now = new Date();
+  
+  // Calculate month range
+  const months: string[] = [];
+  for (let i = 0; i < monthsCount; i++) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
+  }
+
+  // Get incomes for all months
+  const { data: incomes } = await supabase
+    .from('incomes')
+    .select('date, amount')
+    .eq('household_id', householdId)
+    .gte('date', `${months[months.length - 1]}-01`)
+    .lte('date', `${months[0]}-31`);
+
+  // Get expenses for all months
+  const { data: expenses } = await supabase
+    .from('expenses')
+    .select('date, amount')
+    .eq('household_id', householdId)
+    .gte('date', `${months[months.length - 1]}-01`)
+    .lte('date', `${months[0]}-31`);
+
+  // Get loans and compute remaining balance
+  const { data: loans } = await supabase
+    .from('loans')
+    .select('id, principal, status')
+    .eq('household_id', householdId);
+
+  const { data: metrics } = await supabase
+    .from('loan_metrics')
+    .select('*')
+    .in('loan_id', loans?.map(l => l.id) || []);
+
+  // Get assets
+  const { data: assets } = await supabase
+    .from('assets')
+    .select('current_value')
+    .eq('household_id', householdId);
+
+  // Calculate monthly summaries
+  const summaryByMonth = new Map<string, any>();
+  
+  months.forEach(month => {
+    const monthStart = `${month}-01`;
+    const monthEnd = `${month}-31`;
+    
+    const monthIncomes = incomes?.filter(i => i.date >= monthStart && i.date <= monthEnd) || [];
+    const monthExpenses = expenses?.filter(e => e.date >= monthStart && e.date <= monthEnd) || [];
+    
+    const totalIncome = monthIncomes.reduce((sum, i) => sum + parseFloat(String(i.amount)), 0);
+    const totalExpenses = monthExpenses.reduce((sum, e) => sum + parseFloat(String(e.amount)), 0);
+    
+    const loanBalanceRemaining = metrics?.reduce((sum, m) => sum + parseFloat(String(m.current_balance ?? 0)), 0) ?? 0;
+    const totalAssets = assets?.reduce((sum, a) => sum + parseFloat(String(a.current_value)), 0) ?? 0;
+    
+    summaryByMonth.set(month, {
+      month,
+      total_income: totalIncome,
+      total_expenses: totalExpenses,
+      loan_balance_remaining: loanBalanceRemaining,
+      total_assets: totalAssets,
+      net_worth: totalAssets - loanBalanceRemaining,
+    });
+  });
+
+  return Array.from(summaryByMonth.values());
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -24,7 +102,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'monthsCount must be a positive number' }, { status: 400 });
     }
 
-    const summaries = await getMonthlySummaries(householdId);
+    // Try to get summaries from monthly_summaries table first
+    let summaries = await getMonthlySummaries(householdId);
+    
+    // If no summaries, calculate dynamically
+    if (!summaries || summaries.length === 0) {
+      console.log('📊 No monthly_summaries found, calculating dynamically...');
+      summaries = await calculateDashboardData(householdId, monthsCount);
+    }
 
     // Format summaries for mobile app
     // Take the first monthsCount items (already sorted descending by month)

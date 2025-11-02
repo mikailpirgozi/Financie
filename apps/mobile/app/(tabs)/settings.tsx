@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Card } from '@/components/ui/Card';
@@ -24,6 +25,7 @@ interface UserProfile {
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
@@ -117,7 +119,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingTop: insets.top }}>
         <View style={styles.content}>
           {/* Profile Card */}
           <Card style={styles.profileCard}>
@@ -128,6 +130,67 @@ export default function SettingsScreen() {
             </View>
             <Text style={styles.name}>{profile?.full_name || 'Používateľ'}</Text>
             <Text style={styles.email}>{profile?.email}</Text>
+          </Card>
+
+          {/* Quick Actions */}
+          <Text style={styles.sectionTitle}>Ďalšie funkcie</Text>
+
+          <Card style={styles.menuCard}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/(screens)/assets');
+              }}
+            >
+              <View style={styles.menuLeft}>
+                <Text style={styles.menuIcon}>🏠</Text>
+                <Text style={styles.menuLabel}>Majetok</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/(screens)/categories');
+              }}
+            >
+              <View style={styles.menuLeft}>
+                <Text style={styles.menuIcon}>🏷️</Text>
+                <Text style={styles.menuLabel}>Kategórie</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/(screens)/summaries');
+              }}
+            >
+              <View style={styles.menuLeft}>
+                <Text style={styles.menuIcon}>📈</Text>
+                <Text style={styles.menuLabel}>Súhrny</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/(screens)/household');
+              }}
+            >
+              <View style={styles.menuLeft}>
+                <Text style={styles.menuIcon}>👥</Text>
+                <Text style={styles.menuLabel}>Domácnosť</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
           </Card>
 
           {/* Settings Sections */}

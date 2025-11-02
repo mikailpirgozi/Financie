@@ -27,13 +27,34 @@ export function SimpleLineChart({
   if (!data || data.length === 0) {
     return (
       <View style={styles.container}>
+        {title && <Text style={styles.title}>{title}</Text>}
         <Text style={styles.emptyText}>Bez dát</Text>
       </View>
     );
   }
 
-  const maxValue = Math.max(...data.map((d) => d.value));
-  const minValue = Math.min(...data.map((d) => d.value));
+  // Validate and filter data
+  const validData = data.filter(d => 
+    d.value != null && 
+    !isNaN(d.value) && 
+    isFinite(d.value)
+  ).map(d => ({
+    ...d,
+    value: d.value || 0 // Replace null/undefined with 0
+  }));
+
+  if (validData.length === 0) {
+    return (
+      <View style={styles.container}>
+        {title && <Text style={styles.title}>{title}</Text>}
+        <Text style={styles.emptyText}>Žiadne dáta na zobrazenie</Text>
+      </View>
+    );
+  }
+
+  const values = validData.map((d) => d.value);
+  const maxValue = Math.max(...values, 0);
+  const minValue = Math.min(...values, 0);
   const range = maxValue - minValue || 1;
 
   const padding = 40;
@@ -41,8 +62,8 @@ export function SimpleLineChart({
   const chartHeight = height - padding * 2;
 
   // Calculate points
-  const points = data.map((d, i) => {
-    const x = (i / (data.length - 1 || 1)) * chartWidth + padding;
+  const points = validData.map((d, i) => {
+    const x = (i / (validData.length - 1 || 1)) * chartWidth + padding;
     const y = height - ((d.value - minValue) / range) * chartHeight - padding;
     return { x, y, ...d };
   });

@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  TouchableOpacity,
   RefreshControl,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -121,7 +120,7 @@ export default function AssetsScreen() {
         style={styles.assetCard}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push(`/(tabs)/assets/${item.id}`);
+          router.push(`/(screens)/assets/${item.id}`);
         }}
       >
         <View style={styles.cardHeader}>
@@ -156,9 +155,6 @@ export default function AssetsScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Majetok</Text>
-        </View>
         <View style={styles.content}>
           <SkeletonCard />
           <SkeletonCard />
@@ -179,24 +175,12 @@ export default function AssetsScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Text style={styles.title}>Majetok</Text>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => router.push('/(tabs)/assets/new')}
-          >
-            <Text style={styles.addButtonText}>+ Pridať</Text>
-          </TouchableOpacity>
+      {assets.length > 0 && (
+        <View style={styles.summary}>
+          <Text style={styles.summaryLabel}>Celková hodnota:</Text>
+          <Text style={styles.summaryValue}>{formatCurrency(totalValue)}</Text>
         </View>
-
-        {assets.length > 0 && (
-          <View style={styles.summary}>
-            <Text style={styles.summaryLabel}>Celková hodnota:</Text>
-            <Text style={styles.summaryValue}>{formatCurrency(totalValue)}</Text>
-          </View>
-        )}
-      </View>
+      )}
 
       <View style={styles.content}>
         {assets.length === 0 ? (
@@ -204,7 +188,7 @@ export default function AssetsScreen() {
             <Text style={styles.emptyIcon}>🏠</Text>
             <Text style={styles.emptyText}>Zatiaľ nemáte žiadny majetok</Text>
             <Button
-              onPress={() => router.push('/(tabs)/assets/new')}
+              onPress={() => router.push('/(screens)/assets/new')}
               style={{ marginTop: 16 }}
             >
               Pridať prvý majetok
@@ -237,36 +221,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-  },
-  header: {
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  addButton: {
-    backgroundColor: '#f59e0b',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  addButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
   },
   summary: {
     flexDirection: 'row',

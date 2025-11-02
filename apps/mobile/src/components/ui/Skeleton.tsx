@@ -35,12 +35,20 @@ export function Skeleton({
     opacity: interpolate(opacity.value, [0.3, 1], [0.3, 0.7]),
   }));
 
+  const widthValue: number | `${number}%` | 'auto' = typeof width === 'number' 
+    ? width 
+    : width === '100%' 
+    ? '100%' 
+    : typeof width === 'string' && width.endsWith('%')
+    ? width as `${number}%`
+    : 'auto';
+  
   return (
     <Animated.View
       style={[
         styles.skeleton,
         {
-          width: width as any,
+          width: widthValue,
           height,
           borderRadius,
         },

@@ -37,7 +37,7 @@ export function FormSelect<T extends FieldValues>({
           label={label}
           value={field.value}
           options={options}
-          onChange={field.onChange}
+          onChange={(value) => field.onChange(value as T[typeof name])}
           placeholder={placeholder}
           error={fieldState.error?.message}
           disabled={disabled}

@@ -103,7 +103,7 @@ export default function RulesScreen() {
           style={[styles.swipeAction, styles.editAction]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            router.push(`/(tabs)/rules/${rule.id}/edit`);
+            router.push(`/(screens)/rules/${rule.id}/edit`);
           }}
         >
           <Text style={styles.swipeActionText}>✏️</Text>
@@ -185,7 +185,7 @@ export default function RulesScreen() {
           <Text style={styles.title}>Pravidlá</Text>
           <TouchableOpacity
             style={styles.addButton}
-            onPress={() => router.push('/(tabs)/rules/new')}
+            onPress={() => router.push('/(screens)/rules/new')}
           >
             <Text style={styles.addButtonText}>+ Pridať</Text>
           </TouchableOpacity>
@@ -202,7 +202,7 @@ export default function RulesScreen() {
               Vytvorte pravidlá pre automatickú kategorizáciu výdavkov a príjmov
             </Text>
             <Button
-              onPress={() => router.push('/(tabs)/rules/new')}
+              onPress={() => router.push('/(screens)/rules/new')}
               style={{ marginTop: 16 }}
             >
               Vytvoriť prvé pravidlo

@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { type Loan } from '@/lib/api';
+import { getLoan, type Loan } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -51,28 +51,34 @@ export default function LoanDetailScreen() {
       setLoading(true);
       setError(null);
 
-      // Fetch loan
-      const { data: loanData, error: loanError } = await supabase
-        .from('loans')
-        .select('*')
-        .eq('id', id)
-        .single();
+      console.log('📊 Loading loan detail:', id);
 
-      if (loanError) throw loanError;
-      if (!loanData) throw new Error('Úver nebol nájdený');
+      // Fetch loan using API (includes computed fields)
+      const { loan: loanData } = await getLoan(id!);
+
+      console.log('✅ Loan loaded:', {
+        id: loanData.id,
+        lender: loanData.lender,
+        principal: loanData.principal,
+        remaining_balance: loanData.remaining_balance,
+        amount_paid: loanData.amount_paid,
+      });
 
       setLoan(loanData);
 
-      // Fetch installments
+      // Fetch installments from Supabase
       const { data: installmentsData, error: installmentsError } = await supabase
         .from('loan_installments')
         .select('*')
         .eq('loan_id', id)
         .order('sequence_number', { ascending: true });
 
-      if (installmentsError) throw installmentsError;
+      if (installmentsError) {
+        console.warn('⚠️ Failed to load installments:', installmentsError);
+      }
       setInstallments(installmentsData || []);
     } catch (err) {
+      console.error('❌ Failed to load loan:', err);
       setError(err instanceof Error ? err.message : 'Nepodarilo sa načítať úver');
     } finally {
       setLoading(false);
@@ -117,12 +123,14 @@ export default function LoanDetailScreen() {
     setToast({ visible: true, message, type });
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | string) => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(num)) return '0,00 €';
     return new Intl.NumberFormat('sk-SK', {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 2,
-    }).format(amount);
+    }).format(num);
   };
 
   const formatDate = (dateString: string) => {
@@ -143,8 +151,10 @@ export default function LoanDetailScreen() {
   };
 
   const calculateProgress = (loan: Loan): number => {
-    if (loan.principal === 0) return 0;
-    return (loan.amount_paid / loan.principal) * 100;
+    const principal = typeof loan.principal === 'string' ? parseFloat(loan.principal) : loan.principal;
+    const amountPaid = typeof loan.amount_paid === 'string' ? parseFloat(loan.amount_paid) : loan.amount_paid;
+    if (principal === 0 || isNaN(principal) || isNaN(amountPaid)) return 0;
+    return (amountPaid / principal) * 100;
   };
 
   const getStatusLabel = (status: string): string => {
@@ -153,7 +163,7 @@ export default function LoanDetailScreen() {
     return status;
   };
 
-  const getInstallmentStatusBadge = (status: string): JSX.Element => {
+  const getInstallmentStatusBadge = (status: string): React.JSX.Element => {
     if (status === 'paid') {
       return <Badge variant="success">Zaplatené</Badge>;
     }
@@ -560,11 +570,6 @@ const styles = StyleSheet.create({
   showMoreButton: {
     paddingVertical: 12,
     alignItems: 'center',
-  },
-  showMoreText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8b5cf6',
   },
   actions: {
     position: 'absolute',

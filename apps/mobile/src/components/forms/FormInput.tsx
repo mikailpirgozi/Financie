@@ -14,7 +14,7 @@ interface FormInputProps<T extends FieldValues> extends Omit<TextInputProps, 'va
   containerStyle?: ViewStyle;
 }
 
-export function FormInput<T extends FieldValues>({
+export function FormInput<T extends FieldValues = FieldValues>({
   control,
   name,
   label,
@@ -32,14 +32,14 @@ export function FormInput<T extends FieldValues>({
       render={({ field, fieldState }) => (
         <Input
           label={label}
-          value={field.value || ''}
-          onChangeText={field.onChange}
+          value={String(field.value || '')}
+          onChangeText={(text) => field.onChange(text as T[typeof name])}
           onBlur={field.onBlur}
           error={fieldState.error?.message}
           leftIcon={leftIcon}
           rightIcon={rightIcon}
           showClearButton={showClearButton}
-          onClear={() => field.onChange('')}
+          onClear={() => field.onChange('' as T[typeof name])}
           {...textInputProps}
         />
       )}

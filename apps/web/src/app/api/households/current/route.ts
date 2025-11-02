@@ -16,9 +16,11 @@ export async function GET() {
     const memberData = await getCurrentHousehold(user.id);
 
     // Extract household details from the nested structure
-    const householdData = memberData.households;
+    const householdData = Array.isArray(memberData.households) 
+      ? memberData.households[0] 
+      : memberData.households;
     
-    if (!householdData) {
+    if (!householdData || !householdData.id) {
       return NextResponse.json({ error: 'Household not found' }, { status: 404 });
     }
 

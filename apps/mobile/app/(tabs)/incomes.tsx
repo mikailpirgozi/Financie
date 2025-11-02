@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Swipeable } from 'react-native-gesture-handler';
 import { getIncomes, getCurrentHousehold, deleteIncome, type Income } from '../../src/lib/api';
@@ -28,6 +29,7 @@ interface GroupedIncomes {
 
 export default function IncomesScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -204,7 +206,7 @@ export default function IncomesScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
           <Text style={styles.title}>Príjmy</Text>
         </View>
         <View style={styles.content}>
@@ -229,7 +231,7 @@ export default function IncomesScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <View style={styles.headerTop}>
           <Text style={styles.title}>Príjmy</Text>
           <View style={styles.headerButtons}>

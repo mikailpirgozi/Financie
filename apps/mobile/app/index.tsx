@@ -7,8 +7,8 @@ import { useRouter } from 'expo-router';
 export default function HomeScreen() {
   // const [expoPushToken, setExpoPushToken] = useState<string>('');
   const [notification, setNotification] = useState<Notifications.Notification | null>(null);
-  const notificationListener = useRef<Notifications.Subscription>();
-  const responseListener = useRef<Notifications.Subscription>();
+  const notificationListener = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<Notifications.Subscription | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -23,14 +23,14 @@ export default function HomeScreen() {
     // });
 
     // Listen for notifications
-    notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
+    notificationListener.current = Notifications.addNotificationReceivedListener((notification: Notifications.Notification) => {
       setNotification(notification);
-    });
+    }) as Notifications.Subscription;
 
     // Listen for notification responses
-    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+    responseListener.current = Notifications.addNotificationResponseReceivedListener((response: Notifications.NotificationResponse) => {
       console.log('Notification response:', response);
-    });
+    }) as Notifications.Subscription;
 
     return () => {
       if (notificationListener.current) {
@@ -95,7 +95,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.startButton} onPress={() => router.push('/auth/login')}>
+      <TouchableOpacity style={styles.startButton} onPress={() => router.push('/(auth)/login')}>
         <Text style={styles.startButtonText}>Začať</Text>
       </TouchableOpacity>
     </View>
@@ -121,24 +121,6 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 24,
     textAlign: 'center',
-  },
-  tokenContainer: {
-    marginVertical: 16,
-    padding: 12,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    width: '100%',
-  },
-  tokenLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 4,
-    color: '#666',
-  },
-  token: {
-    fontSize: 10,
-    color: '#333',
-    fontFamily: 'monospace',
   },
   notificationContainer: {
     marginVertical: 16,

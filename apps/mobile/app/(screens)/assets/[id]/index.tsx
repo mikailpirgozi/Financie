@@ -235,7 +235,7 @@ export default function AssetDetailScreen() {
       {/* Action Buttons */}
       <View style={styles.actions}>
         <Button
-          onPress={() => router.push(`/(tabs)/assets/${id}/revalue`)}
+          onPress={() => router.push(`/(screens)/assets/${id}/revalue`)}
           variant="primary"
           fullWidth
         >
@@ -243,7 +243,7 @@ export default function AssetDetailScreen() {
         </Button>
         <View style={styles.actionRow}>
           <Button
-            onPress={() => router.push(`/(tabs)/assets/${id}/edit`)}
+            onPress={() => router.push(`/(screens)/assets/${id}/edit`)}
             variant="outline"
             style={{ flex: 1, marginRight: 8 }}
           >

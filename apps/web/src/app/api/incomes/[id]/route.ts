@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getIncome, updateIncome, deleteIncome } from '@/lib/api/incomes';
+import { getIncome, updateIncome } from '@/lib/api/incomes';
 import { createClient } from '@/lib/supabase/server';
 
 export async function GET(

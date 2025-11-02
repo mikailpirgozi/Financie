@@ -64,7 +64,7 @@ export function CurrencyInput<T extends FieldValues>({
               const formatted = formatCurrency(text);
               setDisplayValue(formatted);
               const parsed = parseValue(formatted);
-              field.onChange(parsed);
+              field.onChange(parsed as T[typeof name]);
             }}
             onBlur={() => {
               field.onBlur();

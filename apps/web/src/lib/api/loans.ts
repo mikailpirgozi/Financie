@@ -83,14 +83,43 @@ export async function createLoan(input: CreateLoanInput) {
 export async function getLoans(householdId: string) {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  // Get loans with computed fields from loan_metrics
+  const { data: loans, error: loansError } = await supabase
     .from('loans')
     .select('*')
     .eq('household_id', householdId)
     .order('created_at', { ascending: false });
 
-  if (error) throw error;
-  return data;
+  if (loansError) throw loansError;
+  if (!loans) return [];
+
+  // Get metrics for all loans
+  const { data: metrics, error: metricsError } = await supabase
+    .from('loan_metrics')
+    .select('*')
+    .in('loan_id', loans.map(l => l.id));
+
+  if (metricsError) {
+    console.warn('Failed to load loan_metrics:', metricsError);
+  }
+
+  // Merge loans with metrics
+  const loansWithMetrics = loans.map(loan => {
+    const metric = metrics?.find(m => m.loan_id === loan.id);
+    
+    return {
+      ...loan,
+      // Add computed fields for mobile compatibility
+      remaining_balance: metric?.current_balance ?? loan.principal,
+      amount_paid: metric?.paid_principal ?? 0,
+      monthly_payment: metric?.next_installment?.total_due ?? 0,
+      // Also include these for compatibility
+      rate: loan.annual_rate,
+      term: loan.term_months,
+    };
+  });
+
+  return loansWithMetrics;
 }
 
 export async function getLoan(loanId: string) {
@@ -114,7 +143,24 @@ export async function getLoan(loanId: string) {
 
   if (scheduleError) throw scheduleError;
 
-  return { loan, schedule: schedule ?? [] };
+  // Get metrics for computed fields
+  const { data: metrics } = await supabase
+    .from('loan_metrics')
+    .select('*')
+    .eq('loan_id', loanId)
+    .single();
+
+  // Add computed fields for mobile compatibility
+  const loanWithMetrics = {
+    ...loan,
+    remaining_balance: metrics?.current_balance ?? loan.principal,
+    amount_paid: metrics?.paid_principal ?? 0,
+    monthly_payment: metrics?.next_installment?.total_due ?? 0,
+    rate: loan.annual_rate,
+    term: loan.term_months,
+  };
+
+  return { loan: loanWithMetrics, schedule: schedule ?? [] };
 }
 
 export async function payLoan(loanId: string, amount: number, date: Date) {

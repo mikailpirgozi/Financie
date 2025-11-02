@@ -80,14 +80,27 @@ async function apiFetch<T>(
       headers['Authorization'] = `Bearer ${session.access_token}`;
     }
 
+    const fullUrl = `${API_URL}${endpoint}`;
+    console.log('🌐 API Request:', {
+      url: fullUrl,
+      method: options.method || 'GET',
+      hasAuth: !!session?.access_token,
+    });
+
     const timeoutSignal = createTimeoutSignal(REQUEST_TIMEOUT);
     const combinedSignal = options.signal || timeoutSignal;
 
     try {
-      const response = await fetch(`${API_URL}${endpoint}`, {
+      const response = await fetch(fullUrl, {
         ...options,
         headers,
         signal: combinedSignal,
+      });
+
+      console.log('📡 API Response:', {
+        url: fullUrl,
+        status: response.status,
+        ok: response.ok,
       });
 
       if (!response.ok) {
@@ -95,11 +108,24 @@ async function apiFetch<T>(
           error: 'Unknown error',
           statusCode: response.status 
         }));
+        console.error('❌ API Error:', error);
         throw new Error(error.message || error.error || `HTTP ${response.status}`);
       }
 
-      return response.json();
+            const data = await response.json();
+            console.log('✅ API Success:', { 
+              url: fullUrl, 
+              dataKeys: Object.keys(data),
+              sample: JSON.stringify(data).slice(0, 200) 
+            });
+            return data;
     } catch (error) {
+      console.error('❌ API Fetch Error:', {
+        url: fullUrl,
+        error: error instanceof Error ? error.message : String(error),
+        name: error instanceof Error ? error.name : 'Unknown',
+      });
+      
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
           throw new ApiTimeoutError('Request timed out. Please check your internet connection.');

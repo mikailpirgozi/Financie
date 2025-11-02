@@ -7,8 +7,8 @@ interface FormFieldProps<T extends FieldValues> {
   name: Path<T>;
   render: (props: {
     field: {
-      value: any;
-      onChange: (value: any) => void;
+      value: T[Path<T>];
+      onChange: (value: T[Path<T>]) => void;
       onBlur: () => void;
     };
     fieldState: {

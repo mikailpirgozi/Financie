@@ -149,10 +149,13 @@ export default function CategoriesScreen() {
     });
 
     // Flatten for display with indentation
-    const flatten = (cats: (Category & { children?: Category[] })[], level = 0): Category[] => {
-      let result: Category[] = [];
+    interface CategoryWithLevel extends Category {
+      level: number;
+    }
+    const flatten = (cats: (Category & { children?: Category[] })[], level = 0): CategoryWithLevel[] => {
+      let result: CategoryWithLevel[] = [];
       cats.forEach((cat) => {
-        result.push({ ...cat, level } as any);
+        result.push({ ...cat, level });
         if (cat.children && cat.children.length > 0) {
           result = result.concat(flatten(cat.children, level + 1));
         }
@@ -170,7 +173,7 @@ export default function CategoriesScreen() {
           style={[styles.swipeAction, styles.editAction]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            router.push(`/(tabs)/categories/${category.id}/edit`);
+            router.push(`/(screens)/categories/${category.id}/edit`);
           }}
         >
           <Text style={styles.swipeActionText}>✏️</Text>
@@ -196,7 +199,7 @@ export default function CategoriesScreen() {
       <Swipeable renderRightActions={() => renderRightActions(item)}>
         <TouchableOpacity
           style={[styles.categoryItem, { paddingLeft: 16 + indent }]}
-          onPress={() => router.push(`/(tabs)/categories/${item.id}`)}
+          onPress={() => router.push(`/(screens)/categories/${item.id}`)}
         >
           <View style={styles.categoryInfo}>
             {level > 0 && <Text style={styles.indent}>└─</Text>}
@@ -213,9 +216,6 @@ export default function CategoriesScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Kategórie</Text>
-        </View>
         <View style={styles.content}>
           <SkeletonCard />
           <SkeletonCard />
@@ -239,17 +239,6 @@ export default function CategoriesScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Text style={styles.title}>Kategórie</Text>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => router.push('/(tabs)/categories/new')}
-          >
-            <Text style={styles.addButtonText}>+ Pridať</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
 
       <View style={styles.content}>
         {sections.length === 0 ? (
@@ -257,7 +246,7 @@ export default function CategoriesScreen() {
             <Text style={styles.emptyIcon}>📁</Text>
             <Text style={styles.emptyText}>Zatiaľ nemáte žiadne kategórie</Text>
             <Button
-              onPress={() => router.push('/(tabs)/categories/new')}
+              onPress={() => router.push('/(screens)/categories/new')}
               style={{ marginTop: 16 }}
             >
               Pridať prvú kategóriu
@@ -297,35 +286,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-  },
-  header: {
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  addButton: {
-    backgroundColor: '#6366f1',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  addButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
   },
   content: {
     flex: 1,
