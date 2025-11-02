@@ -16,7 +16,16 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.finapp.app",
+      "bundleIdentifier": "com.finapps.app",
+      "buildNumber": "2",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSCameraUsageDescription": "Táto aplikácia nepotrebuje prístup ku kamere.",
+        "NSPhotoLibraryUsageDescription": "Táto aplikácia nepotrebuje prístup k fotkám.",
+        "NSLocationWhenInUseUsageDescription": "Táto aplikácia nepotrebuje prístup k polohe."
+      },
       "runtimeVersion": {
         "policy": "appVersion"
       }
@@ -26,7 +35,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#8B5CF6"
       },
-      "package": "com.finapp.app",
+      "package": "com.finapps.app",
+      "versionCode": 1,
       "runtimeVersion": "1.0.0"
     },
     "web": {
@@ -46,8 +56,10 @@
     "extra": {
       "router": {
         "origin": false
+      },
+      "eas": {
+        "projectId": "3d1f59ee-9d99-4754-8ca4-9a56d8c37cbb"
       }
     }
   }
 }
-
