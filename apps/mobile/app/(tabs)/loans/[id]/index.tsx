@@ -6,24 +6,28 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { getLoan, type Loan } from '@/lib/api';
+import { getLoan, markLoanInstallmentPaid, markLoanPaidUntilToday, type Loan } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
+import { ExpandableInstallmentCard } from '@/components/ExpandableInstallmentCard';
 import * as Haptics from 'expo-haptics';
 
-interface LoanInstallment {
+interface LoanScheduleEntry {
   id: string;
   loan_id: string;
-  sequence_number: number;
+  installment_no: number;
   due_date: string;
-  principal: number;
-  interest: number;
-  total_amount: number;
+  principal_due: string;
+  interest_due: string;
+  fees_due: string;
+  total_due: string;
+  principal_balance_after: string;
   status: 'pending' | 'paid' | 'overdue';
   paid_at: string | null;
 }
@@ -33,8 +37,9 @@ export default function LoanDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [loading, setLoading] = useState(true);
   const [loan, setLoan] = useState<Loan | null>(null);
-  const [installments, setInstallments] = useState<LoanInstallment[]>([]);
-  const [showAllInstallments, setShowAllInstallments] = useState(false);
+  const [schedule, setSchedule] = useState<LoanScheduleEntry[]>([]);
+  const [optimisticSchedule, setOptimisticSchedule] = useState<LoanScheduleEntry[]>([]);
+  const [showPaidInstallments, setShowPaidInstallments] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
     visible: false,
@@ -66,23 +71,107 @@ export default function LoanDetailScreen() {
 
       setLoan(loanData);
 
-      // Fetch installments from Supabase
-      const { data: installmentsData, error: installmentsError } = await supabase
-        .from('loan_installments')
+      // Fetch schedule from loan_schedules table
+      const { data: scheduleData, error: scheduleError } = await supabase
+        .from('loan_schedules')
         .select('*')
         .eq('loan_id', id)
-        .order('sequence_number', { ascending: true });
+        .order('installment_no', { ascending: true });
 
-      if (installmentsError) {
-        console.warn('⚠️ Failed to load installments:', installmentsError);
+      if (scheduleError) {
+        console.warn('⚠️ Failed to load schedule:', scheduleError);
       }
-      setInstallments(installmentsData || []);
+
+      // Mark overdue entries
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const scheduleWithStatus = (scheduleData || []).map((entry) => {
+        if (entry.status === 'paid') return entry;
+        const dueDate = new Date(entry.due_date);
+        dueDate.setHours(0, 0, 0, 0);
+        if (dueDate < today) {
+          return { ...entry, status: 'overdue' as const };
+        }
+        return entry;
+      });
+
+      setSchedule(scheduleWithStatus);
+      setOptimisticSchedule(scheduleWithStatus);
     } catch (err) {
       console.error('❌ Failed to load loan:', err);
       setError(err instanceof Error ? err.message : 'Nepodarilo sa načítať úver');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleMarkInstallmentPaid = async (installmentId: string) => {
+    // Optimistic update
+    setOptimisticSchedule((prev) =>
+      prev.map((entry) =>
+        entry.id === installmentId
+          ? { ...entry, status: 'paid', paid_at: new Date().toISOString() }
+          : entry
+      )
+    );
+
+    try {
+      await markLoanInstallmentPaid(id!, installmentId);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showToast('Splátka označená ako uhradená', 'success');
+    } catch (error) {
+      // Rollback on error
+      setOptimisticSchedule(schedule);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showToast('Nepodarilo sa označiť splátku', 'error');
+      console.error('Failed to mark installment:', error);
+    } finally {
+      // Refresh data
+      await loadLoan();
+    }
+  };
+
+  const handleMarkAllUntilToday = async () => {
+    const today = new Date().toISOString().split('T')[0];
+
+    const pendingCount = schedule.filter(
+      (entry) =>
+        (entry.status === 'pending' || entry.status === 'overdue') &&
+        entry.due_date <= today
+    ).length;
+
+    if (pendingCount === 0) {
+      Alert.alert('Info', 'Žiadne splátky na označenie');
+      return;
+    }
+
+    Alert.alert(
+      'Potvrdiť úhradu',
+      `Naozaj chcete označiť ${pendingCount} ${pendingCount === 1 ? 'splátku' : 'splátok'} ako ${pendingCount === 1 ? 'uhradenú' : 'uhradené'}?`,
+      [
+        { text: 'Zrušiť', style: 'cancel' },
+        {
+          text: 'Potvrdiť',
+          onPress: async () => {
+            try {
+              await markLoanPaidUntilToday(id!, today);
+              await Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Success
+              );
+              showToast(`${pendingCount} ${pendingCount === 1 ? 'splátka označená' : 'splátok označených'}!`, 'success');
+              await loadLoan();
+            } catch (error) {
+              await Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Error
+              );
+              showToast('Nepodarilo sa označiť splátky', 'error');
+              console.error('Failed to mark installments:', error);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleDelete = () => {
@@ -142,13 +231,6 @@ export default function LoanDetailScreen() {
     });
   };
 
-  const formatMonthYear = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('sk-SK', {
-      month: 'short',
-      year: 'numeric',
-    });
-  };
 
   const calculateProgress = (loan: Loan): number => {
     const principal = typeof loan.principal === 'string' ? parseFloat(loan.principal) : loan.principal;
@@ -163,15 +245,7 @@ export default function LoanDetailScreen() {
     return status;
   };
 
-  const getInstallmentStatusBadge = (status: string): React.JSX.Element => {
-    if (status === 'paid') {
-      return <Badge variant="success">Zaplatené</Badge>;
-    }
-    if (status === 'overdue') {
-      return <Badge variant="warning">Po splatnosti</Badge>;
-    }
-    return <Badge variant="default">Nezaplatené</Badge>;
-  };
+
 
   if (loading) {
     return (
@@ -199,11 +273,25 @@ export default function LoanDetailScreen() {
   }
 
   const progress = calculateProgress(loan);
-  const displayedInstallments = showAllInstallments
-    ? installments
-    : installments.slice(0, 6);
-  const paidInstallments = installments.filter((i) => i.status === 'paid').length;
-  const totalInstallments = installments.length;
+  const paidInstallments = optimisticSchedule.filter((i) => i.status === 'paid').length;
+  const totalInstallments = optimisticSchedule.length;
+  
+  // Smart display: show unpaid + last 2 paid if user wants history
+  const unpaidSchedule = optimisticSchedule.filter((i) => i.status !== 'paid');
+  const paidSchedule = optimisticSchedule.filter((i) => i.status === 'paid');
+  const lastTwoPaid = paidSchedule.slice(-2);
+  
+  const displayedSchedule = showPaidInstallments
+    ? optimisticSchedule
+    : [...lastTwoPaid, ...unpaidSchedule];
+  
+  // Count pending installments until today for bulk action
+  const today = new Date().toISOString().split('T')[0];
+  const pendingUntilTodayCount = optimisticSchedule.filter(
+    (entry) =>
+      (entry.status === 'pending' || entry.status === 'overdue') &&
+      entry.due_date <= today
+  ).length;
 
   return (
     <View style={styles.container}>
@@ -287,7 +375,7 @@ export default function LoanDetailScreen() {
           </Card>
 
           {/* Payment Schedule */}
-          {installments.length > 0 && (
+          {optimisticSchedule.length > 0 && (
             <Card>
               <View style={styles.scheduleHeader}>
                 <Text style={styles.sectionTitle}>Splátkový kalendár</Text>
@@ -296,43 +384,47 @@ export default function LoanDetailScreen() {
                 </Text>
               </View>
 
-              {displayedInstallments.map((installment) => (
-                <View key={installment.id} style={styles.installmentRow}>
-                  <View style={styles.installmentLeft}>
-                    <Text style={styles.installmentNumber}>#{installment.sequence_number}</Text>
-                    <View>
-                      <Text style={styles.installmentDate}>
-                        {formatMonthYear(installment.due_date)}
-                      </Text>
-                      <Text style={styles.installmentAmount}>
-                        {formatCurrency(installment.total_amount)}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.installmentRight}>
-                    {getInstallmentStatusBadge(installment.status)}
-                  </View>
+              {/* Bulk Action Button */}
+              {pendingUntilTodayCount > 0 && (
+                <View style={styles.bulkActionContainer}>
+                  <Button
+                    onPress={handleMarkAllUntilToday}
+                    variant="primary"
+                    fullWidth
+                  >
+                    {`📅 Označiť ${pendingUntilTodayCount} ${pendingUntilTodayCount === 1 ? 'splátku' : 'splátok'} do dnes`}
+                  </Button>
                 </View>
-              ))}
-
-              {installments.length > 6 && !showAllInstallments && (
-                <Button
-                  onPress={() => setShowAllInstallments(true)}
-                  variant="outline"
-                  style={styles.showMoreButton}
-                >
-                  {`Zobraziť všetky (${installments.length})`}
-                </Button>
               )}
 
-              {showAllInstallments && (
-                <Button
-                  onPress={() => setShowAllInstallments(false)}
-                  variant="outline"
-                  style={styles.showMoreButton}
+              {displayedSchedule.map((entry) => (
+                <ExpandableInstallmentCard
+                  key={entry.id}
+                  entry={entry}
+                  onMarkPaid={handleMarkInstallmentPaid}
+                  formatCurrency={formatCurrency}
+                  formatDate={formatDate}
+                />
+              ))}
+
+              {paidSchedule.length > 2 && !showPaidInstallments && (
+                <TouchableOpacity
+                  style={styles.showHistoryButton}
+                  onPress={() => setShowPaidInstallments(true)}
                 >
-                  Zobraziť menej
-                </Button>
+                  <Text style={styles.showHistoryText}>
+                    Zobraziť históriu ({paidSchedule.length - 2} zaplatených)
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {showPaidInstallments && paidSchedule.length > 0 && (
+                <TouchableOpacity
+                  style={styles.showHistoryButton}
+                  onPress={() => setShowPaidInstallments(false)}
+                >
+                  <Text style={styles.showHistoryText}>Skryť históriu</Text>
+                </TouchableOpacity>
               )}
             </Card>
           )}
@@ -535,41 +627,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#8b5cf6',
   },
-  installmentRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  showHistoryButton: {
+    paddingVertical: 14,
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    marginTop: 8,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
   },
-  installmentLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  installmentNumber: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#8b5cf6',
-    width: 32,
-  },
-  installmentDate: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 2,
-  },
-  installmentAmount: {
+  showHistoryText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
-  },
-  installmentRight: {
-    marginLeft: 12,
-  },
-  showMoreButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
+    color: '#8b5cf6',
   },
   actions: {
     position: 'absolute',
@@ -584,6 +652,9 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     marginTop: 12,
+  },
+  bulkActionContainer: {
+    marginBottom: 16,
   },
 });
 

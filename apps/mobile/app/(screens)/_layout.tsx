@@ -1,14 +1,31 @@
 import { Stack, useRouter } from 'expo-router';
 import { TouchableOpacity, Text } from 'react-native';
+import { ChevronLeft } from 'lucide-react-native';
 
 export default function ScreensLayout() {
   const router = useRouter();
+
+  const BackButton = () => (
+    <TouchableOpacity
+      onPress={() => router.back()}
+      style={{ 
+        flexDirection: 'row', 
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+      }}
+    >
+      <ChevronLeft size={24} color="#8b5cf6" />
+      <Text style={{ color: '#8b5cf6', fontSize: 16, marginLeft: 4 }}>Späť</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <Stack
       screenOptions={{
         headerShown: true,
         headerBackTitle: 'Späť',
+        headerBackVisible: true,
         headerTintColor: '#8b5cf6',
         headerStyle: {
           backgroundColor: '#ffffff',
@@ -18,6 +35,8 @@ export default function ScreensLayout() {
           fontSize: 20,
           fontWeight: '600',
         },
+        presentation: 'card',
+        headerLeft: () => <BackButton />,
       }}
     >
       <Stack.Screen 

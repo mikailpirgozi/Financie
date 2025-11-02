@@ -212,6 +212,31 @@ export async function payLoan(
   });
 }
 
+/**
+ * Mark single loan installment as paid
+ */
+export async function markLoanInstallmentPaid(
+  loanId: string,
+  installmentId: string
+): Promise<{ success: boolean }> {
+  return apiFetch(`/api/loans/${loanId}/installments/${installmentId}/mark-paid`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * Mark all pending/overdue installments as paid until specified date
+ */
+export async function markLoanPaidUntilToday(
+  loanId: string,
+  date: string
+): Promise<{ success: boolean; count: number }> {
+  return apiFetch(`/api/loans/${loanId}/mark-paid-until-today`, {
+    method: 'POST',
+    body: JSON.stringify({ date }),
+  });
+}
+
 // ============================================
 // EXPENSES API
 // ============================================
@@ -375,6 +400,39 @@ export async function getDashboardData(
 ): Promise<DashboardData> {
   return apiFetch<DashboardData>(
     `/api/dashboard?householdId=${householdId}&monthsCount=${monthsCount}`
+  );
+}
+
+/**
+ * 🚀 NOVÁ OPTIMALIZOVANÁ VERZIA: Načíta všetko naraz
+ * Jeden request namiesto 3+
+ */
+export interface DashboardFullResponse {
+  household: Household;
+  dashboard: DashboardData;
+  overdueCount: number;
+  recentTransactions?: Array<{
+    id: string;
+    date: string;
+    amount: number;
+    merchant?: string;
+  }>;
+}
+
+export async function getDashboardFull(
+  monthsCount: number = 6,
+  includeRecent: boolean = false
+): Promise<DashboardFullResponse> {
+  const params = new URLSearchParams({
+    monthsCount: monthsCount.toString(),
+  });
+  
+  if (includeRecent) {
+    params.append('includeRecent', 'true');
+  }
+  
+  return apiFetch<DashboardFullResponse>(
+    `/api/dashboard-full?${params.toString()}`
   );
 }
 

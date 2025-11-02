@@ -47,7 +47,7 @@ export default function SettingsScreen() {
 
       // Fetch user profile
       const { data: profileData } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
@@ -55,7 +55,7 @@ export default function SettingsScreen() {
       setProfile({
         id: user.id,
         email: user.email || '',
-        full_name: profileData?.full_name || null,
+        full_name: profileData?.display_name || null,
         avatar_url: profileData?.avatar_url || null,
       });
     } catch (error) {
@@ -229,6 +229,27 @@ export default function SettingsScreen() {
               </View>
               <View style={styles.menuRight}>
                 <Badge variant="default">Slovenčina</Badge>
+                <Text style={styles.chevron}>›</Text>
+              </View>
+            </TouchableOpacity>
+          </Card>
+
+          <Text style={styles.sectionTitle}>Predplatné</Text>
+
+          <Card style={styles.menuCard}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/(tabs)/settings/subscription');
+              }}
+            >
+              <View style={styles.menuLeft}>
+                <Text style={styles.menuIcon}>👑</Text>
+                <Text style={styles.menuLabel}>Upgrade na Premium</Text>
+              </View>
+              <View style={styles.menuRight}>
+                <Badge variant="default">Free</Badge>
                 <Text style={styles.chevron}>›</Text>
               </View>
             </TouchableOpacity>

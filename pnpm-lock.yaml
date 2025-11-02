@@ -41,6 +41,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.76.0
         version: 2.78.0
+      '@tanstack/react-query':
+        specifier: ^5.90.5
+        version: 5.90.6(react@19.1.0)
       expo:
         specifier: ~54.0.0
         version: 54.0.21(@babel/core@7.28.5)(@expo/metro-runtime@6.1.2)(expo-router@6.0.14)(react-native@0.81.5)(react@19.1.0)
@@ -59,6 +62,9 @@ importers:
       expo-status-bar:
         specifier: ~3.0.8
         version: 3.0.8(react-native@0.81.5)(react@19.1.0)
+      lucide-react-native:
+        specifier: ^0.552.0
+        version: 0.552.0(react-native-svg@15.12.1)(react-native@0.81.5)(react@19.1.0)
       react:
         specifier: 19.1.0
         version: 19.1.0
@@ -68,9 +74,18 @@ importers:
       react-native:
         specifier: 0.81.5
         version: 0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0)
+      react-native-chart-kit:
+        specifier: ^6.12.0
+        version: 6.12.0(react-native-svg@15.12.1)(react-native@0.81.5)(react@19.1.0)
       react-native-gesture-handler:
         specifier: ~2.28.0
         version: 2.28.0(react-native@0.81.5)(react@19.1.0)
+      react-native-onboarding-swiper:
+        specifier: ^1.3.0
+        version: 1.3.0(prop-types@15.8.1)(react-native@0.81.5)(react@19.1.0)
+      react-native-purchases:
+        specifier: ^9.6.1
+        version: 9.6.1(react-native@0.81.5)(react@19.1.0)
       react-native-reanimated:
         specifier: ~4.1.1
         version: 4.1.3(@babel/core@7.28.5)(react-native-worklets@0.5.1)(react-native@0.81.5)(react@19.1.0)
@@ -229,7 +244,7 @@ importers:
         specifier: ^2.39.3
         version: 2.78.0
       '@tanstack/react-query':
-        specifier: ^5.90.5
+        specifier: ^5.90.6
         version: 5.90.6(react@18.3.1)
       '@tanstack/react-query-devtools':
         specifier: ^5.90.2
@@ -2184,7 +2199,7 @@ packages:
     peerDependencies:
       react-hook-form: ^7.0.0
     dependencies:
-      react-hook-form: 7.66.0(react@19.1.0)
+      react-hook-form: 7.66.0(react@18.3.1)
     dev: false
 
   /@humanwhocodes/config-array@0.13.0:
@@ -4584,6 +4599,20 @@ packages:
       - '@react-native-masked-view/masked-view'
     dev: false
 
+  /@revenuecat/purchases-js-hybrid-mappings@17.12.0:
+    resolution: {integrity: sha512-JFrdvitbE1TQk2mluQ8i7BtJXP3o1h5JNrkLYN5C9nC3coFHGd3ozPDpCJVmVRImOINKaroME6vkO3c8qbVpEw==}
+    dependencies:
+      '@revenuecat/purchases-js': 1.17.0
+    dev: false
+
+  /@revenuecat/purchases-js@1.17.0:
+    resolution: {integrity: sha512-FhGO0r5uVaIiWGScfrV3kQ3XHIEQlhq4ynYWLVkd0LX1YyJ+n0lPtJqmEUSCZTCjLOnG+B9A4qXqJFY5bplK7Q==}
+    dev: false
+
+  /@revenuecat/purchases-typescript-internal@17.12.0:
+    resolution: {integrity: sha512-HrczeTZUTgEpTTHM1XdqNV4JPmYLxPdTpZzRSYLWEdkaTMzNDSpyGR4RwP9SrTV8hS9p5RxNMlm7kbfmkXV7qA==}
+    dev: false
+
   /@rollup/rollup-android-arm-eabi@4.52.5:
     resolution: {integrity: sha512-8c1vW4ocv3UOMp9K+gToY5zL2XiiVw3k7f1ksf4yO1FlDFQ1C2u72iACFnSOceJFsWskc2WZNqeRhFRPzv+wtQ==}
     cpu: [arm]
@@ -4907,6 +4936,15 @@ packages:
     dependencies:
       '@tanstack/query-core': 5.90.6
       react: 18.3.1
+    dev: false
+
+  /@tanstack/react-query@5.90.6(react@19.1.0):
+    resolution: {integrity: sha512-gB1sljYjcobZKxjPbKSa31FUTyr+ROaBdoH+wSSs9Dk+yDCmMs+TkTV3PybRRVLC7ax7q0erJ9LvRWnMktnRAw==}
+    peerDependencies:
+      react: ^18 || ^19
+    dependencies:
+      '@tanstack/query-core': 5.90.6
+      react: 19.1.0
     dev: false
 
   /@tanstack/react-virtual@3.13.12(react-dom@18.3.1)(react@18.3.1):
@@ -8826,6 +8864,18 @@ packages:
     dependencies:
       yallist: 3.1.1
 
+  /lucide-react-native@0.552.0(react-native-svg@15.12.1)(react-native@0.81.5)(react@19.1.0):
+    resolution: {integrity: sha512-PWTUYyljcpHNql46wbaFk5lm0fdKg+2TnfsN/1KyuWw9McNNWZKkEqhz1k2n7wO/ZWB7jkM8QJCkZZT/SuQykw==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-native: '*'
+      react-native-svg: ^12.0.0 || ^13.0.0 || ^14.0.0 || ^15.0.0
+    dependencies:
+      react: 19.1.0
+      react-native: 0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0)
+      react-native-svg: 15.12.1(react-native@0.81.5)(react@19.1.0)
+    dev: false
+
   /lucide-react@0.316.0(react@18.3.1):
     resolution: {integrity: sha512-dTmYX1H4IXsRfVcj/KUxworV6814ApTl7iXaS21AimK2RUEl4j4AfOmqD3VR8phe5V91m4vEJ8tCK4uT1jE5nA==}
     peerDependencies:
@@ -9853,6 +9903,11 @@ packages:
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
     dev: true
 
+  /paths-js@0.4.11:
+    resolution: {integrity: sha512-3mqcLomDBXOo7Fo+UlaenG6f71bk1ZezPQy2JCmYHy2W2k5VKpP+Jbin9H0bjXynelTbglCqdFhSEkeIkKTYUA==}
+    engines: {node: '>=0.11.0'}
+    dev: false
+
   /pathval@1.1.1:
     resolution: {integrity: sha512-Dp6zGqpTdETdR63lehJYPeIOqpiNBNtc7BpWSLrOje7UaIsE5aY92r/AunQA7rsXvet3lrJ3JnZX29UPTKXyKQ==}
     dev: true
@@ -9912,6 +9967,10 @@ packages:
     resolution: {integrity: sha512-LKWqWJRhstyYo9pGvgor/ivk2w94eSjE3RGVuzLGlr3NmD8bf7RcYGze1mNdEHRP6TRP6rMuDHk5t44hnTRyow==}
     engines: {node: '>=14.19.0'}
     dev: true
+
+  /point-in-polygon@1.1.0:
+    resolution: {integrity: sha512-3ojrFwjnnw8Q9242TzgXuTD+eKiutbzyslcq1ydfu82Db2y+Ogbmyrkpv0Hgj31qwT3lbS9+QAAO/pIQM35XRw==}
+    dev: false
 
   /possible-typed-array-names@1.1.0:
     resolution: {integrity: sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg==}
@@ -10205,6 +10264,21 @@ packages:
     resolution: {integrity: sha512-x3Ax3kNSMIIkyVYhWPyO09bu0uttcAIoecO/um/rKGQ4EltYWVYtyiGkS/3xMynrbVQdS69Jhlv8FXUEZehlzA==}
     dev: false
 
+  /react-native-chart-kit@6.12.0(react-native-svg@15.12.1)(react-native@0.81.5)(react@19.1.0):
+    resolution: {integrity: sha512-nZLGyCFzZ7zmX0KjYeeSV1HKuPhl1wOMlTAqa0JhlyW62qV/1ZPXHgT8o9s8mkFaGxdqbspOeuaa6I9jUQDgnA==}
+    peerDependencies:
+      react: '> 16.7.0'
+      react-native: '>= 0.50.0'
+      react-native-svg: '> 6.4.1'
+    dependencies:
+      lodash: 4.17.21
+      paths-js: 0.4.11
+      point-in-polygon: 1.1.0
+      react: 19.1.0
+      react-native: 0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0)
+      react-native-svg: 15.12.1(react-native@0.81.5)(react@19.1.0)
+    dev: false
+
   /react-native-gesture-handler@2.28.0(react-native@0.81.5)(react@19.1.0):
     resolution: {integrity: sha512-0msfJ1vRxXKVgTgvL+1ZOoYw3/0z1R+Ked0+udoJhyplC2jbVKIJ8Z1bzWdpQRCV3QcQ87Op0zJVE5DhKK2A0A==}
     peerDependencies:
@@ -10224,6 +10298,35 @@ packages:
       react: '*'
       react-native: '*'
     dependencies:
+      react: 19.1.0
+      react-native: 0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0)
+    dev: false
+
+  /react-native-onboarding-swiper@1.3.0(prop-types@15.8.1)(react-native@0.81.5)(react@19.1.0):
+    resolution: {integrity: sha512-2ZPMrZrJFgR5dmVWIj60x/vTBWrm0BZPuc2w7Cz2Sq/8ChypCi3oL8F7GYMrzky1fmknCS6Z0WPphfZVpnLUnQ==}
+    peerDependencies:
+      prop-types: '*'
+      react: '*'
+      react-native: '*'
+    dependencies:
+      prop-types: 15.8.1
+      react: 19.1.0
+      react-native: 0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0)
+      tinycolor2: 1.6.0
+    dev: false
+
+  /react-native-purchases@9.6.1(react-native@0.81.5)(react@19.1.0):
+    resolution: {integrity: sha512-UQhkQsuwSOCDXXKOB1RDtFCZ1JSmSai10vG6/hP6xldSaZPl07va+xELqXOYaOSRHAWKGtb+zWZuhsiGVhcxVA==}
+    peerDependencies:
+      react: '>= 16.6.3'
+      react-native: '>= 0.73.0'
+      react-native-web: '*'
+    peerDependenciesMeta:
+      react-native-web:
+        optional: true
+    dependencies:
+      '@revenuecat/purchases-js-hybrid-mappings': 17.12.0
+      '@revenuecat/purchases-typescript-internal': 17.12.0
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0)
     dev: false
@@ -11469,6 +11572,10 @@ packages:
   /tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
     dev: true
+
+  /tinycolor2@1.6.0:
+    resolution: {integrity: sha512-XPaBkWQJdsf3pLKJV9p4qN/S+fm2Oj8AIPo1BTUhg5oxkvm9+SVEGFdhyOz7tTdUTfvxMiAs4sp6/eZO2Ew+pw==}
+    dev: false
 
   /tinyglobby@0.2.15:
     resolution: {integrity: sha512-j2Zq4NyQYG5XMST4cbs02Ak8iJUdxRM0XI5QyxXuZOzKOINmWurp3smXu3y5wDcJrptwpSjgXHzIQxR0omXljQ==}

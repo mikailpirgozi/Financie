@@ -46,7 +46,7 @@ export default function ProfileScreen() {
       if (!user) throw new Error('Nie ste prihlásený');
 
       const { data: profileData } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
@@ -54,12 +54,12 @@ export default function ProfileScreen() {
       const profileInfo: UserProfile = {
         id: user.id,
         email: user.email || '',
-        full_name: profileData?.full_name || null,
+        full_name: profileData?.display_name || null,
         avatar_url: profileData?.avatar_url || null,
       };
 
       setProfile(profileInfo);
-      setFullName(profileData?.full_name || '');
+      setFullName(profileData?.display_name || '');
     } catch (error) {
       showToast(
         error instanceof Error ? error.message : 'Nepodarilo sa načítať profil',
@@ -80,8 +80,8 @@ export default function ProfileScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       
       const { error } = await supabase
-        .from('users')
-        .update({ full_name: fullName.trim() || null })
+        .from('profiles')
+        .update({ display_name: fullName.trim() || null })
         .eq('id', user?.id);
 
       if (error) throw error;

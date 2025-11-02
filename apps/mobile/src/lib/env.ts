@@ -4,6 +4,8 @@ const envSchema = z.object({
   EXPO_PUBLIC_API_URL: z.string().url('Invalid API URL'),
   EXPO_PUBLIC_SUPABASE_URL: z.string().url('Invalid Supabase URL'),
   EXPO_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, 'Supabase anon key is required'),
+  EXPO_PUBLIC_REVENUECAT_IOS_KEY: z.string().optional(),
+  EXPO_PUBLIC_REVENUECAT_ANDROID_KEY: z.string().optional(),
 });
 
 type Env = z.infer<typeof envSchema>;
@@ -13,6 +15,8 @@ function validateEnv(): Env {
     EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL,
     EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
     EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+    EXPO_PUBLIC_REVENUECAT_IOS_KEY: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,
+    EXPO_PUBLIC_REVENUECAT_ANDROID_KEY: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
   };
 
   try {

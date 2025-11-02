@@ -12,7 +12,6 @@ import { getCurrentHousehold } from '../../src/lib/api';
 import { env } from '@/lib/env';
 import { supabase } from '@/lib/supabase';
 import { LoadingSpinner } from '../../src/components/LoadingSpinner';
-import { ErrorMessage } from '../../src/components/ErrorMessage';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -68,12 +67,21 @@ export default function HouseholdScreen() {
         .from('household_members')
         .select(`
           *,
-          user:users(email, full_name)
+          profiles(display_name, email, id)
         `)
         .eq('household_id', household.id);
 
       if (membersError) throw membersError;
-      setMembers(membersData || []);
+      
+      // Transform data to match expected format
+      const transformedMembers = (membersData || []).map((member: any) => ({
+        ...member,
+        user: {
+          email: member.profiles?.email || '',
+          full_name: member.profiles?.display_name || '',
+        }
+      }));
+      setMembers(transformedMembers);
 
       // Load all households user belongs to
       const { data: { user } } = await supabase.auth.getUser();
@@ -161,10 +169,29 @@ export default function HouseholdScreen() {
     );
   }
 
-  if (error) {
+  if (error || !currentHousehold) {
     return (
       <View style={styles.container}>
-        <ErrorMessage message={error} onRetry={loadHousehold} />
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyIcon}>🏠</Text>
+          <Text style={styles.emptyTitle}>Nemáte žiadnu domácnosť</Text>
+          <Text style={styles.emptyText}>
+            Domácnosť sa mala automaticky vytvoriť pri registrácii.
+          </Text>
+          <Text style={styles.emptyText}>
+            Prosím kontaktujte podporu alebo skúste sa odhlásiť a prihlásiť znova.
+          </Text>
+          <Button
+            onPress={loadHousehold}
+            variant="primary"
+            style={styles.retryButton}
+          >
+            Skúsiť znova
+          </Button>
+          {error && (
+            <Text style={styles.errorDetails}>Chyba: {error}</Text>
+          )}
+        </View>
       </View>
     );
   }
@@ -401,6 +428,40 @@ const styles = StyleSheet.create({
   },
   actions: {
     marginTop: 16,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 8,
+    lineHeight: 24,
+  },
+  retryButton: {
+    marginTop: 24,
+    minWidth: 200,
+  },
+  errorDetails: {
+    marginTop: 16,
+    fontSize: 12,
+    color: '#ef4444',
+    textAlign: 'center',
   },
 });
 

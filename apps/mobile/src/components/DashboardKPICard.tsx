@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
 interface DashboardKPICardProps {
@@ -6,7 +6,7 @@ interface DashboardKPICardProps {
   value: string;
   change?: string;
   subtitle?: string;
-  icon?: string;
+  icon?: ReactNode;
   color?: string;
   trend?: 'up' | 'down' | 'neutral';
 }
@@ -35,7 +35,7 @@ export function DashboardKPICard({
   return (
     <View style={[styles.card, { borderLeftColor: color }]}>
       <View style={styles.header}>
-        {icon && <Text style={styles.icon}>{icon}</Text>}
+        {icon && <View style={styles.iconContainer}>{icon}</View>}
         <Text style={styles.title}>{title}</Text>
       </View>
       <Text style={[styles.value, { color }]}>{value}</Text>
@@ -73,8 +73,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  icon: {
-    fontSize: 20,
+  iconContainer: {
     marginRight: 8,
   },
   title: {

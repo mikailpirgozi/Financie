@@ -1,23 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
-import { supabase } from '../../src/lib/supabase';
-import { getCurrentHousehold, getDashboardData, type DashboardData } from '../../src/lib/api';
+import { TrendingUp, TrendingDown, DollarSign, AlertTriangle, ChevronRight } from 'lucide-react-native';
 import { setupDashboardRealtimeSubscriptions, cleanupRealtimeSubscriptions } from '../../src/lib/realtime';
-import { LoadingSpinner } from '../../src/components/LoadingSpinner';
+import { DashboardSkeleton } from '../../src/components/DashboardSkeleton';
 import { ErrorMessage } from '../../src/components/ErrorMessage';
 import { DashboardKPICard } from '../../src/components/DashboardKPICard';
 import { LoansSummaryCard } from '../../src/components/LoansSummaryCard';
 import { AssetsSummaryCard } from '../../src/components/AssetsSummaryCard';
 import { MonthlyHistoryCard } from '../../src/components/MonthlyHistoryCard';
-import { SimpleLineChart, SimplePieChart } from '../../src/components/charts';
+import { SimplePieChart } from '../../src/components/charts';
+import { InteractiveCharts } from '../../src/components/charts/InteractiveCharts';
 import { Toast } from '@/components/ui/Toast';
+import { useCriticalDashboard, useSmartRefreshIndicator } from '../../src/hooks/useProgressiveDashboard';
+import { LazyChartSection, LazyHistorySection, useProgressiveRender } from '../../src/components/LazySection';
 
 export default function DashboardScreen() {
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [channel, setChannel] = useState<ReturnType<typeof setupDashboardRealtimeSubscriptions> | null>(null);
   const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
     visible: false,
@@ -25,89 +23,41 @@ export default function DashboardScreen() {
     type: 'success',
   });
   const router = useRouter();
+  
+  // 🚀 OPTIMALIZOVANÉ: Progressive loading s prioritami
+  const { 
+    household, 
+    dashboard: dashboardData, 
+    overdueCount, 
+    isLoading, 
+    error,
+    refetch,
+    isBackgroundRefreshing,
+  } = useCriticalDashboard(6);
+  
+  // Smart refresh indikátor (len pri background refetch)
+  const { showIndicator } = useSmartRefreshIndicator();
+  
+  // Progressive rendering sekcií
+  const { shouldRender } = useProgressiveRender(['kpi', 'summary', 'charts', 'history'], 150);
 
+  // Setup realtime subscriptions
   useEffect(() => {
-    loadDashboard();
-  }, []);
+    if (!household?.id) return;
 
-  useEffect(() => {
-    const setupRealtime = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          // User not authenticated yet, skip realtime setup
-          return;
-        }
-
-        const household = await getCurrentHousehold();
-        const realtimeChannel = setupDashboardRealtimeSubscriptions(household.id, (type) => {
-          // Auto-refresh dashboard when data changes
-          console.log(`Data changed: ${type}`);
-          loadDashboard();
-        });
-        setChannel(realtimeChannel);
-      } catch (err) {
-        // Log but don't fail - realtime is nice-to-have, not critical
-        console.warn('Failed to setup realtime:', err instanceof Error ? err.message : String(err));
-      }
-    };
-
-    setupRealtime();
+    const realtimeChannel = setupDashboardRealtimeSubscriptions(household.id, (type) => {
+      console.log(`Data changed: ${type} - auto refreshing...`);
+      refetch();
+    });
+    
+    setChannel(realtimeChannel);
 
     return () => {
-      if (channel) {
-        cleanupRealtimeSubscriptions(channel);
+      if (realtimeChannel) {
+        cleanupRealtimeSubscriptions(realtimeChannel);
       }
     };
-  }, []);
-
-  const loadDashboard = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      console.log('🔄 Loading dashboard...');
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.log('❌ No session found, redirecting to login');
-        router.replace('/(auth)/login');
-        return;
-      }
-
-      console.log('✅ Session found, user:', session.user.email);
-
-      console.log('🏠 Fetching current household...');
-      const household = await getCurrentHousehold();
-      console.log('✅ Household loaded:', household.id, household.name);
-
-      console.log('📊 Fetching dashboard data...');
-      const data = await getDashboardData(household.id, 6);
-      console.log('✅ Dashboard data loaded:', {
-        currentMonth: data.currentMonth.month,
-        historyLength: data.history.length,
-      });
-      
-      setDashboardData(data);
-    } catch (err) {
-      console.error('❌ Dashboard load error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Nepodarilo sa načítať dáta';
-      console.error('Error details:', {
-        name: err instanceof Error ? err.name : 'Unknown',
-        message: errorMessage,
-        stack: err instanceof Error ? err.stack : undefined,
-      });
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadDashboard();
-    setRefreshing(false);
-  };
+  }, [household?.id, refetch]);
 
   const formatCurrency = (value: string | number) => {
     const num = typeof value === 'string' ? parseFloat(value) : value;
@@ -133,12 +83,12 @@ export default function DashboardScreen() {
     return isNaN(num) ? 0 : num;
   };
 
-  if (loading) {
-    return <LoadingSpinner message="Načítavam dashboard..." />;
+  if (isLoading) {
+    return <DashboardSkeleton />;
   }
 
   if (error) {
-    return <ErrorMessage message={error} onRetry={loadDashboard} />;
+    return <ErrorMessage message={error instanceof Error ? error.message : 'Nepodarilo sa načítať dáta'} onRetry={() => refetch()} />;
   }
 
   if (!dashboardData) {
@@ -164,45 +114,79 @@ export default function DashboardScreen() {
   return (
     <View style={styles.wrapper}>
       <View style={styles.header}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.title}>Dashboard</Text>
           <Text style={styles.subtitle}>{currentMonth.month}</Text>
         </View>
+        {/* Mini refresh indikátor pri background refetch */}
+        {showIndicator && (
+          <View style={styles.refreshIndicator}>
+            <Text style={styles.refreshText}>●</Text>
+          </View>
+        )}
       </View>
 
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={isLoading} onRefresh={() => refetch()} />
         }
       >
+        {/* Overdue Alert Banner */}
+        {/* Alert banner - vždy hneď viditeľné */}
+        {overdueCount > 0 && (
+          <TouchableOpacity
+            style={styles.alertCard}
+            onPress={() => router.push('/(tabs)/loans')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.alertContent}>
+              <AlertTriangle size={32} color="#92400e" style={styles.alertIconSpace} />
+              <View style={styles.alertTextContainer}>
+                <Text style={styles.alertTitle}>
+                  {overdueCount === 1
+                    ? 'Máte 1 omeškanú splátku'
+                    : `Máte ${overdueCount} omeškané splátky`}
+                </Text>
+                <Text style={styles.alertSubtitle}>
+                  Kliknite pre zobrazenie
+                </Text>
+              </View>
+            </View>
+            <ChevronRight size={24} color="#92400e" />
+          </TouchableOpacity>
+        )}
 
-      {/* KPI Cards */}
+      {/* 🔥 PRIORITY 1: KPI Cards - render okamžite */}
+      {shouldRender('kpi') && (
       <View style={styles.kpiSection}>
         <DashboardKPICard
-          title="💰 Príjmy"
+          title="Príjmy"
           value={formatCurrency(currentMonth.totalIncome)}
           change={incomeChange ? `${incomeChange > 0 ? '+' : ''}${incomeChange.toFixed(1)}%` : undefined}
           trend={incomeChange ? (incomeChange > 0 ? 'up' : 'down') : 'neutral'}
           color="#10b981"
+          icon={<DollarSign size={20} color="#10b981" />}
         />
         <DashboardKPICard
-          title="💸 Výdaje"
+          title="Výdaje"
           value={formatCurrency(currentMonth.totalExpenses)}
           change={expensesChange ? `${expensesChange > 0 ? '+' : ''}${expensesChange.toFixed(1)}%` : undefined}
           trend={expensesChange ? (expensesChange < 0 ? 'up' : 'down') : 'neutral'}
           color="#ef4444"
+          icon={<TrendingDown size={20} color="#ef4444" />}
         />
         <DashboardKPICard
-          title="📊 Bilancia"
+          title="Bilancia"
           value={formatCurrency(currentMonth.netCashFlow)}
           subtitle="príjmy - výdaje"
           trend={safeParseFloat(currentMonth.netCashFlow) > 0 ? 'up' : safeParseFloat(currentMonth.netCashFlow) < 0 ? 'down' : 'neutral'}
           color="#0070f3"
+          icon={<TrendingUp size={20} color="#0070f3" />}
         />
         <DashboardKPICard
-          title="📈 Čistá hodnota"
+          title="Čistá hodnota"
           value={formatCurrency(currentMonth.netWorth)}
           change={
             netWorthChange !== 0
@@ -211,32 +195,24 @@ export default function DashboardScreen() {
           }
           trend={netWorthChange > 0 ? 'up' : netWorthChange < 0 ? 'down' : 'neutral'}
           color="#8b5cf6"
+          icon={<TrendingUp size={20} color="#8b5cf6" />}
         />
       </View>
+      )}
 
-      {/* Charts Section */}
-      {history.length > 0 && (
-        <View style={styles.chartsSection}>
-          <SimpleLineChart
-            title="📈 Príjmy a Výdaje (trendy)"
-            data={history.slice(0, 6).map((month) => ({
-              label: month.month.split(' ')[0],
-              value: safeParseFloat(month.totalIncome),
-            }))}
-            color="#10b981"
-            formatter={(v) => `€${Math.round(v)}`}
-          />
+      {/* 🔥 PRIORITY 2: Summary Cards - render po KPI */}
+      {shouldRender('summary') && (
+      <View style={styles.summarySection}>
+        <LoansSummaryCard data={currentMonth} />
+        <AssetsSummaryCard data={currentMonth} />
+      </View>
+      )}
+
+      {/* 🔥 PRIORITY 3: Charts - lazy load */}
+      {shouldRender('charts') && history.length > 0 && (
+        <LazyChartSection style={styles.chartsSection}>
+          <InteractiveCharts data={history.slice(0, 6)} />
           
-          <SimpleLineChart
-            title="📊 Čistá hodnota (trend)"
-            data={history.slice(0, 6).map((month) => ({
-              label: month.month.split(' ')[0],
-              value: safeParseFloat(month.netWorth),
-            }))}
-            color="#8b5cf6"
-            formatter={(v) => `€${Math.round(v)}`}
-          />
-
           <SimplePieChart
             title="💸 Rozdelenie výdavkov (posledný mesiac)"
             data={[
@@ -257,24 +233,18 @@ export default function DashboardScreen() {
               },
             ]}
           />
-        </View>
+        </LazyChartSection>
       )}
 
-      {/* Monthly History */}
-      {history.length > 0 && (
-        <View style={styles.historySection}>
+      {/* 🔥 PRIORITY 4: History - lazy load, najnižšia priorita */}
+      {shouldRender('history') && history.length > 0 && (
+        <LazyHistorySection style={styles.historySection}>
           <Text style={styles.sectionTitle}>📊 História (posledných 6 mesiacov)</Text>
           {history.map((monthData) => (
             <MonthlyHistoryCard key={monthData.month} data={monthData} />
           ))}
-        </View>
+        </LazyHistorySection>
       )}
-
-      {/* Loans & Assets Summary */}
-      <View style={styles.summarySection}>
-        <LoansSummaryCard data={currentMonth} />
-        <AssetsSummaryCard data={currentMonth} />
-      </View>
 
       {/* Quick Actions */}
       <View style={styles.quickActions}>
@@ -342,11 +312,58 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.95)',
     fontWeight: '500',
   },
+  refreshIndicator: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refreshText: {
+    color: '#10b981',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
   container: {
     flex: 1,
   },
   scrollContent: {
     paddingBottom: 40,
+  },
+  alertCard: {
+    margin: 16,
+    marginBottom: 0,
+    padding: 16,
+    backgroundColor: '#fef3c7',
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f59e0b',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  alertContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  alertIconSpace: {
+    marginRight: 12,
+  },
+  alertTextContainer: {
+    flex: 1,
+  },
+  alertTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#92400e',
+    marginBottom: 2,
+  },
+  alertSubtitle: {
+    fontSize: 13,
+    color: '#92400e',
+    opacity: 0.8,
   },
   kpiSection: {
     padding: 16,

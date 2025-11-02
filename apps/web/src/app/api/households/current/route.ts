@@ -15,7 +15,51 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const memberData = await getCurrentHousehold(user.id);
+    // Try to get existing household
+    let memberData;
+    try {
+      memberData = await getCurrentHousehold(user.id);
+    } catch (error) {
+      // If household not found, create default one
+      console.log('No household found for user, creating default household...');
+      
+      // Create household
+      const { data: newHousehold, error: createError } = await supabase
+        .from('households')
+        .insert({
+          name: 'Moja domácnosť',
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Failed to create household:', createError);
+        throw createError;
+      }
+
+      // Add user as admin member
+      const { error: memberError } = await supabase
+        .from('household_members')
+        .insert({
+          household_id: newHousehold.id,
+          user_id: user.id,
+          role: 'admin',
+        });
+
+      if (memberError) {
+        console.error('Failed to add user to household:', memberError);
+        throw memberError;
+      }
+
+      // Return newly created household
+      return NextResponse.json({
+        household: {
+          id: newHousehold.id,
+          name: newHousehold.name,
+          created_at: newHousehold.created_at,
+        },
+      });
+    }
 
     // Extract household details from the nested structure
     const householdData = Array.isArray(memberData.households) 

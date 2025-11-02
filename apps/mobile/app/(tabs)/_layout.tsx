@@ -1,7 +1,49 @@
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LayoutDashboard, Wallet, ShoppingCart, DollarSign, MoreHorizontal } from 'lucide-react-native';
+import { supabase } from '../../src/lib/supabase';
+import { getCurrentHousehold } from '../../src/lib/api';
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+  const [overdueCount, setOverdueCount] = useState(0);
+
+  useEffect(() => {
+    const fetchOverdueCount = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const household = await getCurrentHousehold();
+        const { data, error } = await supabase
+          .rpc('count_overdue_installments', { p_household_id: household.id });
+
+        if (!error && data !== null) {
+          setOverdueCount(data);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch overdue count:', err);
+      }
+    };
+
+    fetchOverdueCount();
+
+    // Realtime subscription for loan_schedules changes
+    const channel = supabase
+      .channel('overdue-badges')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'loan_schedules' },
+        fetchOverdueCount
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   return (
     <Tabs
       screenOptions={{
@@ -12,9 +54,9 @@ export default function TabsLayout() {
           backgroundColor: '#ffffff',
           borderTopWidth: 1,
           borderTopColor: '#e5e7eb',
-          paddingBottom: 8,
+          paddingBottom: Platform.OS === 'ios' ? insets.bottom : 8,
           paddingTop: 8,
-          height: 65,
+          height: Platform.OS === 'ios' ? 65 + insets.bottom : 65,
         },
         tabBarLabelStyle: {
           fontSize: 11,
@@ -26,7 +68,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>📊</Text>,
+          tabBarIcon: ({ color, size }) => <LayoutDashboard size={size} color={color} />,
           href: '/(tabs)',
         }}
       />
@@ -34,7 +76,8 @@ export default function TabsLayout() {
         name="loans"
         options={{
           title: 'Úvery',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>💰</Text>,
+          tabBarIcon: ({ color, size }) => <Wallet size={size} color={color} />,
+          tabBarBadge: overdueCount > 0 ? overdueCount : undefined,
           href: '/(tabs)/loans',
         }}
       />
@@ -42,7 +85,7 @@ export default function TabsLayout() {
         name="expenses"
         options={{
           title: 'Výdavky',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>💸</Text>,
+          tabBarIcon: ({ color, size }) => <ShoppingCart size={size} color={color} />,
           href: '/(tabs)/expenses',
         }}
       />
@@ -50,7 +93,7 @@ export default function TabsLayout() {
         name="incomes"
         options={{
           title: 'Príjmy',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>💵</Text>,
+          tabBarIcon: ({ color, size }) => <DollarSign size={size} color={color} />,
           href: '/(tabs)/incomes',
         }}
       />
@@ -58,7 +101,7 @@ export default function TabsLayout() {
         name="settings"
         options={{
           title: 'Viac',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>⋯</Text>,
+          tabBarIcon: ({ color, size }) => <MoreHorizontal size={size} color={color} />,
           href: '/(tabs)/settings',
         }}
       />
