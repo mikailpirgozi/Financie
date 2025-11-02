@@ -2,6 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getMonthlySummaries } from '@/lib/api/summaries';
 import { createClient } from '@/lib/supabase/server';
 
+interface MonthlySummaryData {
+  month: string;
+  total_income: number;
+  total_expenses: number;
+  loan_balance_remaining?: number;
+  total_assets?: number;
+  net_worth?: number;
+  loan_payments_total?: number | string;
+  loan_principal_paid?: number | string;
+  loan_interest_paid?: number | string;
+  loan_fees_paid?: number | string;
+  net_worth_change?: number | string;
+  total_income?: number | string;
+  total_expenses?: number | string;
+}
+
 /**
  * Calculate dashboard data dynamically from transactions
  */
@@ -52,7 +68,7 @@ async function calculateDashboardData(householdId: string, monthsCount: number) 
     .eq('household_id', householdId);
 
   // Calculate monthly summaries
-  const summaryByMonth = new Map<string, any>();
+  const summaryByMonth = new Map<string, MonthlySummaryData>();
   
   months.forEach(month => {
     const monthStart = `${month}-01`;
@@ -113,7 +129,7 @@ export async function GET(request: NextRequest) {
 
     // Format summaries for mobile app
     // Take the first monthsCount items (already sorted descending by month)
-    const history = summaries.slice(1, monthsCount).map((summary: any) => ({
+    const history = summaries.slice(1, monthsCount).map((summary: MonthlySummaryData) => ({
       month: summary.month,
       totalIncome: summary.total_income?.toString() ?? '0',
       totalExpenses: summary.total_expenses?.toString() ?? '0',
