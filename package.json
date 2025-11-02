@@ -18,6 +18,12 @@
     "pnpm": ">=8.0.0"
   },
   "packageManager": "pnpm@8.15.0",
+  "pnpm": {
+    "overrides": {
+      "@types/react": "^18.2.0",
+      "@types/react-dom": "^18.2.0"
+    }
+  },
   "devDependencies": {
     "tailwindcss": "^3.4.1",
     "tailwindcss-animate": "^1.0.7"

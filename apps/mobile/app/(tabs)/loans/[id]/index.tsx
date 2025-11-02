@@ -299,7 +299,8 @@ export default function LoanDetailScreen() {
         <View style={styles.content}>
           {/* Overview Card */}
           <Card style={styles.overviewCard}>
-            <Text style={styles.lender}>{loan.lender}</Text>
+            <Text style={styles.lender}>{loan.name || loan.lender}</Text>
+            {loan.name && <Text style={styles.sublender}>{loan.lender}</Text>}
             <Badge variant={loan.status === 'paid_off' ? 'success' : 'default'}>
               {getStatusLabel(loan.status)}
             </Badge>
@@ -543,6 +544,11 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: '#111827',
+    marginBottom: 4,
+  },
+  sublender: {
+    fontSize: 14,
+    color: '#6b7280',
     marginBottom: 8,
   },
   progressSection: {

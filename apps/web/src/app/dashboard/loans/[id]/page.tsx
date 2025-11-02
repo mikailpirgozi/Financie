@@ -108,8 +108,9 @@ export default async function LoanDetailPage({ params }: { params: { id: string 
           <Link href="/dashboard/loans" className="text-sm text-muted-foreground hover:underline">
             ← Späť na úvery
           </Link>
-          <h1 className="text-3xl font-bold mt-2">{loan.lender}</h1>
+          <h1 className="text-3xl font-bold mt-2">{loan.name || loan.lender}</h1>
           <p className="text-muted-foreground">
+            {loan.name && <span>{loan.lender} · </span>}
             {loan.loan_type === 'annuity' && 'Anuitný úver'}
             {loan.loan_type === 'fixed_principal' && 'Fixná istina'}
             {loan.loan_type === 'interest_only' && 'Interest-only'}

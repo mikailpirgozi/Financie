@@ -74,11 +74,26 @@ export default function HouseholdScreen() {
       if (membersError) throw membersError;
       
       // Transform data to match expected format
-      const transformedMembers = (membersData || []).map((member: any) => ({
-        ...member,
+      interface MemberData {
+        id: string;
+        user_id: string;
+        household_id: string;
+        role: string;
+        joined_at: string;
+        profiles?: {
+          email?: string;
+          display_name?: string;
+        };
+      }
+      const transformedMembers = (membersData || []).map((member: MemberData): HouseholdMember => ({
+        id: member.id,
+        user_id: member.user_id,
+        household_id: member.household_id,
+        role: member.role,
+        joined_at: member.joined_at,
         user: {
           email: member.profiles?.email || '',
-          full_name: member.profiles?.display_name || '',
+          full_name: member.profiles?.display_name || null,
         }
       }));
       setMembers(transformedMembers);

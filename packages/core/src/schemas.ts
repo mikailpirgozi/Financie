@@ -15,6 +15,7 @@ export const loanStatusSchema = z.enum(['active', 'paid_off', 'defaulted']);
 
 export const createLoanSchema = z.object({
   householdId: uuidSchema,
+  name: z.string().max(200).optional(),
   lender: z.string().min(1).max(200),
   loanType: loanTypeSchema,
   principal: positiveNumberSchema,

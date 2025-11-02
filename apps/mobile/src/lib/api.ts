@@ -148,6 +148,7 @@ async function apiFetch<T>(
 export interface Loan {
   id: string;
   household_id: string;
+  name?: string;
   lender: string;
   loan_type: 'annuity' | 'fixed_principal' | 'interest_only';
   principal: number;
@@ -187,6 +188,7 @@ export async function getLoan(loanId: string): Promise<{ loan: Loan; schedule: L
 }
 
 export interface CreateLoanData {
+  name?: string;
   lender: string;
   loan_type: 'annuity' | 'fixed_principal' | 'interest_only';
   principal: number;

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import { View, StyleSheet, Animated, StyleProp, ViewStyle } from 'react-native';
 
 /**
  * Shimmer efekt pre skeleton loading
@@ -8,7 +8,7 @@ function SkeletonShimmer({ width = '100%', height = 20, borderRadius = 8, style 
   width?: string | number;
   height?: number;
   borderRadius?: number;
-  style?: any;
+  style?: StyleProp<ViewStyle>;
 }) {
   const shimmerAnim = useRef(new Animated.Value(0)).current;
 
@@ -40,7 +40,7 @@ function SkeletonShimmer({ width = '100%', height = 20, borderRadius = 8, style 
     <Animated.View
       style={[
         {
-          width,
+          width: width as number | "auto" | `${number}%`,
           height,
           borderRadius,
           backgroundColor: '#e0e0e0',

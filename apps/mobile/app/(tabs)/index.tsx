@@ -16,7 +16,7 @@ import { useCriticalDashboard, useSmartRefreshIndicator } from '../../src/hooks/
 import { LazyChartSection, LazyHistorySection, useProgressiveRender } from '../../src/components/LazySection';
 
 export default function DashboardScreen() {
-  const [channel, setChannel] = useState<ReturnType<typeof setupDashboardRealtimeSubscriptions> | null>(null);
+  const [, setChannel] = useState<ReturnType<typeof setupDashboardRealtimeSubscriptions> | null>(null);
   const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
     visible: false,
     message: '',
@@ -33,7 +33,6 @@ export default function DashboardScreen() {
     isLoading, 
     error,
     refetch,
-    isBackgroundRefreshing,
   } = useCriticalDashboard(6); // Ak 404, automatický fallback na legacy
   
   // Smart refresh indikátor (len pri background refetch)

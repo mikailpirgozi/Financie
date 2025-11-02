@@ -5,10 +5,9 @@ import {
   createLoan,
   markLoanInstallmentPaid,
   markLoanPaidUntilToday,
-  type Loan,
   type CreateLoanData,
 } from '../lib/api';
-import { queryKeys, invalidateDashboard } from '../lib/queryClient';
+import { queryKeys } from '../lib/queryClient';
 
 /**
  * Hook: načíta zoznam úverov
@@ -42,7 +41,7 @@ export function useCreateLoan() {
   
   return useMutation({
     mutationFn: (data: CreateLoanData) => createLoan(data),
-    onSuccess: (response, variables) => {
+    onSuccess: () => {
       // Invalidate loans list
       queryClient.invalidateQueries({ 
         queryKey: ['loans'],
@@ -65,7 +64,7 @@ export function useMarkInstallmentPaid() {
   return useMutation({
     mutationFn: ({ loanId, installmentId }: { loanId: string; installmentId: string }) =>
       markLoanInstallmentPaid(loanId, installmentId),
-    onSuccess: (response, variables) => {
+    onSuccess: (_response, variables) => {
       // Invalidate loan detail
       queryClient.invalidateQueries({ 
         queryKey: queryKeys.loan(variables.loanId),
@@ -96,7 +95,7 @@ export function useMarkPaidUntilToday() {
   return useMutation({
     mutationFn: ({ loanId, date }: { loanId: string; date: string }) =>
       markLoanPaidUntilToday(loanId, date),
-    onSuccess: (response, variables) => {
+    onSuccess: (_response, variables) => {
       // Invalidate loan detail
       queryClient.invalidateQueries({ 
         queryKey: queryKeys.loan(variables.loanId),

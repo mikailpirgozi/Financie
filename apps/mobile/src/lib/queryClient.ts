@@ -98,7 +98,7 @@ export function invalidateDashboard(householdId: string) {
 /**
  * Utility: Prefetch dashboard data
  */
-export async function prefetchDashboard(householdId: string) {
+export async function prefetchDashboard(_householdId: string) {
   // Implementované v hook
   return Promise.resolve();
 }

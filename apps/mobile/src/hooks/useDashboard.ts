@@ -1,10 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   getCurrentHousehold, 
   getDashboardData,
   getDashboardFull,
-  type DashboardData,
-  type Household 
 } from '../lib/api';
 import { queryKeys } from '../lib/queryClient';
 import { supabase } from '../lib/supabase';
@@ -92,8 +90,6 @@ export function useDashboardFull(monthsCount: number = 6, includeRecent: boolean
  * Použitie ak dashboard-full nefunguje alebo pre kompatibilitu
  */
 export function useDashboardFullLegacy(monthsCount: number = 6) {
-  const queryClient = useQueryClient();
-  
   // 1. Načítaj household najskôr (potrebujeme ID)
   const householdQuery = useCurrentHousehold();
   

@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 
 interface Loan {
   id: string;
+  name?: string;
   lender: string;
   loan_type: string;
   principal: number;
@@ -360,8 +361,9 @@ export function LoansClient({ loans }: LoansClientProps): React.JSX.Element {
                   return (
                     <tr key={loan.id} className="border-b hover:bg-muted/50">
                       <td className="p-2">
-                        <div className="font-medium">{loan.lender}</div>
+                        <div className="font-medium">{loan.name || loan.lender}</div>
                         <div className="text-xs text-muted-foreground">
+                          {loan.name && <span>{loan.lender} · </span>}
                           {loan.loan_type === 'annuity' && 'Anuitný'}
                           {loan.loan_type === 'fixed_principal' && 'Fixná istina'}
                           {loan.loan_type === 'interest_only' && 'Len úrok'}
@@ -411,7 +413,7 @@ export function LoansClient({ loans }: LoansClientProps): React.JSX.Element {
                           </Link>
                           <DeleteDialog
                             title="Zmazať úver"
-                            description={`Naozaj chcete zmazať úver "${loan.lender}"?`}
+                            description={`Naozaj chcete zmazať úver "${loan.name || loan.lender}"?`}
                             onConfirm={() => handleDelete(loan.id)}
                             trigger={
                               <Button variant="destructive" size="sm">

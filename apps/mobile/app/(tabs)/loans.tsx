@@ -124,9 +124,16 @@ export default function LoansScreen() {
         }}
       >
         <View style={styles.cardHeader}>
-          <Text style={styles.lender} numberOfLines={1}>
-            {item.lender}
-          </Text>
+          <View style={styles.lenderContainer}>
+            <Text style={styles.lender} numberOfLines={1}>
+              {item.name || item.lender}
+            </Text>
+            {item.name && (
+              <Text style={styles.sublenderSmall} numberOfLines={1}>
+                {item.lender}
+              </Text>
+            )}
+          </View>
           <Badge variant={getStatusBadgeVariant(item.status)}>
             {getStatusLabel(item.status)}
           </Badge>
@@ -398,12 +405,19 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 12,
   },
+  lenderContainer: {
+    flex: 1,
+    marginRight: 8,
+  },
   lender: {
     fontSize: 14,
     fontWeight: '600',
     color: '#111827',
-    flex: 1,
-    marginRight: 8,
+  },
+  sublenderSmall: {
+    fontSize: 10,
+    color: '#9ca3af',
+    marginTop: 2,
   },
   amountSection: {
     marginBottom: 12,

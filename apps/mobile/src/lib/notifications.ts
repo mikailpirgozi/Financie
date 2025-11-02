@@ -25,6 +25,7 @@ interface LoanScheduleEntry {
 
 interface Loan {
   id: string;
+  name?: string;
   lender: string;
 }
 

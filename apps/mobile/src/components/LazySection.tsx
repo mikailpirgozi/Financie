@@ -32,7 +32,7 @@ export function LazySection({
   children,
   placeholder = null,
   delay = 100,
-  threshold = 0.1,
+  threshold: _threshold = 0.1,
   style,
   enabled = true,
 }: LazySectionProps) {
