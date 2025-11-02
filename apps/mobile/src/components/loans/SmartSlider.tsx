@@ -43,8 +43,10 @@ export function SmartSlider({
     const parsed = parseFloat(inputValue);
     if (!isNaN(parsed)) {
       const clamped = Math.max(minimumValue, Math.min(maximumValue, parsed));
-      onValueChange(clamped);
-      setInputValue(clamped.toString());
+      // Round to step precision or 2 decimal places for money/percentages
+      const rounded = step < 1 ? Number(clamped.toFixed(2)) : Math.round(clamped / step) * step;
+      onValueChange(rounded);
+      setInputValue(rounded.toString());
     } else {
       setInputValue(value.toString());
     }
@@ -95,8 +97,10 @@ export function SmartSlider({
           value={inputValue}
           onChangeText={handleInputChange}
           onBlur={handleInputBlur}
-          keyboardType="numeric"
+          keyboardType="decimal-pad"
           editable={!disabled}
+          placeholder={step < 1 ? '0.00' : '0'}
+          placeholderTextColor="#9ca3af"
         />
         {suffix && <Text style={styles.suffix}>{suffix}</Text>}
       </View>

@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   modalContent: {
-    maxHeight: 500,
+    paddingBottom: 20,
   },
   sectionTitle: {
     fontSize: 12,

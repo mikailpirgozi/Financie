@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   calculateLoanData,
   LOAN_TYPE_INFO,
@@ -39,6 +40,7 @@ export default function NewLoanScreen() {
   const [loading, setLoading] = useState(false);
   const [householdId, setHouseholdId] = useState<string>('');
   const [showLoanTypePicker, setShowLoanTypePicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [toast, setToast] = useState<{
     visible: boolean;
@@ -250,8 +252,32 @@ export default function NewLoanScreen() {
           {/* Start Date */}
           <View style={styles.fieldContainer}>
             <Text style={styles.label}>Dátum začiatku *</Text>
-            <Text style={styles.dateValue}>{formData.startDate}</Text>
+            <TouchableOpacity
+              style={styles.dateButton}
+              onPress={() => setShowDatePicker(true)}
+              disabled={loading}
+            >
+              <Text style={styles.dateValue}>{formData.startDate}</Text>
+              <Text style={styles.chevron}>📅</Text>
+            </TouchableOpacity>
           </View>
+
+          {showDatePicker && (
+            <DateTimePicker
+              value={new Date(formData.startDate)}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(_event, selectedDate) => {
+                setShowDatePicker(Platform.OS === 'ios');
+                if (selectedDate) {
+                  setFormData({
+                    ...formData,
+                    startDate: selectedDate.toISOString().split('T')[0] ?? '',
+                  });
+                }
+              }}
+            />
+          )}
 
           <View style={styles.sectionDivider} />
 
@@ -365,6 +391,49 @@ export default function NewLoanScreen() {
                   </View>
                 )}
 
+                {/* Always show RPMN and Total Interest when available */}
+                {calculatedData?.isValid && (
+                  <>
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoIcon}>📊</Text>
+                      <View style={styles.infoContent}>
+                        <Text style={styles.infoText}>
+                          RPMN: {calculatedData.effectiveRate.toFixed(2)}%
+                        </Text>
+                        <Text style={styles.infoSubtext}>
+                          (skutočná ročná percentuálna miera nákladov)
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoIcon}>💰</Text>
+                      <View style={styles.infoContent}>
+                        <Text style={styles.infoText}>
+                          Celkový úrok: {calculatedData.totalInterest.toFixed(2)} €
+                        </Text>
+                        <Text style={styles.infoSubtext}>
+                          ({((calculatedData.totalInterest / formData.principal) * 100).toFixed(1)}% z istiny)
+                        </Text>
+                      </View>
+                    </View>
+
+                    {calculatedData.totalFees > 0 && (
+                      <View style={styles.infoBox}>
+                        <Text style={styles.infoIcon}>💳</Text>
+                        <View style={styles.infoContent}>
+                          <Text style={styles.infoText}>
+                            Celkové poplatky: {calculatedData.totalFees.toFixed(2)} €
+                          </Text>
+                          <Text style={styles.infoSubtext}>
+                            (poplatky za zriadenie a mesačné poplatky)
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+                  </>
+                )}
+
           <View style={styles.sectionDivider} />
 
           {/* Advanced Settings Toggle */}
@@ -381,7 +450,60 @@ export default function NewLoanScreen() {
               <Text style={styles.advancedHint}>
                 ℹ️ Poplatky ovplyvňujú RPMN (skutočnú cenu úveru)
               </Text>
-              {/* Advanced fields would go here - keeping it simple for now */}
+
+              {/* Setup Fee */}
+              <SmartSlider
+                label="💵 Poplatok za zriadenie"
+                value={formData.feeSetup}
+                onValueChange={(value) => setFormData({ ...formData, feeSetup: value })}
+                minimumValue={0}
+                maximumValue={5000}
+                step={10}
+                suffix=" €"
+                formatDisplay={(v) => `${v.toLocaleString('sk-SK')} €`}
+                disabled={loading}
+              />
+
+              {/* Monthly Fee */}
+              <SmartSlider
+                label="💳 Mesačný poplatok"
+                value={formData.feeMonthly}
+                onValueChange={(value) => setFormData({ ...formData, feeMonthly: value })}
+                minimumValue={0}
+                maximumValue={100}
+                step={0.5}
+                suffix=" €"
+                formatDisplay={(v) => `${v.toFixed(2)} €`}
+                disabled={loading}
+              />
+
+              {/* Monthly Insurance */}
+              <SmartSlider
+                label="🛡️ Mesačné poistenie"
+                value={formData.insuranceMonthly}
+                onValueChange={(value) => setFormData({ ...formData, insuranceMonthly: value })}
+                minimumValue={0}
+                maximumValue={200}
+                step={1}
+                suffix=" €"
+                formatDisplay={(v) => `${v.toLocaleString('sk-SK')} €`}
+                disabled={loading}
+              />
+
+              {/* Balloon Amount for Interest-only */}
+              {formData.loanType === 'interest_only' && (
+                <SmartSlider
+                  label="🎈 Balónová splátka (nakoniec)"
+                  value={formData.balloonAmount}
+                  onValueChange={(value) => setFormData({ ...formData, balloonAmount: value })}
+                  minimumValue={0}
+                  maximumValue={formData.principal}
+                  step={100}
+                  suffix=" €"
+                  formatDisplay={(v) => `${v.toLocaleString('sk-SK')} €`}
+                  disabled={loading}
+                />
+              )}
             </View>
           )}
 
@@ -405,7 +527,7 @@ export default function NewLoanScreen() {
               variant="outline"
               disabled={loading}
               fullWidth
-              style={{ marginTop: 12 }}
+              style={styles.cancelButton}
             >
               Zrušiť
             </Button>
@@ -534,14 +656,22 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     marginTop: 4,
   },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    minHeight: 48,
+  },
   dateValue: {
     fontSize: 16,
     color: '#111827',
-    padding: 12,
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    flex: 1,
   },
   sectionDivider: {
     height: 1,
@@ -576,6 +706,33 @@ const styles = StyleSheet.create({
     color: '#16a34a',
     marginTop: 2,
   },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fefce8',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#fef08a',
+  },
+  infoIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#854d0e',
+  },
+  infoSubtext: {
+    fontSize: 11,
+    color: '#a16207',
+    marginTop: 2,
+  },
   advancedToggle: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -603,6 +760,9 @@ const styles = StyleSheet.create({
   },
   buttons: {
     marginTop: 24,
+  },
+  cancelButton: {
+    marginTop: 12,
   },
   pickerList: {
     maxHeight: 400,
