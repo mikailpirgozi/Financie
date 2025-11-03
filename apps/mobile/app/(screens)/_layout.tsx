@@ -40,6 +40,12 @@ export default function ScreensLayout() {
       }}
     >
       <Stack.Screen 
+        name="portfolio" 
+        options={{ 
+          headerShown: false, // Portfolio má vlastný header
+        }} 
+      />
+      <Stack.Screen 
         name="assets" 
         options={{ 
           headerTitle: 'Majetok',

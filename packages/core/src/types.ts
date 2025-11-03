@@ -9,6 +9,26 @@ export type CategoryKind = 'income' | 'expense' | 'loan' | 'asset';
 
 // Asset types
 export type AssetKind = 'real_estate' | 'vehicle' | 'business' | 'loan_receivable' | 'other';
+export type AssetStatus = 'owned' | 'rented_out' | 'for_sale' | 'sold';
+export type AssetCashFlowType = 
+  | 'rental_income' 
+  | 'dividend' 
+  | 'interest' 
+  | 'sale_income' 
+  | 'expense' 
+  | 'maintenance' 
+  | 'tax' 
+  | 'insurance' 
+  | 'other';
+
+// Loan purpose types
+export type LoanPurpose = 
+  | 'property_purchase' 
+  | 'vehicle_purchase' 
+  | 'business_loan' 
+  | 'consumer_loan' 
+  | 'refinancing' 
+  | 'other';
 
 // Household member roles
 export type HouseholdRole = 'owner' | 'member';
@@ -156,5 +176,123 @@ export interface LoanComparisonResult {
     totalPaymentRange: { min: number; max: number };
     monthsSavedRange: { min: number; max: number };
   };
+}
+
+// Portfolio Management Types
+export interface AssetCashFlow {
+  id: string;
+  assetId: string;
+  date: Date;
+  type: AssetCashFlowType;
+  amount: number;
+  description?: string;
+  createdAt: Date;
+}
+
+export interface AssetLoanMetrics {
+  id: string;
+  assetId: string;
+  loanId?: string;
+  calculationDate: Date;
+  assetValue: number;
+  loanBalance: number;
+  equity: number;
+  ltvRatio: number;
+}
+
+export interface AssetROI {
+  cashFlowRoi: number; // Anualizovaný ROI z cash flow
+  appreciationRoi: number; // ROI zo zhodnotenia
+  totalRoi: number; // Celkový ROI
+  totalIncome: number;
+  totalExpenses: number;
+  netCashFlow: number;
+  currentValue: number;
+  acquisitionValue: number;
+  valueChange: number;
+}
+
+export interface PortfolioOverview {
+  householdId: string;
+  
+  // Assets
+  totalAssetsValue: number;
+  productiveAssetsValue: number;
+  nonProductiveAssetsValue: number;
+  totalAssetsCount: number;
+  productiveAssetsCount: number;
+  
+  // Cash flow
+  monthlyIncomeFromAssets: number;
+  monthlyExpensesFromAssets: number;
+  netCashFlowFromAssets: number;
+  
+  // Loans
+  totalLoansCount: number;
+  totalOriginalPrincipal: number;
+  totalDebt: number;
+  nextMonthLoanPayment: number;
+  
+  // Portfolio metrics
+  netWorth: number;
+  debtToAssetRatio: number;
+  totalMonthlyCashFlow: number;
+}
+
+export interface AssetWithMetrics {
+  id: string;
+  householdId: string;
+  kind: AssetKind;
+  name: string;
+  acquisitionValue: number;
+  currentValue: number;
+  acquisitionDate: Date;
+  isIncomeGenerating: boolean;
+  monthlyIncome: number;
+  monthlyExpenses: number;
+  assetStatus: AssetStatus;
+  
+  // Prepojený úver
+  linkedLoan?: {
+    id: string;
+    lender: string;
+    currentBalance: number;
+    monthlyPayment: number;
+  };
+  
+  // Metriky
+  metrics?: {
+    ltvRatio: number;
+    equity: number;
+    netMonthlyCashFlow: number;
+  };
+  
+  // ROI
+  roi?: AssetROI;
+}
+
+export interface LoanCalendarEntry {
+  loanId: string;
+  loanName: string;
+  lender: string;
+  linkedAssetId?: string;
+  linkedAssetName?: string;
+  dueDate: Date;
+  installmentNo: number;
+  principalDue: number;
+  interestDue: number;
+  feesDue: number;
+  totalDue: number;
+  status: PaymentStatus;
+  loanType: LoanType;
+}
+
+export interface MonthlyLoanCalendar {
+  month: string; // YYYY-MM
+  totalPayments: number;
+  totalPrincipal: number;
+  totalInterest: number;
+  totalFees: number;
+  entries: LoanCalendarEntry[];
 }
 

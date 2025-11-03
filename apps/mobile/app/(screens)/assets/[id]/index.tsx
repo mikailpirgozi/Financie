@@ -13,6 +13,8 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
+import { AssetMetricsCard } from '@/components/portfolio';
+import { useAssetMetrics } from '@/hooks/usePortfolio';
 import * as Haptics from 'expo-haptics';
 
 interface Asset {
@@ -53,6 +55,12 @@ export default function AssetDetailScreen() {
     visible: false,
     message: '',
     type: 'success',
+  });
+
+  // Fetch asset metrics (LTV, Equity, ROI)
+  const { data: metricsData, isLoading: metricsLoading } = useAssetMetrics(id!, {
+    includeRoi: true,
+    roiPeriodMonths: 12,
   });
 
   useEffect(() => {
@@ -229,18 +237,44 @@ export default function AssetDetailScreen() {
               <Text style={styles.detailValue}>{formatDate(asset.created_at)}</Text>
             </View>
           </Card>
+
+          {/* Portfolio Metrics (LTV, Equity, ROI) */}
+          {!metricsLoading && metricsData && (
+            <AssetMetricsCard
+              assetName={asset.name}
+              assetValue={asset.current_value}
+              loanBalance={metricsData.linkedLoan?.currentBalance}
+              ltv={metricsData.metrics.ltvRatio}
+              equity={metricsData.metrics.equity}
+              netMonthlyCashFlow={metricsData.metrics.netMonthlyCashFlow}
+              roi={metricsData.roi}
+              linkedLoan={metricsData.linkedLoan ? {
+                lender: metricsData.linkedLoan.lender,
+                monthlyPayment: metricsData.linkedLoan.monthlyPayment,
+              } : undefined}
+            />
+          )}
         </View>
       </ScrollView>
 
       {/* Action Buttons */}
       <View style={styles.actions}>
-        <Button
-          onPress={() => router.push(`/(screens)/assets/${id}/revalue`)}
-          variant="primary"
-          fullWidth
-        >
-          Preceniť majetok
-        </Button>
+        <View style={styles.actionRow}>
+          <Button
+            onPress={() => router.push(`/(screens)/assets/${id}/revalue`)}
+            variant="primary"
+            style={{ flex: 1, marginRight: 8 }}
+          >
+            Preceniť
+          </Button>
+          <Button
+            onPress={() => router.push(`/(screens)/assets/${id}/cash-flow`)}
+            variant="primary"
+            style={{ flex: 1 }}
+          >
+            💰 Cash Flow
+          </Button>
+        </View>
         <View style={styles.actionRow}>
           <Button
             onPress={() => router.push(`/(screens)/assets/${id}/edit`)}

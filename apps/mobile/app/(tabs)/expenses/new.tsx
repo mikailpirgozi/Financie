@@ -123,11 +123,11 @@ export default function NewExpenseScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
-        <View style={[styles.content, { paddingTop: insets.top + 16 }]}>
+        <View style={styles.content}>
           <Text style={styles.title}>Nový výdavok</Text>
           <Text style={styles.subtitle}>Zaznamenajte nový výdavok</Text>
 

@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createAssetSchema } from '@finapp/core';
@@ -41,6 +42,7 @@ type FormData = {
 
 export default function NewAssetScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [householdId, setHouseholdId] = useState<string>('');
   const [showKindPicker, setShowKindPicker] = useState(false);
@@ -140,7 +142,7 @@ export default function NewAssetScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">

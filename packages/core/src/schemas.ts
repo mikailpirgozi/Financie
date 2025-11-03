@@ -12,6 +12,14 @@ export const loanTypeSchema = z.enum(['annuity', 'fixed_principal', 'interest_on
 export const rateTypeSchema = z.enum(['fixed', 'variable']);
 export const dayCountConventionSchema = z.enum(['30E/360', 'ACT/360', 'ACT/365']);
 export const loanStatusSchema = z.enum(['active', 'paid_off', 'defaulted']);
+export const loanPurposeSchema = z.enum([
+  'property_purchase', 
+  'vehicle_purchase', 
+  'business_loan', 
+  'consumer_loan', 
+  'refinancing', 
+  'other'
+]);
 
 export const createLoanSchema = z.object({
   householdId: uuidSchema,
@@ -31,6 +39,8 @@ export const createLoanSchema = z.object({
   earlyRepaymentPenaltyPct: percentageSchema.optional(),
   fixedMonthlyPayment: positiveNumberSchema.optional(),
   fixedPrincipalPayment: positiveNumberSchema.optional(),
+  linkedAssetId: uuidSchema.optional(),
+  loanPurpose: loanPurposeSchema.optional(),
 });
 
 export const payLoanSchema = z.object({
@@ -96,6 +106,18 @@ export const createIncomeFromTemplateSchema = z.object({
 
 // Asset schemas
 export const assetKindSchema = z.enum(['real_estate', 'vehicle', 'business', 'loan_receivable', 'other']);
+export const assetStatusSchema = z.enum(['owned', 'rented_out', 'for_sale', 'sold']);
+export const assetCashFlowTypeSchema = z.enum([
+  'rental_income', 
+  'dividend', 
+  'interest', 
+  'sale_income', 
+  'expense', 
+  'maintenance', 
+  'tax', 
+  'insurance', 
+  'other'
+]);
 
 export const createAssetSchema = z.object({
   householdId: uuidSchema,
@@ -104,6 +126,10 @@ export const createAssetSchema = z.object({
   acquisitionValue: positiveNumberSchema,
   currentValue: positiveNumberSchema,
   acquisitionDate: dateSchema,
+  isIncomeGenerating: z.boolean().default(false),
+  monthlyIncome: nonNegativeNumberSchema.default(0),
+  monthlyExpenses: nonNegativeNumberSchema.default(0),
+  assetStatus: assetStatusSchema.default('owned'),
   indexRule: z.object({
     enabled: z.boolean(),
     annualPercentage: z.number().min(-100).max(100),
@@ -115,6 +141,44 @@ export const updateAssetValueSchema = z.object({
   value: positiveNumberSchema,
   date: dateSchema,
   source: z.enum(['manual', 'automatic']).default('manual'),
+});
+
+// Asset cash flow schemas
+export const createAssetCashFlowSchema = z.object({
+  assetId: uuidSchema,
+  date: dateSchema,
+  type: assetCashFlowTypeSchema,
+  amount: positiveNumberSchema,
+  description: z.string().max(500).optional(),
+});
+
+export const updateAssetCashFlowSchema = z.object({
+  date: dateSchema.optional(),
+  type: assetCashFlowTypeSchema.optional(),
+  amount: positiveNumberSchema.optional(),
+  description: z.string().max(500).nullable().optional(),
+});
+
+// Portfolio schemas
+export const getPortfolioOverviewSchema = z.object({
+  householdId: uuidSchema,
+});
+
+export const getAssetMetricsSchema = z.object({
+  assetId: uuidSchema,
+  includeRoi: z.boolean().default(true),
+  roiPeriodMonths: z.number().int().positive().default(12),
+});
+
+export const getLoanCalendarSchema = z.object({
+  householdId: uuidSchema,
+  startMonth: z.string().regex(/^\d{4}-\d{2}$/), // YYYY-MM
+  monthsCount: z.number().int().positive().max(360).default(6),
+});
+
+export const linkLoanToAssetSchema = z.object({
+  loanId: uuidSchema,
+  assetId: uuidSchema,
 });
 
 // Category schemas
@@ -178,4 +242,10 @@ export type CreateRuleInput = z.infer<typeof createRuleSchema>;
 export type CreateHouseholdInput = z.infer<typeof createHouseholdSchema>;
 export type InviteToHouseholdInput = z.infer<typeof inviteToHouseholdSchema>;
 export type MonthlySummaryData = z.infer<typeof monthlySummarySchema>;
+export type CreateAssetCashFlowInput = z.infer<typeof createAssetCashFlowSchema>;
+export type UpdateAssetCashFlowInput = z.infer<typeof updateAssetCashFlowSchema>;
+export type GetPortfolioOverviewInput = z.infer<typeof getPortfolioOverviewSchema>;
+export type GetAssetMetricsInput = z.infer<typeof getAssetMetricsSchema>;
+export type GetLoanCalendarInput = z.infer<typeof getLoanCalendarSchema>;
+export type LinkLoanToAssetInput = z.infer<typeof linkLoanToAssetSchema>;
 

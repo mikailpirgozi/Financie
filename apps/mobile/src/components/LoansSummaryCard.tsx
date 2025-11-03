@@ -4,9 +4,11 @@ import type { MonthlyDashboardData } from '../lib/api';
 
 interface LoansSummaryCardProps {
   data: MonthlyDashboardData;
+  overdueCount?: number;
+  upcomingCount?: number;
 }
 
-export function LoansSummaryCard({ data }: LoansSummaryCardProps) {
+export function LoansSummaryCard({ data, overdueCount = 0, upcomingCount = 0 }: LoansSummaryCardProps) {
   const formatCurrency = (value: string) => {
     return new Intl.NumberFormat('sk-SK', {
       style: 'currency',
@@ -19,6 +21,24 @@ export function LoansSummaryCard({ data }: LoansSummaryCardProps) {
   return (
     <View style={styles.card}>
       <Text style={styles.title}>🏦 Úvery</Text>
+      
+      {/* Alert banners */}
+      {overdueCount > 0 && (
+        <View style={[styles.alertBanner, styles.alertDanger]}>
+          <Text style={styles.alertIcon}>⚠️</Text>
+          <Text style={styles.alertText}>
+            {overdueCount} {overdueCount === 1 ? 'splátka' : 'splátok'} po splatnosti
+          </Text>
+        </View>
+      )}
+      {upcomingCount > 0 && (
+        <View style={[styles.alertBanner, styles.alertWarning]}>
+          <Text style={styles.alertIcon}>📅</Text>
+          <Text style={styles.alertText}>
+            {upcomingCount} {upcomingCount === 1 ? 'splátka' : 'splátok'} do 5 dní
+          </Text>
+        </View>
+      )}
       
       <View style={styles.mainSection}>
         <Text style={styles.label}>Splatené tento mesiac</Text>
@@ -98,6 +118,33 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#e5e7eb',
     marginVertical: 12,
+  },
+  alertBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 12,
+    gap: 8,
+  },
+  alertDanger: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  alertWarning: {
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  alertIcon: {
+    fontSize: 16,
+  },
+  alertText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+    flex: 1,
   },
 });
 

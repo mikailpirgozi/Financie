@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Control, FieldValues, Path } from 'react-hook-form';
+import React, { useState, useEffect, useRef } from 'react';
+import { Control, FieldValues, Path, useWatch } from 'react-hook-form';
 import { TextInputProps, ViewStyle, Text } from 'react-native';
 import { Input } from '@/components/ui/Input';
 import { FormField } from './FormField';
@@ -21,6 +21,8 @@ export function CurrencyInput<T extends FieldValues>({
   ...textInputProps
 }: CurrencyInputProps<T>) {
   const [displayValue, setDisplayValue] = useState('');
+  const fieldValue = useWatch({ control, name });
+  const isUserInput = useRef(false);
 
   const formatCurrency = (value: string): string => {
     // Remove all non-digit characters except decimal point
@@ -45,22 +47,25 @@ export function CurrencyInput<T extends FieldValues>({
     return parseFloat(numericValue) || 0;
   };
 
+  // Initialize display value from field value
+  useEffect(() => {
+    if (!isUserInput.current && fieldValue && !displayValue) {
+      setDisplayValue(formatCurrency(fieldValue.toString()));
+    }
+  }, [fieldValue]);
+
   return (
     <FormField
       control={control}
       name={name}
       containerStyle={containerStyle}
       render={({ field, fieldState }) => {
-        // Initialize display value from field value
-        if (!displayValue && field.value) {
-          setDisplayValue(formatCurrency(field.value.toString()));
-        }
-
         return (
           <Input
             label={label}
             value={displayValue}
             onChangeText={(text) => {
+              isUserInput.current = true;
               const formatted = formatCurrency(text);
               setDisplayValue(formatted);
               const parsed = parseValue(formatted);
@@ -68,6 +73,7 @@ export function CurrencyInput<T extends FieldValues>({
             }}
             onBlur={() => {
               field.onBlur();
+              isUserInput.current = false;
               // Format on blur
               if (displayValue) {
                 const parsed = parseValue(displayValue);

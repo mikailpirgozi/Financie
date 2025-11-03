@@ -55,20 +55,24 @@ export function Badge({
   size = 'md',
   style,
 }: BadgeProps) {
+  // Safeguard: fallback to 'default' if variant is invalid
+  const safeVariant = variant && variantStyles[variant] ? variant : 'default';
+  const safeSize = size && sizeStyles[size] ? size : 'md';
+
   return (
     <View
       style={[
         styles.container,
-        variantStyles[variant].container,
-        sizeStyles[size].container,
+        variantStyles[safeVariant].container,
+        sizeStyles[safeSize].container,
         style,
       ]}
     >
       <Text
         style={[
           styles.text,
-          variantStyles[variant].text,
-          sizeStyles[size].text,
+          variantStyles[safeVariant].text,
+          sizeStyles[safeSize].text,
         ]}
       >
         {children}

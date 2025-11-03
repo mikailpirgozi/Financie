@@ -110,16 +110,77 @@ export async function getLoans(householdId: string) {
     }
   }
 
+  // Get overdue counts for all active loans
+  const overdueCounts = new Map<string, number>();
+  if (loans.length > 0) {
+    const today = new Date().toISOString().split('T')[0];
+    const { data: schedules } = await supabase
+      .from('loan_schedules')
+      .select('loan_id')
+      .in('loan_id', loans.map(l => l.id))
+      .in('status', ['pending', 'overdue'])
+      .lt('due_date', today);
+    
+    if (schedules) {
+      // Count overdue installments per loan
+      schedules.forEach(schedule => {
+        const count = overdueCounts.get(schedule.loan_id) || 0;
+        overdueCounts.set(schedule.loan_id, count + 1);
+      });
+    }
+  }
+
+  // Get first installment for each loan to determine monthly_payment
+  const monthlyPayments = new Map<string, number>();
+  if (loans.length > 0) {
+    const { data: firstInstallments } = await supabase
+      .from('loan_schedules')
+      .select('loan_id, total_due')
+      .in('loan_id', loans.map(l => l.id))
+      .eq('installment_no', 1);
+    
+    if (firstInstallments) {
+      firstInstallments.forEach(installment => {
+        monthlyPayments.set(installment.loan_id, Number(installment.total_due));
+      });
+    }
+  }
+
+  // Get next payment due date for each active loan
+  const nextPayments = new Map<string, string>();
+  if (loans.length > 0) {
+    const { data: nextInstallments } = await supabase
+      .from('loan_schedules')
+      .select('loan_id, due_date')
+      .in('loan_id', loans.map(l => l.id))
+      .in('status', ['pending', 'overdue'])
+      .order('due_date', { ascending: true });
+    
+    if (nextInstallments) {
+      // Get the earliest due date for each loan
+      nextInstallments.forEach(installment => {
+        if (!nextPayments.has(installment.loan_id)) {
+          nextPayments.set(installment.loan_id, installment.due_date);
+        }
+      });
+    }
+  }
+
   // Merge loans with metrics
   const loansWithMetrics = loans.map(loan => {
     const metric = metrics?.find(m => m.loan_id === loan.id);
+    const overdueCount = overdueCounts.get(loan.id) || 0;
+    const monthlyPayment = monthlyPayments.get(loan.id) || 0;
+    const nextPaymentDueDate = nextPayments.get(loan.id);
     
     return {
       ...loan,
       // Add computed fields for mobile compatibility
       remaining_balance: metric?.current_balance ?? loan.principal,
       amount_paid: metric?.paid_principal ?? 0,
-      monthly_payment: metric?.next_installment?.total_due ?? 0,
+      monthly_payment: monthlyPayment,
+      overdue_count: overdueCount,
+      next_payment_due_date: nextPaymentDueDate,
       // Also include these for compatibility
       rate: loan.annual_rate,
       term: loan.term_months,
@@ -157,12 +218,17 @@ export async function getLoan(loanId: string) {
     .eq('loan_id', loanId)
     .single();
 
+  // Calculate monthly payment from schedule
+  const monthlyPayment = schedule && schedule.length > 0 
+    ? Number(schedule[0]?.total_due ?? 0)
+    : 0;
+
   // Add computed fields for mobile compatibility
   const loanWithMetrics = {
     ...loan,
     remaining_balance: metrics?.current_balance ?? loan.principal,
     amount_paid: metrics?.paid_principal ?? 0,
-    monthly_payment: metrics?.next_installment?.total_due ?? 0,
+    monthly_payment: monthlyPayment,
     rate: loan.annual_rate,
     term: loan.term_months,
   };

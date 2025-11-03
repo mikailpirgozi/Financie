@@ -234,6 +234,9 @@ export default function HouseholdSettingsScreen() {
                     onChangeText={setNewName}
                     placeholder="Názov domácnosti"
                     autoFocus
+                    returnKeyType="done"
+                    onSubmitEditing={handleUpdateName}
+                    blurOnSubmit={true}
                   />
                   <View style={styles.editActions}>
                     <TouchableOpacity

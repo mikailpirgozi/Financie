@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../src/lib/supabase';
 import { LoadingSpinner } from '../../src/components/LoadingSpinner';
+import { AppleSignInButton } from '../../src/components/auth/AppleSignInButton';
+import { GoogleSignInButton } from '../../src/components/auth/GoogleSignInButton';
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
@@ -53,11 +56,22 @@ export default function RegisterScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.content}>
       <Text style={styles.title}>FinApp</Text>
       <Text style={styles.subtitle}>Registrácia</Text>
 
       <View style={styles.form}>
+        {/* Email/Heslo registrácia */}
         <TextInput
           style={styles.input}
           placeholder="Email"
@@ -66,6 +80,7 @@ export default function RegisterScreen() {
           autoCapitalize="none"
           keyboardType="email-address"
           autoComplete="email"
+          returnKeyType="next"
         />
 
         <TextInput
@@ -75,6 +90,7 @@ export default function RegisterScreen() {
           onChangeText={setPassword}
           secureTextEntry
           autoComplete="password"
+          returnKeyType="next"
         />
 
         <TextInput
@@ -84,6 +100,8 @@ export default function RegisterScreen() {
           onChangeText={setConfirmPassword}
           secureTextEntry
           autoComplete="password"
+          returnKeyType="done"
+                onSubmitEditing={handleRegister}
         />
 
         <TouchableOpacity style={styles.button} onPress={handleRegister}>
@@ -96,17 +114,41 @@ export default function RegisterScreen() {
         >
           <Text style={styles.linkText}>Už máte účet? Prihláste sa</Text>
         </TouchableOpacity>
+
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>alebo</Text>
+                <View style={styles.dividerLine} />
       </View>
-    </View>
+
+              {/* OAuth tlačidlá */}
+              <View style={styles.oauthButtons}>
+                <AppleSignInButton />
+                <GoogleSignInButton />
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    justifyContent: 'center',
     backgroundColor: '#fff',
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 20,
+  },
+  content: {
+    width: '100%',
   },
   title: {
     fontSize: 32,
@@ -131,6 +173,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 16,
     fontSize: 16,
+    backgroundColor: '#fff',
   },
   button: {
     backgroundColor: '#0070f3',
@@ -151,6 +194,24 @@ const styles = StyleSheet.create({
   linkText: {
     color: '#0070f3',
     fontSize: 14,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#ddd',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: '#999',
+    fontSize: 12,
+  },
+  oauthButtons: {
+    gap: 8,
   },
 });
 

@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.finapps.app",
-      "buildNumber": "4",
+      "buildNumber": "8",
       "icon": "./assets/icon.png",
       "config": {
         "usesNonExemptEncryption": false
@@ -29,7 +29,8 @@
       },
       "runtimeVersion": {
         "policy": "appVersion"
-      }
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -51,7 +52,8 @@
           "icon": "./assets/notification-icon.png",
           "color": "#8B5CF6"
         }
-      ]
+      ],
+      "expo-apple-authentication"
     ],
     "scheme": "finapp",
     "extra": {

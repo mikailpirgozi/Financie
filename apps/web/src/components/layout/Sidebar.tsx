@@ -9,6 +9,7 @@ import { HouseholdSwitcher } from './HouseholdSwitcher';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: '📊' },
+  { name: 'Portfolio', href: '/portfolio', icon: '📈' },
   { name: 'Úvery', href: '/dashboard/loans', icon: '💰' },
   { name: 'Výdavky', href: '/dashboard/expenses', icon: '💸' },
   { name: 'Príjmy', href: '/dashboard/incomes', icon: '💵' },

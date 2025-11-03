@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 
-export function useDebounce<T>(value: T, delay: number = 500): T {
+/**
+ * Debounce hook that delays updating a value
+ * @param value - The value to debounce
+ * @param delay - Delay in milliseconds (default: 300ms)
+ */
+export function useDebounce<T>(value: T, delay = 300): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
   useEffect(() => {
@@ -15,4 +20,3 @@ export function useDebounce<T>(value: T, delay: number = 500): T {
 
   return debouncedValue;
 }
-

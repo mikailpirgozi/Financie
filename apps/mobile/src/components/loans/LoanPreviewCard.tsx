@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import type { LoanCalculatorResult } from '@finapp/core';
 
@@ -9,8 +9,9 @@ interface LoanPreviewCardProps {
 
 /**
  * Preview card showing calculated loan details (mobile)
+ * Memoized to prevent unnecessary re-renders
  */
-export function LoanPreviewCard({ result, principal }: LoanPreviewCardProps) {
+export const LoanPreviewCard = memo(function LoanPreviewCard({ result, principal }: LoanPreviewCardProps) {
   if (!result) {
     return (
       <View style={styles.emptyContainer}>
@@ -89,7 +90,7 @@ export function LoanPreviewCard({ result, principal }: LoanPreviewCardProps) {
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

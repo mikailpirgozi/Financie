@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Keyboard } from 'react-native';
 import { DEFAULT_LENDERS } from '@finapp/core';
 import { Modal } from '@/components/ui/Modal';
 
@@ -12,8 +12,9 @@ interface LenderSelectProps {
 
 /**
  * Lender select for mobile with dropdown and custom input
+ * Memoized to prevent unnecessary re-renders
  */
-export function LenderSelect({
+export const LenderSelect = React.memo(function LenderSelect({
   value,
   onChange,
   disabled = false,
@@ -66,6 +67,12 @@ export function LenderSelect({
             onChangeText={setCustomValue}
             placeholder="Zadajte názov veriteľa"
             editable={!disabled}
+            returnKeyType="done"
+            onSubmitEditing={() => {
+              Keyboard.dismiss();
+              handleCustomSubmit();
+            }}
+            blurOnSubmit={true}
           />
           <View style={styles.customButtons}>
             <TouchableOpacity onPress={handleCustomSubmit} style={styles.customButton}>
@@ -133,7 +140,7 @@ export function LenderSelect({
       </Modal>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

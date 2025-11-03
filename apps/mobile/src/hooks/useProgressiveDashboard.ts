@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getDashboardFull, getCurrentHousehold, getDashboardData } from '../lib/api';
+import { getCurrentHousehold, getDashboardData } from '../lib/api';
 import { supabase } from '../lib/supabase';
 
 /**
@@ -39,31 +39,38 @@ export function useProgressiveDashboard(options: ProgressiveDashboardOptions = {
   const query = useQuery({
     queryKey: ['dashboard-full', monthsCount, includeRecent],
     queryFn: async () => {
-      try {
-        // Skús nový optimalizovaný endpoint
-        return await getDashboardFull(monthsCount, includeRecent);
-      } catch (error) {
-        // Ak 404 alebo 500 (endpoint ešte nie je deploynutý alebo má bug), použi legacy approach
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        if (errorMsg.includes('404') || errorMsg.includes('500')) {
-          console.log('⚠️ /api/dashboard-full not available yet, using legacy endpoints');
-          
-          // Fallback: použij staré 3 endpointy
-          const household = await getCurrentHousehold();
-          const dashboard = await getDashboardData(household.id, monthsCount);
-          
-          const { data: overdueData } = await supabase
-            .rpc('count_overdue_installments', { p_household_id: household.id });
-          
-          return {
-            household,
-            dashboard,
-            overdueCount: overdueData ?? 0,
-            recentTransactions: undefined,
-          };
-        }
-        throw error;
-      }
+      // Temporary: Use legacy approach directly (localhost API not running)
+      // TODO: Switch back to getDashboardFull when backend is deployed
+      const household = await getCurrentHousehold();
+      const dashboard = await getDashboardData(household.id, monthsCount);
+      
+      const { data: overdueData } = await supabase
+        .rpc('count_overdue_installments', { p_household_id: household.id });
+      
+      // Count upcoming installments (due within 5 days)
+      const today = new Date();
+      const fiveDaysFromNow = new Date(today);
+      fiveDaysFromNow.setDate(today.getDate() + 5);
+      
+      const { data: upcomingData } = await supabase
+        .from('loan_schedules')
+        .select('id, due_date, status, loan_id')
+        .eq('status', 'pending')
+        .gte('due_date', today.toISOString().split('T')[0])
+        .lte('due_date', fiveDaysFromNow.toISOString().split('T')[0])
+        .in('loan_id', (await supabase
+          .from('loans')
+          .select('id')
+          .eq('household_id', household.id)
+          .then(res => res.data?.map(l => l.id) ?? [])));
+      
+      return {
+        household,
+        dashboard,
+        overdueCount: overdueData ?? 0,
+        upcomingCount: upcomingData?.length ?? 0,
+        recentTransactions: undefined,
+      };
     },
     
     // 🔥 STALE-WHILE-REVALIDATE konfigurácia
@@ -91,6 +98,7 @@ export function useProgressiveDashboard(options: ProgressiveDashboardOptions = {
     household: query.data?.household,
     dashboard: query.data?.dashboard,
     overdueCount: query.data?.overdueCount ?? 0,
+    upcomingCount: query.data?.upcomingCount ?? 0,
     recentTransactions: query.data?.recentTransactions,
     
     // States

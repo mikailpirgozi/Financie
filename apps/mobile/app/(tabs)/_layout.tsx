@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LayoutDashboard, Wallet, ShoppingCart, DollarSign, MoreHorizontal } from 'lucide-react-native';
@@ -9,40 +9,75 @@ import { getCurrentHousehold } from '../../src/lib/api';
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const [overdueCount, setOverdueCount] = useState(0);
+  const [householdId, setHouseholdId] = useState<string | null>(null);
 
+  // Fetch household once on mount
   useEffect(() => {
-    const fetchOverdueCount = async () => {
+    let isMounted = true;
+    
+    const fetchHousehold = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-
         const household = await getCurrentHousehold();
-        const { data, error } = await supabase
-          .rpc('count_overdue_installments', { p_household_id: household.id });
-
-        if (!error && data !== null) {
-          setOverdueCount(data);
+        if (isMounted) {
+          setHouseholdId(household.id);
         }
       } catch (err) {
-        console.warn('Failed to fetch overdue count:', err);
+        // Silent fail - household will be null
       }
     };
 
+    fetchHousehold();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Debounced fetch - non-blocking
+  const fetchOverdueCount = useCallback(async () => {
+    if (!householdId) return;
+    
+    // Run in background, don't block UI
+    setTimeout(async () => {
+      try {
+        const { data } = await supabase
+          .rpc('count_overdue_installments', { p_household_id: householdId });
+
+        if (data !== null) {
+          setOverdueCount(data);
+        }
+      } catch {
+        // Silent fail
+      }
+    }, 0);
+  }, [householdId]);
+
+  useEffect(() => {
+    if (!householdId) return;
+
     fetchOverdueCount();
 
-    // Realtime subscription for loan_schedules changes
+    // Realtime subscription - throttled
+    let lastUpdate = Date.now();
     const channel = supabase
       .channel('overdue-badges')
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'loan_schedules' },
-        fetchOverdueCount
+        () => {
+          const now = Date.now();
+          // Throttle updates to max 1 per 3 seconds
+          if (now - lastUpdate > 3000) {
+            lastUpdate = now;
+            fetchOverdueCount();
+          }
+        }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [householdId, fetchOverdueCount]);
 
   return (
     <Tabs
@@ -68,7 +103,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ color, size }) => <LayoutDashboard size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <LayoutDashboard color={color} size={size} />,
           href: '/(tabs)',
         }}
       />
@@ -76,7 +111,7 @@ export default function TabsLayout() {
         name="loans"
         options={{
           title: 'Úvery',
-          tabBarIcon: ({ color, size }) => <Wallet size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Wallet color={color} size={size} />,
           tabBarBadge: overdueCount > 0 ? overdueCount : undefined,
           href: '/(tabs)/loans',
         }}
@@ -85,7 +120,7 @@ export default function TabsLayout() {
         name="expenses"
         options={{
           title: 'Výdavky',
-          tabBarIcon: ({ color, size }) => <ShoppingCart size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <ShoppingCart color={color} size={size} />,
           href: '/(tabs)/expenses',
         }}
       />
@@ -93,7 +128,7 @@ export default function TabsLayout() {
         name="incomes"
         options={{
           title: 'Príjmy',
-          tabBarIcon: ({ color, size }) => <DollarSign size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <DollarSign color={color} size={size} />,
           href: '/(tabs)/incomes',
         }}
       />
@@ -101,7 +136,7 @@ export default function TabsLayout() {
         name="settings"
         options={{
           title: 'Viac',
-          tabBarIcon: ({ color, size }) => <MoreHorizontal size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <MoreHorizontal color={color} size={size} />,
           href: '/(tabs)/settings',
         }}
       />
@@ -111,6 +146,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="loans/[id]/pay" options={{ href: null }} />
       <Tabs.Screen name="loans/[id]/simulate" options={{ href: null }} />
       <Tabs.Screen name="loans/[id]/early-repayment" options={{ href: null }} />
+      <Tabs.Screen name="loans/[id]/link-asset" options={{ href: null }} />
       <Tabs.Screen name="loans/new" options={{ href: null }} />
       <Tabs.Screen name="expenses/[id]/index" options={{ href: null }} />
       <Tabs.Screen name="expenses/[id]/edit" options={{ href: null }} />

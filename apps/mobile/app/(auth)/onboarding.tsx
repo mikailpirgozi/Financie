@@ -34,12 +34,11 @@ export default function OnboardingScreen() {
     try {
       await AsyncStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
       console.log('Onboarding completed, saved to AsyncStorage');
-      // Small delay to ensure AsyncStorage write completes
-      setTimeout(() => {
-        router.replace('/(auth)/login');
-      }, 100);
+      // Navigate immediately after successful save
+      router.replace('/(auth)/login');
     } catch (error) {
       console.error('Failed to save onboarding state:', error);
+      // Even on error, navigate to login
       router.replace('/(auth)/login');
     }
   };

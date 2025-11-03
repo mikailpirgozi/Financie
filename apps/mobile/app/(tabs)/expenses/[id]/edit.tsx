@@ -157,11 +157,11 @@ export default function EditExpenseScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
-        <View style={[styles.content, { paddingTop: insets.top + 16 }]}>
+        <View style={styles.content}>
           <Text style={styles.title}>Upraviť výdavok</Text>
           <Text style={styles.subtitle}>Upravte údaje výdavku</Text>
 

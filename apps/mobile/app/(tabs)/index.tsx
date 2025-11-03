@@ -30,6 +30,7 @@ export default function DashboardScreen() {
     household, 
     dashboard: dashboardData, 
     overdueCount, 
+    upcomingCount, 
     isLoading, 
     error,
     refetch,
@@ -41,13 +42,18 @@ export default function DashboardScreen() {
   // Progressive rendering sekcií
   const { shouldRender } = useProgressiveRender(['kpi', 'summary', 'charts', 'history'], 150);
 
-  // Setup realtime subscriptions
+  // Setup realtime subscriptions with throttling
   useEffect(() => {
     if (!household?.id) return;
 
-    const realtimeChannel = setupDashboardRealtimeSubscriptions(household.id, (type) => {
-      console.log(`Data changed: ${type} - auto refreshing...`);
-      refetch();
+    let lastRefetch = Date.now();
+    const realtimeChannel = setupDashboardRealtimeSubscriptions(household.id, () => {
+      const now = Date.now();
+      // Throttle refetch to max 1 per 5 seconds to prevent UI blocking
+      if (now - lastRefetch > 5000) {
+        lastRefetch = now;
+        refetch();
+      }
     });
     
     setChannel(realtimeChannel);
@@ -203,7 +209,7 @@ export default function DashboardScreen() {
       {/* 🔥 PRIORITY 2: Summary Cards - render po KPI */}
       {shouldRender('summary') && (
       <View style={styles.summarySection}>
-        <LoansSummaryCard data={currentMonth} />
+        <LoansSummaryCard data={currentMonth} overdueCount={overdueCount} upcomingCount={upcomingCount} />
         <AssetsSummaryCard data={currentMonth} />
       </View>
       )}

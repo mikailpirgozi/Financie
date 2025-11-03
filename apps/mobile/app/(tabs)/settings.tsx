@@ -171,6 +171,34 @@ export default function SettingsScreen() {
               style={styles.menuItem}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/(screens)/portfolio');
+              }}
+            >
+              <View style={styles.menuLeft}>
+                <Text style={styles.menuIcon}>📊</Text>
+                <Text style={styles.menuLabel}>Portfolio Management</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/(tabs)/loans');
+              }}
+            >
+              <View style={styles.menuLeft}>
+                <Text style={styles.menuIcon}>💰</Text>
+                <Text style={styles.menuLabel}>Úvery</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 router.push('/(screens)/assets');
               }}
             >

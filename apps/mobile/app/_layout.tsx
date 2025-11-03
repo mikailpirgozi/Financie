@@ -73,11 +73,31 @@ export default function RootLayout() {
     return () => subscription.remove();
   }, [router]);
 
+  // Refresh onboarding status when segments change
+  useEffect(() => {
+    const refreshOnboardingStatus = async () => {
+      try {
+        const value = await AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY);
+        const completed = value === 'true';
+        // Only update if changed
+        if (completed !== hasSeenOnboarding) {
+          setHasSeenOnboarding(completed);
+        }
+      } catch (error) {
+        console.error('Failed to refresh onboarding status:', error);
+      }
+    };
+
+    // Refresh when we're on auth screens
+    if (segments[0] === '(auth)') {
+      refreshOnboardingStatus();
+    }
+  }, [segments]);
+
   useEffect(() => {
     if (isAuthenticated === null || hasSeenOnboarding === null) return;
 
     const inAuthGroup = segments[0] === '(auth)';
-    const inTabsGroup = segments[0] === '(tabs)';
     const currentRoute = segments[segments.length - 1];
 
     // Skip routing if we're on onboarding screen to prevent loops
@@ -97,10 +117,11 @@ export default function RootLayout() {
       if (!isAuthenticated && !inAuthGroup) {
         // Redirect to login if not authenticated
         router.replace('/(auth)/login');
-      } else if (isAuthenticated && (inAuthGroup || (!inTabsGroup && !inAuthGroup))) {
-        // Redirect to tabs if authenticated and not already there
+      } else if (isAuthenticated && inAuthGroup) {
+        // Redirect to tabs if authenticated and in auth group
         router.replace('/(tabs)');
       }
+      // Allow (screens) and (tabs) groups when authenticated
     }
   }, [isAuthenticated, hasSeenOnboarding, segments]);
 

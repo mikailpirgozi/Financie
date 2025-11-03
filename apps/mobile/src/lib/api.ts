@@ -59,7 +59,7 @@ async function withRetry<T>(
 /**
  * Base fetch wrapper with auth headers, timeout, and retry logic
  */
-async function apiFetch<T>(
+export async function apiFetch<T>(
   endpoint: string,
   options: RequestInit = {},
   useRetry: boolean = true
@@ -81,11 +81,9 @@ async function apiFetch<T>(
     }
 
     const fullUrl = `${API_URL}${endpoint}`;
-    console.log('🌐 API Request:', {
-      url: fullUrl,
-      method: options.method || 'GET',
-      hasAuth: !!session?.access_token,
-    });
+    // Debug logs disabled for performance (console.log is slow in React Native)
+    // Uncomment only when debugging API issues:
+    // console.log('🌐 API Request:', { url: fullUrl, method: options.method || 'GET' });
 
     const timeoutSignal = createTimeoutSignal(REQUEST_TIMEOUT);
     const combinedSignal = options.signal || timeoutSignal;
@@ -97,34 +95,28 @@ async function apiFetch<T>(
         signal: combinedSignal,
       });
 
-      console.log('📡 API Response:', {
-        url: fullUrl,
-        status: response.status,
-        ok: response.ok,
-      });
-
       if (!response.ok) {
         const error: ApiError = await response.json().catch(() => ({ 
           error: 'Unknown error',
           statusCode: response.status 
         }));
-        console.error('❌ API Error:', error);
+        // Only log actual errors
+        if (__DEV__) {
+          console.error('❌ API Error:', { url: fullUrl, error });
+        }
         throw new Error(error.message || error.error || `HTTP ${response.status}`);
       }
 
-            const data = await response.json();
-            console.log('✅ API Success:', { 
-              url: fullUrl, 
-              dataKeys: Object.keys(data),
-              sample: JSON.stringify(data).slice(0, 200) 
-            });
-            return data;
+      const data = await response.json();
+      return data;
     } catch (error) {
-      console.error('❌ API Fetch Error:', {
-        url: fullUrl,
-        error: error instanceof Error ? error.message : String(error),
-        name: error instanceof Error ? error.name : 'Unknown',
-      });
+      // Only log in development
+      if (__DEV__) {
+        console.error('❌ API Fetch Error:', {
+          url: fullUrl,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
       
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
@@ -163,6 +155,7 @@ export interface Loan {
   start_date: string;
   end_date: string;
   next_payment_due_date: string | null;
+  overdue_count?: number;
   created_at: string;
 }
 
@@ -367,9 +360,69 @@ export interface Household {
   created_at: string;
 }
 
+// Cache for household data (5 min TTL) to prevent multiple simultaneous requests
+let householdCache: { data: Household; timestamp: number } | null = null;
+let pendingHouseholdRequest: Promise<Household> | null = null;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 export async function getCurrentHousehold(): Promise<Household> {
-  const { household } = await apiFetch<{ household: Household }>('/api/households/current');
-  return household;
+  // Return cached data if still valid
+  if (householdCache && Date.now() - householdCache.timestamp < CACHE_TTL) {
+    return householdCache.data;
+  }
+  
+  // If there's already a pending request, wait for it (deduplication)
+  if (pendingHouseholdRequest) {
+    return pendingHouseholdRequest;
+  }
+  
+  // Create new request
+  pendingHouseholdRequest = (async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      const { data, error } = await supabase
+        .from('household_members')
+        .select('household_id, role, households(*)')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        // If no household found, fall back to API (which creates one)
+        if (error.code === 'PGRST116') {
+          const { household } = await apiFetch<{ household: Household }>('/api/households/current', {}, false);
+          
+          // Cache the result
+          householdCache = { data: household, timestamp: Date.now() };
+          return household;
+        }
+        throw error;
+      }
+
+      // Transform to expected format
+      const household = data.households as unknown as Household;
+      
+      // Cache the result
+      householdCache = { data: household, timestamp: Date.now() };
+      
+      return household;
+    } finally {
+      // Clear pending request
+      pendingHouseholdRequest = null;
+    }
+  })();
+  
+  return pendingHouseholdRequest;
+}
+
+// Clear household cache (call on logout or household change)
+export function clearHouseholdCache(): void {
+  householdCache = null;
+  pendingHouseholdRequest = null;
 }
 
 // ============================================

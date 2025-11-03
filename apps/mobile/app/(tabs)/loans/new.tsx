@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Keyboard,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   calculateLoanData,
@@ -36,14 +37,30 @@ const LOAN_TYPES: Array<{ value: LoanType; label: string }> = [
   { value: 'auto_loan', label: '🚗 Auto úver' },
 ];
 
+// Optimized formatDisplay functions (created once, not on every render)
+const formatCurrency = (v: number) => `${v.toFixed(2)} €`;
+const formatPercentage = (v: number) => `${v.toFixed(1)}%`;
+const formatTermMonths = (v: number) => {
+  const years = Math.floor(v / 12);
+  const months = v % 12;
+  if (years > 0 && months > 0) {
+    return `${years} r. ${months} m.`;
+  } else if (years > 0) {
+    return `${years} ${years === 1 ? 'rok' : years < 5 ? 'roky' : 'rokov'}`;
+  } else {
+    return `${months} mes.`;
+  }
+};
+
 export default function NewLoanScreen() {
+  
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [householdId, setHouseholdId] = useState<string>('');
   const [showLoanTypePicker, setShowLoanTypePicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [toast, setToast] = useState<{
     visible: boolean;
     message: string;
@@ -71,6 +88,7 @@ export default function NewLoanScreen() {
   });
 
   useEffect(() => {
+    // Simple direct load - no fancy delays
     loadInitialData();
   }, []);
 
@@ -78,15 +96,21 @@ export default function NewLoanScreen() {
     try {
       const household = await getCurrentHousehold();
       setHouseholdId(household.id);
+      setIsInitializing(false);
     } catch (error) {
       showToast('Nepodarilo sa načítať dáta', 'error');
+      setIsInitializing(false);
     }
   };
 
-  // Calculate loan with memoized calculator
-  const calculatedData = useMemo(
-    () =>
-      calculateLoanData({
+  // Calculate loan data with full calculator (same as web)
+  const calculatedData = React.useMemo(() => {
+    if (isInitializing) {
+      return null;
+    }
+    
+    try {
+      return calculateLoanData({
         loanType: formData.loanType,
         principal: formData.principal,
         annualRate:
@@ -102,25 +126,77 @@ export default function NewLoanScreen() {
         balloonAmount:
           formData.loanType === 'interest_only' ? formData.balloonAmount : undefined,
         calculationMode: formData.calculationMode,
-      }),
-    [
-      formData.loanType,
-      formData.principal,
-      formData.annualRate,
-      formData.monthlyPayment,
-      formData.termMonths,
-      formData.startDate,
-      formData.feeSetup,
-      formData.feeMonthly,
-      formData.insuranceMonthly,
-      formData.balloonAmount,
-      formData.calculationMode,
-    ]
-  );
+      });
+    } catch (error) {
+      return null;
+    }
+  }, [
+    isInitializing,
+    formData.loanType,
+    formData.principal,
+    formData.annualRate,
+    formData.monthlyPayment,
+    formData.termMonths,
+    formData.startDate,
+    formData.feeSetup,
+    formData.feeMonthly,
+    formData.insuranceMonthly,
+    formData.balloonAmount,
+    formData.calculationMode,
+  ]);
 
-  const showToast = (message: string, type: 'success' | 'error') => {
+  const showToast = useCallback((message: string, type: 'success' | 'error') => {
     setToast({ visible: true, message, type });
-  };
+  }, []);
+
+  // Memoized handlers for form fields to prevent child re-renders
+  const handleNameChange = useCallback((value: string) => {
+    setFormData(prev => ({ ...prev, name: value }));
+  }, []);
+
+  const handleLenderChange = useCallback((value: string) => {
+    setFormData(prev => ({ ...prev, lender: value }));
+  }, []);
+
+  const handleLoanTypeChange = useCallback((value: LoanType) => {
+    setFormData(prev => ({ ...prev, loanType: value }));
+  }, []);
+
+  const handlePrincipalChange = useCallback((value: number) => {
+    setFormData(prev => ({ ...prev, principal: value }));
+  }, []);
+
+  const handleCalculationModeChange = useCallback((value: LoanCalculationMode) => {
+    setFormData(prev => ({ ...prev, calculationMode: value }));
+  }, []);
+
+  const handleAnnualRateChange = useCallback((value: number) => {
+    setFormData(prev => ({ ...prev, annualRate: value }));
+  }, []);
+
+  const handleMonthlyPaymentChange = useCallback((value: number) => {
+    setFormData(prev => ({ ...prev, monthlyPayment: value }));
+  }, []);
+
+  const handleTermMonthsChange = useCallback((value: number) => {
+    setFormData(prev => ({ ...prev, termMonths: value }));
+  }, []);
+
+  const handleFeeSetupChange = useCallback((value: number) => {
+    setFormData(prev => ({ ...prev, feeSetup: value }));
+  }, []);
+
+  const handleFeeMonthlyChange = useCallback((value: number) => {
+    setFormData(prev => ({ ...prev, feeMonthly: value }));
+  }, []);
+
+  const handleInsuranceMonthlyChange = useCallback((value: number) => {
+    setFormData(prev => ({ ...prev, insuranceMonthly: value }));
+  }, []);
+
+  const handleBalloonAmountChange = useCallback((value: number) => {
+    setFormData(prev => ({ ...prev, balloonAmount: value }));
+  }, []);
 
   const onSubmit = async () => {
     if (!householdId) {
@@ -203,12 +279,18 @@ export default function NewLoanScreen() {
   const loanTypeInfo = LOAN_TYPE_INFO[formData.loanType];
 
   return (
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
     <KeyboardAvoidingView
-      style={styles.container}
+        style={styles.keyboardView}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
-        <View style={[styles.content, { paddingTop: insets.top + 16 }]}>
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.content}>
           <Text style={styles.title}>Nový úver</Text>
           <Text style={styles.subtitle}>
             Zadajte údaje - systém automaticky dopočíta chýbajúce hodnoty
@@ -222,9 +304,12 @@ export default function NewLoanScreen() {
               placeholder="napr. Auto BMW X5, Hypotéka byt..."
               placeholderTextColor="#999"
               value={formData.name}
-              onChangeText={(value) => setFormData({ ...formData, name: value })}
+              onChangeText={handleNameChange}
               editable={!loading}
               maxLength={200}
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
+              blurOnSubmit={true}
             />
             <Text style={styles.hint}>
               Vlastný popis pre jednoduchšiu identifikáciu (nepovinné)
@@ -234,7 +319,7 @@ export default function NewLoanScreen() {
           {/* Lender */}
           <LenderSelect
             value={formData.lender}
-            onChange={(value) => setFormData({ ...formData, lender: value })}
+            onChange={handleLenderChange}
             disabled={loading}
           />
 
@@ -272,10 +357,8 @@ export default function NewLoanScreen() {
               onChange={(_event, selectedDate) => {
                 setShowDatePicker(Platform.OS === 'ios');
                 if (selectedDate) {
-                  setFormData({
-                    ...formData,
-                    startDate: selectedDate.toISOString().split('T')[0] ?? '',
-                  });
+                  const dateStr = selectedDate.toISOString().split('T')[0] ?? '';
+                  setFormData(prev => ({ ...prev, startDate: dateStr }));
                 }
               }}
             />
@@ -287,19 +370,19 @@ export default function NewLoanScreen() {
           <SmartSlider
             label="💰 Výška úveru *"
             value={formData.principal}
-            onValueChange={(value) => setFormData({ ...formData, principal: value })}
+            onValueChange={handlePrincipalChange}
             minimumValue={100}
             maximumValue={500000}
             step={100}
             suffix=" €"
-            formatDisplay={(v) => `${v.toFixed(2)} €`}
+            formatDisplay={formatCurrency}
             disabled={loading}
           />
 
           {/* Calculation Mode */}
           <LoanModeSelector
             value={formData.calculationMode}
-            onChange={(value) => setFormData({ ...formData, calculationMode: value })}
+            onChange={handleCalculationModeChange}
             disabled={loading}
           />
 
@@ -308,12 +391,12 @@ export default function NewLoanScreen() {
             <SmartSlider
               label="Úroková sadzba *"
               value={formData.annualRate}
-              onValueChange={(value) => setFormData({ ...formData, annualRate: value })}
+              onValueChange={handleAnnualRateChange}
               minimumValue={0}
               maximumValue={25}
               step={0.1}
               suffix=" %"
-              formatDisplay={(v) => `${v.toFixed(1)}%`}
+              formatDisplay={formatPercentage}
               disabled={loading}
             />
           )}
@@ -322,12 +405,12 @@ export default function NewLoanScreen() {
             <SmartSlider
               label="Mesačná splátka *"
               value={formData.monthlyPayment}
-              onValueChange={(value) => setFormData({ ...formData, monthlyPayment: value })}
+              onValueChange={handleMonthlyPaymentChange}
               minimumValue={50}
               maximumValue={10000}
               step={0.5}
               suffix=" €"
-              formatDisplay={(v) => `${v.toFixed(2)} €`}
+              formatDisplay={formatCurrency}
               disabled={loading}
             />
           )}
@@ -336,22 +419,12 @@ export default function NewLoanScreen() {
             <SmartSlider
               label="Doba splácania *"
               value={formData.termMonths}
-              onValueChange={(value) => setFormData({ ...formData, termMonths: value })}
+              onValueChange={handleTermMonthsChange}
               minimumValue={12}
               maximumValue={360}
               step={6}
               suffix=" mes."
-              formatDisplay={(v) => {
-                const years = Math.floor(v / 12);
-                const months = v % 12;
-                if (years > 0 && months > 0) {
-                  return `${years} r. ${months} m.`;
-                } else if (years > 0) {
-                  return `${years} ${years === 1 ? 'rok' : years < 5 ? 'roky' : 'rokov'}`;
-                } else {
-                  return `${months} mes.`;
-                }
-              }}
+              formatDisplay={formatTermMonths}
               disabled={loading}
             />
           )}
@@ -457,12 +530,12 @@ export default function NewLoanScreen() {
               <SmartSlider
                 label="💵 Poplatok za zriadenie"
                 value={formData.feeSetup}
-                onValueChange={(value) => setFormData({ ...formData, feeSetup: value })}
+                onValueChange={handleFeeSetupChange}
                 minimumValue={0}
                 maximumValue={5000}
                 step={10}
                 suffix=" €"
-                formatDisplay={(v) => `${v.toFixed(2)} €`}
+                formatDisplay={formatCurrency}
                 disabled={loading}
               />
 
@@ -470,12 +543,12 @@ export default function NewLoanScreen() {
               <SmartSlider
                 label="💳 Mesačný poplatok"
                 value={formData.feeMonthly}
-                onValueChange={(value) => setFormData({ ...formData, feeMonthly: value })}
+                onValueChange={handleFeeMonthlyChange}
                 minimumValue={0}
                 maximumValue={100}
                 step={0.5}
                 suffix=" €"
-                formatDisplay={(v) => `${v.toFixed(2)} €`}
+                formatDisplay={formatCurrency}
                 disabled={loading}
               />
 
@@ -483,12 +556,12 @@ export default function NewLoanScreen() {
               <SmartSlider
                 label="🛡️ Mesačné poistenie"
                 value={formData.insuranceMonthly}
-                onValueChange={(value) => setFormData({ ...formData, insuranceMonthly: value })}
+                onValueChange={handleInsuranceMonthlyChange}
                 minimumValue={0}
                 maximumValue={200}
                 step={1}
                 suffix=" €"
-                formatDisplay={(v) => `${v.toFixed(2)} €`}
+                formatDisplay={formatCurrency}
                 disabled={loading}
               />
 
@@ -497,12 +570,12 @@ export default function NewLoanScreen() {
                 <SmartSlider
                   label="🎈 Balónová splátka (nakoniec)"
                   value={formData.balloonAmount}
-                  onValueChange={(value) => setFormData({ ...formData, balloonAmount: value })}
+                  onValueChange={handleBalloonAmountChange}
                   minimumValue={0}
                   maximumValue={formData.principal}
                   step={100}
                   suffix=" €"
-                  formatDisplay={(v) => `${v.toFixed(2)} €`}
+                  formatDisplay={formatCurrency}
                   disabled={loading}
                 />
               )}
@@ -536,6 +609,7 @@ export default function NewLoanScreen() {
           </View>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Loan Type Picker Modal */}
       <Modal
@@ -554,7 +628,7 @@ export default function NewLoanScreen() {
                   formData.loanType === type.value && styles.pickerItemSelected,
                 ]}
                 onPress={() => {
-                  setFormData({ ...formData, loanType: type.value });
+                  handleLoanTypeChange(type.value);
                   setShowLoanTypePicker(false);
                 }}
               >
@@ -584,7 +658,7 @@ export default function NewLoanScreen() {
         type={toast.type}
         onDismiss={() => setToast({ ...toast, visible: false })}
       />
-    </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -593,8 +667,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  keyboardView: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   content: {
     padding: 16,

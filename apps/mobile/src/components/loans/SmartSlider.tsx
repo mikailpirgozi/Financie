@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput } from 'react-native';
-// @ts-expect-error - React Native Slider is not typed
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, TextInput, Keyboard } from 'react-native';
 import Slider from '@react-native-community/slider';
 
 interface SmartSliderProps {
@@ -17,8 +16,9 @@ interface SmartSliderProps {
 
 /**
  * Smart slider with synced manual input for mobile
+ * Optimized with throttled slider updates to prevent lag
  */
-export function SmartSlider({
+export const SmartSlider = React.memo(function SmartSlider({
   label,
   value,
   onValueChange,
@@ -32,10 +32,31 @@ export function SmartSlider({
   const [inputValue, setInputValue] = useState(
     step < 1 ? value.toFixed(2) : value.toString()
   );
+  const [sliderValue, setSliderValue] = useState(value);
+  const lastUpdateRef = useRef<number>(Date.now());
 
   useEffect(() => {
     setInputValue(step < 1 ? value.toFixed(2) : value.toString());
+    setSliderValue(value);
   }, [value, step]);
+
+  // Update parent every 200ms while sliding (throttled) + show local state immediately
+  const handleSliderChange = useCallback((newValue: number) => {
+    setSliderValue(newValue); // Immediate visual feedback
+    
+    const now = Date.now();
+    if (now - lastUpdateRef.current > 200) {
+      lastUpdateRef.current = now;
+      onValueChange(newValue); // Throttled parent update
+    }
+  }, [onValueChange]);
+
+  // Final update when releasing slider
+  const handleSliderComplete = useCallback((newValue: number) => {
+    setSliderValue(newValue);
+    onValueChange(newValue);
+    lastUpdateRef.current = Date.now();
+  }, [onValueChange]);
 
   const handleInputChange = (text: string) => {
     setInputValue(text);
@@ -54,9 +75,10 @@ export function SmartSlider({
     }
   };
 
+  // Show slider value during dragging, otherwise show committed value
   const displayValue = formatDisplay
-    ? formatDisplay(value)
-    : `${value.toLocaleString('sk-SK')}${suffix}`;
+    ? formatDisplay(sliderValue)
+    : `${sliderValue.toLocaleString('sk-SK')}${suffix}`;
 
   return (
     <View style={styles.container}>
@@ -67,14 +89,15 @@ export function SmartSlider({
         <Text style={styles.valueText}>{displayValue}</Text>
       </View>
 
-      {/* Slider */}
+      {/* Slider with throttled updates */}
       <Slider
         style={styles.slider}
         minimumValue={minimumValue}
         maximumValue={maximumValue}
         step={step}
-        value={value}
-        onValueChange={onValueChange}
+        value={sliderValue}
+        onValueChange={handleSliderChange}
+        onSlidingComplete={handleSliderComplete}
         minimumTrackTintColor="#8b5cf6"
         maximumTrackTintColor="#e5e7eb"
         thumbTintColor="#8b5cf6"
@@ -103,12 +126,17 @@ export function SmartSlider({
           editable={!disabled}
           placeholder={step < 1 ? '0.00' : '0'}
           placeholderTextColor="#9ca3af"
+          returnKeyType="done"
+          onSubmitEditing={() => {
+            Keyboard.dismiss();
+            handleInputBlur();
+          }}
         />
         {suffix && <Text style={styles.suffix}>{suffix}</Text>}
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

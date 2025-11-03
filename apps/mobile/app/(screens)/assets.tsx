@@ -175,37 +175,34 @@ export default function AssetsScreen() {
 
   return (
     <View style={styles.container}>
-      {assets.length > 0 && (
-        <View style={styles.summary}>
-          <Text style={styles.summaryLabel}>Celková hodnota:</Text>
-          <Text style={styles.summaryValue}>{formatCurrency(totalValue)}</Text>
+      {assets.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyIcon}>🏠</Text>
+          <Text style={styles.emptyText}>Zatiaľ nemáte žiadny majetok</Text>
+          <Button
+            onPress={() => router.push('/(screens)/assets/new')}
+            style={{ marginTop: 16 }}
+          >
+            Pridať prvý majetok
+          </Button>
         </View>
+      ) : (
+        <FlatList
+          data={assets}
+          keyExtractor={(item) => item.id}
+          renderItem={renderAssetCard}
+          ListHeaderComponent={
+            <View style={styles.summary}>
+              <Text style={styles.summaryLabel}>Celková hodnota:</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(totalValue)}</Text>
+            </View>
+          }
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          contentContainerStyle={styles.list}
+        />
       )}
-
-      <View style={styles.content}>
-        {assets.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>🏠</Text>
-            <Text style={styles.emptyText}>Zatiaľ nemáte žiadny majetok</Text>
-            <Button
-              onPress={() => router.push('/(screens)/assets/new')}
-              style={{ marginTop: 16 }}
-            >
-              Pridať prvý majetok
-            </Button>
-          </View>
-        ) : (
-          <FlatList
-            data={assets}
-            keyExtractor={(item) => item.id}
-            renderItem={renderAssetCard}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-            contentContainerStyle={styles.list}
-          />
-        )}
-      </View>
 
       <Toast
         visible={toast.visible}
@@ -226,6 +223,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 16,
+    paddingBottom: 8,
   },
   summaryLabel: {
     fontSize: 14,
@@ -240,7 +239,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   list: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   assetCard: {
     marginBottom: 12,

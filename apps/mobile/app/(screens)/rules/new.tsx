@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getCurrentHousehold, getCategories, createRule, type Category, type CreateRuleData } from '../../../src/lib/api';
 import { LoadingSpinner } from '../../../src/components/LoadingSpinner';
 import { Button } from '@/components/ui/Button';
@@ -20,6 +21,7 @@ type AppliesTo = 'expense' | 'income';
 
 export default function NewRuleScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -123,7 +125,7 @@ export default function NewRuleScreen() {
   ];
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.title}>Nové pravidlo</Text>

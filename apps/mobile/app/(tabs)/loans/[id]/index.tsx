@@ -7,7 +7,10 @@ import {
   Alert,
   ActivityIndicator,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { getLoan, markLoanInstallmentPaid, markLoanPaidUntilToday, type Loan } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
@@ -15,7 +18,9 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
-import { ExpandableInstallmentCard } from '@/components/ExpandableInstallmentCard';
+import { SwipeableInstallmentCard } from '@/components/loans/SwipeableInstallmentCard';
+import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
+import { OptionsMenu, type MenuItem } from '@/components/ui/OptionsMenu';
 import * as Haptics from 'expo-haptics';
 
 interface LoanScheduleEntry {
@@ -34,8 +39,10 @@ interface LoanScheduleEntry {
 
 export default function LoanDetailScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loan, setLoan] = useState<Loan | null>(null);
   const [schedule, setSchedule] = useState<LoanScheduleEntry[]>([]);
   const [optimisticSchedule, setOptimisticSchedule] = useState<LoanScheduleEntry[]>([]);
@@ -130,6 +137,12 @@ export default function LoanDetailScreen() {
       // Refresh data
       await loadLoan();
     }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadLoan();
+    setRefreshing(false);
   };
 
   const handleMarkAllUntilToday = async () => {
@@ -276,14 +289,14 @@ export default function LoanDetailScreen() {
   const paidInstallments = optimisticSchedule.filter((i) => i.status === 'paid').length;
   const totalInstallments = optimisticSchedule.length;
   
-  // Smart display: show unpaid + last 2 paid if user wants history
+  // Smart display: show unpaid + last 1 paid (most recent)
   const unpaidSchedule = optimisticSchedule.filter((i) => i.status !== 'paid');
   const paidSchedule = optimisticSchedule.filter((i) => i.status === 'paid');
-  const lastTwoPaid = paidSchedule.slice(-2);
+  const lastPaid = paidSchedule.length > 0 ? [paidSchedule[paidSchedule.length - 1]] : [];
   
   const displayedSchedule = showPaidInstallments
     ? optimisticSchedule
-    : [...lastTwoPaid, ...unpaidSchedule];
+    : [...lastPaid, ...unpaidSchedule];
   
   // Count pending installments until today for bulk action
   const today = new Date().toISOString().split('T')[0];
@@ -293,9 +306,75 @@ export default function LoanDetailScreen() {
       entry.due_date <= today
   ).length;
 
+  // Smart FAB indicators
+  const overdueCount = optimisticSchedule.filter(
+    (entry) => entry.status === 'overdue'
+  ).length;
+  
+  const dueTodayCount = optimisticSchedule.filter(
+    (entry) => entry.status === 'pending' && entry.due_date === today
+  ).length;
+
+  // Menu options
+  const menuOptions: MenuItem[] = [
+    {
+      label: 'Prepojiť s majetkom',
+      icon: '🏠',
+      onPress: () => router.push(`/(tabs)/loans/${id}/link-asset`),
+    },
+    {
+      label: 'Simulovať scenáre',
+      icon: '📊',
+      onPress: () => router.push(`/(tabs)/loans/${id}/simulate`),
+    },
+    {
+      label: 'Upraviť úver',
+      icon: '✏️',
+      onPress: () => router.push(`/(tabs)/loans/${id}/edit`),
+    },
+    {
+      label: 'Predčasne splatiť',
+      icon: '💰',
+      onPress: () => router.push(`/(tabs)/loans/${id}/early-repayment`),
+    },
+    {
+      label: 'Zmazať úver',
+      icon: '🗑️',
+      destructive: true,
+      onPress: handleDelete,
+    },
+  ];
+
   return (
+    <GestureHandlerRootView style={styles.gestureContainer}>
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+        {/* Header with menu */}
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <Text style={styles.backIcon}>←</Text>
+          </TouchableOpacity>
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {loan.name || loan.lender}
+            </Text>
+          </View>
+          <OptionsMenu options={menuOptions} title="Akcie úveru" />
+        </View>
+
+        <ScrollView
+          style={styles.scrollView}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#8b5cf6"
+              colors={['#8b5cf6']}
+            />
+          }
+        >
         <View style={styles.content}>
           {/* Overview Card */}
           <Card style={styles.overviewCard}>
@@ -333,6 +412,24 @@ export default function LoanDetailScreen() {
               <Text style={styles.progressText}>
                 {Math.round(progress)}% splatené
               </Text>
+            </View>
+
+            {/* Quick Stats */}
+            <View style={styles.quickStats}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{overdueCount}</Text>
+                <Text style={styles.statLabel}>Po splatnosti</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{formatCurrency(loan.monthly_payment)}</Text>
+                <Text style={styles.statLabel}>Mesačná splátka</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{totalInstallments - paidInstallments}</Text>
+                <Text style={styles.statLabel}>Zostáva splátok</Text>
+              </View>
             </View>
           </Card>
 
@@ -385,6 +482,40 @@ export default function LoanDetailScreen() {
                 </Text>
               </View>
 
+              {/* Smart Context Hint */}
+              {overdueCount > 0 && (
+                <View style={[styles.contextHint, styles.contextHintDanger]}>
+                  <Text style={styles.contextHintIcon}>⚠️</Text>
+                  <Text style={styles.contextHintText}>
+                    Máte {overdueCount} {overdueCount === 1 ? 'splátku' : 'splátok'} po splatnosti
+                  </Text>
+                </View>
+              )}
+              {overdueCount === 0 && dueTodayCount > 0 && (
+                <View style={[styles.contextHint, styles.contextHintWarning]}>
+                  <Text style={styles.contextHintIcon}>📅</Text>
+                  <Text style={styles.contextHintText}>
+                    Dnes je splatnosť {dueTodayCount} {dueTodayCount === 1 ? 'splátky' : 'splátok'}
+                  </Text>
+                </View>
+              )}
+              {overdueCount === 0 && dueTodayCount === 0 && paidInstallments === totalInstallments && (
+                <View style={[styles.contextHint, styles.contextHintSuccess]}>
+                  <Text style={styles.contextHintIcon}>✅</Text>
+                  <Text style={styles.contextHintText}>
+                    Všetky splátky uhradené
+                  </Text>
+                </View>
+              )}
+              {overdueCount === 0 && dueTodayCount === 0 && paidInstallments < totalInstallments && pendingUntilTodayCount === 0 && (
+                <View style={[styles.contextHint, styles.contextHintSuccess]}>
+                  <Text style={styles.contextHintIcon}>✓</Text>
+                  <Text style={styles.contextHintText}>
+                    Všetky splátky uhradené do dnes
+                  </Text>
+                </View>
+              )}
+
               {/* Bulk Action Button */}
               {pendingUntilTodayCount > 0 && (
                 <View style={styles.bulkActionContainer}>
@@ -399,22 +530,82 @@ export default function LoanDetailScreen() {
               )}
 
               {displayedSchedule.map((entry) => (
-                <ExpandableInstallmentCard
+                <SwipeableInstallmentCard
                   key={entry.id}
                   entry={entry}
                   onMarkPaid={handleMarkInstallmentPaid}
+                  onEditPayment={(entryId) => {
+                    // TODO: Implementovať edit payment screen
+                    router.push(`/(tabs)/loans/${id}/pay?installmentId=${entryId}`);
+                  }}
+                  onCustomDatePayment={(entryId) => {
+                    // TODO: Implementovať custom date picker
+                    router.push(`/(tabs)/loans/${id}/pay?installmentId=${entryId}`);
+                  }}
+                  onRemovePayment={async (entryId) => {
+                    try {
+                      const entryToRemove = schedule.find((e) => e.id === entryId);
+                      if (!entryToRemove) return;
+
+                      // Optimistic update
+                      setOptimisticSchedule((prev) =>
+                        prev.map((e) =>
+                          e.id === entryId
+                            ? { ...e, status: 'pending' as const, paid_at: null }
+                            : e
+                        )
+                      );
+
+                      const {
+                        data: { session },
+                      } = await supabase.auth.getSession();
+
+                      const response = await fetch(
+                        `${process.env.EXPO_PUBLIC_API_URL}/api/loans/${id}/schedules/${entryId}/unpay`,
+                        {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${session?.access_token}`,
+                          },
+                        }
+                      );
+
+                      if (!response.ok) {
+                        throw new Error('Failed to remove payment');
+                      }
+
+                      // Reload data
+                      await loadLoan();
+
+                      setToast({
+                        visible: true,
+                        message: 'Platba bola odstránená',
+                        type: 'success',
+                      });
+                    } catch (err) {
+                      console.error('Error removing payment:', err);
+                      // Revert optimistic update
+                      setOptimisticSchedule(schedule);
+                      setToast({
+                        visible: true,
+                        message: 'Nepodarilo sa odstrániť platbu',
+                        type: 'error',
+                      });
+                    }
+                  }}
                   formatCurrency={formatCurrency}
                   formatDate={formatDate}
                 />
               ))}
 
-              {paidSchedule.length > 2 && !showPaidInstallments && (
+              {paidSchedule.length > 1 && !showPaidInstallments && (
                 <TouchableOpacity
                   style={styles.showHistoryButton}
                   onPress={() => setShowPaidInstallments(true)}
                 >
                   <Text style={styles.showHistoryText}>
-                    Zobraziť históriu ({paidSchedule.length - 2} zaplatených)
+                    Zobraziť históriu ({paidSchedule.length - 1} zaplatených)
                   </Text>
                 </TouchableOpacity>
               )}
@@ -432,61 +623,32 @@ export default function LoanDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* Action Buttons */}
-      {loan.status === 'active' && (
-        <View style={styles.actions}>
-          <Button
-            onPress={() => router.push(`/(tabs)/loans/${id}/pay`)}
-            variant="primary"
-            fullWidth
-          >
-            Zaplatiť splátku
-          </Button>
-          <View style={styles.actionRow}>
-            <Button
-              onPress={() => router.push(`/(tabs)/loans/${id}/early-repayment`)}
-              variant="outline"
-              style={{ flex: 1, marginRight: 4 }}
-            >
-              Predčasne splatiť
-            </Button>
-            <Button
-              onPress={() => router.push(`/(tabs)/loans/${id}/simulate`)}
-              variant="outline"
-              style={{ flex: 1, marginHorizontal: 4 }}
-            >
-              Simulovať
-            </Button>
-          </View>
-          <View style={styles.actionRow}>
-            <Button
-              onPress={() => router.push(`/(tabs)/loans/${id}/edit`)}
-              variant="outline"
-              style={{ flex: 1, marginRight: 4 }}
-            >
-              Upraviť
-            </Button>
-            <Button
-              onPress={handleDelete}
-              variant="destructive"
-              style={{ flex: 1 }}
-            >
-              Zmazať
-            </Button>
-          </View>
-        </View>
+      {/* Floating Action Button - smart color indicators */}
+      {loan.status === 'active' && overdueCount > 0 && (
+        <FloatingActionButton
+          icon="⚠️"
+          label={`${overdueCount} po splatnosti`}
+          backgroundColor="#dc2626"
+          onPress={handleMarkAllUntilToday}
+        />
+      )}
+      
+      {loan.status === 'active' && overdueCount === 0 && dueTodayCount > 0 && (
+        <FloatingActionButton
+          icon="📅"
+          label={`${dueTodayCount} ${dueTodayCount === 1 ? 'dnes' : 'dnes'}`}
+          backgroundColor="#f59e0b"
+          onPress={handleMarkAllUntilToday}
+        />
       )}
 
-      {loan.status === 'paid_off' && (
-        <View style={styles.actions}>
-          <Button
-            onPress={handleDelete}
-            variant="destructive"
-            fullWidth
-          >
-            Zmazať úver
-          </Button>
-        </View>
+      {loan.status === 'active' && overdueCount === 0 && dueTodayCount === 0 && pendingUntilTodayCount > 0 && (
+        <FloatingActionButton
+          icon="✓"
+          label={`${pendingUntilTodayCount}`}
+          backgroundColor="#8b5cf6"
+          onPress={handleMarkAllUntilToday}
+        />
       )}
 
       <Toast
@@ -496,20 +658,58 @@ export default function LoanDetailScreen() {
         onDismiss={() => setToast({ ...toast, visible: false })}
       />
     </View>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  gestureContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#fafafa',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  backIcon: {
+    fontSize: 26,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  headerCenter: {
+    flex: 1,
+    marginHorizontal: 12,
+  },
+  headerTitle: {
+    fontSize: 19,
+    fontWeight: '700',
+    color: '#111827',
+    letterSpacing: -0.3,
   },
   scrollView: {
     flex: 1,
   },
   content: {
     padding: 16,
-    paddingBottom: 180,
+    paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
@@ -598,6 +798,33 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
   },
+  quickStats: {
+    flexDirection: 'row',
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: '#6b7280',
+    textAlign: 'center',
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: '#e5e7eb',
+    marginHorizontal: 8,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -633,6 +860,38 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#8b5cf6',
   },
+  contextHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+  },
+  contextHintDanger: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  contextHintWarning: {
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  contextHintSuccess: {
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  contextHintIcon: {
+    fontSize: 16,
+  },
+  contextHintText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#374151',
+    flex: 1,
+  },
   showHistoryButton: {
     paddingVertical: 14,
     alignItems: 'center',
@@ -644,20 +903,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#8b5cf6',
-  },
-  actions: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-  },
-  actionRow: {
-    flexDirection: 'row',
-    marginTop: 12,
   },
   bulkActionContainer: {
     marginBottom: 16,

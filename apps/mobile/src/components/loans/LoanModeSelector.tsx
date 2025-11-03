@@ -10,8 +10,9 @@ interface LoanModeSelectorProps {
 
 /**
  * Radio selector for loan calculation mode (mobile)
+ * Memoized to prevent unnecessary re-renders
  */
-export function LoanModeSelector({
+export const LoanModeSelector = React.memo(function LoanModeSelector({
   value,
   onChange,
   disabled = false,
@@ -51,7 +52,7 @@ export function LoanModeSelector({
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
