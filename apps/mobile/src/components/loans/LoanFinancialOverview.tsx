@@ -1,7 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import {
-  PieChart,
   TrendingUp,
   Banknote,
   ArrowDownRight,
@@ -73,22 +72,7 @@ export function LoanFinancialOverview({
   const interestPaidPercent = totalInterest > 0 ? (paidInterest / totalInterest) * 100 : 0;
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: colors.surface,
-          borderColor: colors.border,
-        },
-      ]}
-    >
-      <View style={styles.header}>
-        <PieChart size={20} color={colors.primary} />
-        <Text style={[styles.title, { color: colors.text }]}>
-          Financny prehlad
-        </Text>
-      </View>
-
+    <View style={styles.container}>
       {/* Total Cost Breakdown */}
       <View style={[styles.section, { backgroundColor: colors.surfacePressed }]}>
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
@@ -335,20 +319,8 @@ export function LoanFinancialOverview({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    marginTop: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
+    // No border/bg - used inside CollapsibleSection
+    paddingTop: 8,
   },
   section: {
     borderRadius: 12,

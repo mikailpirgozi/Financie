@@ -34,8 +34,11 @@ export function DatePicker({
   error,
   locale = 'sk-SK',
 }: DatePickerProps) {
+  // Ensure value is a valid Date (prevent crash on Invalid Date)
+  const safeValue = value instanceof Date && !isNaN(value.getTime()) ? value : new Date();
+  
   const [show, setShow] = useState(false);
-  const [tempDate, setTempDate] = useState(value);
+  const [tempDate, setTempDate] = useState(safeValue);
 
   const handleChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
@@ -54,11 +57,15 @@ export function DatePicker({
   };
 
   const handleCancel = () => {
-    setTempDate(value);
+    setTempDate(safeValue);
     setShow(false);
   };
 
   const formatDate = (date: Date): string => {
+    // Guard against Invalid Date
+    if (isNaN(date.getTime())) {
+      return 'Neplatný dátum';
+    }
     return date.toLocaleDateString(locale, {
       year: 'numeric',
       month: 'long',
@@ -80,9 +87,9 @@ export function DatePicker({
         disabled={disabled}
       >
         <Text style={styles.text}>
-          {mode === 'date' && formatDate(value)}
-          {mode === 'time' && value.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
-          {mode === 'datetime' && `${formatDate(value)} ${value.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`}
+          {mode === 'date' && formatDate(safeValue)}
+          {mode === 'time' && safeValue.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+          {mode === 'datetime' && `${formatDate(safeValue)} ${safeValue.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`}
         </Text>
         <Text style={styles.icon}>📅</Text>
       </TouchableOpacity>
@@ -123,7 +130,7 @@ export function DatePicker({
         </Modal>
       ) : show ? (
         <DateTimePicker
-          value={value}
+          value={safeValue}
           mode={mode}
           display="default"
           onChange={handleChange}

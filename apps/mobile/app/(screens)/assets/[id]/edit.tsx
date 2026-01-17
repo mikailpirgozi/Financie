@@ -141,8 +141,9 @@ export default function EditAssetScreen() {
       }
 
       showToast('Majetok bol úspešne upravený', 'success');
+      // Navigate to asset detail explicitly instead of router.back()
       setTimeout(() => {
-        router.back();
+        router.replace(`/(screens)/assets/${id}`);
       }, 1500);
     } catch (error) {
       showToast(
@@ -243,7 +244,7 @@ export default function EditAssetScreen() {
                 Uložiť zmeny
               </Button>
               <Button
-                onPress={() => router.back()}
+                onPress={() => router.replace(`/(screens)/assets/${id}`)}
                 variant="outline"
                 disabled={saving}
                 fullWidth

@@ -26,6 +26,11 @@ export const LoanPreviewCard = memo(function LoanPreviewCard({ result, principal
   const { firstPayment, effectiveRate, totalPayment, totalInterest, totalFees, endDate } =
     result;
   const rateWarning = Math.abs(effectiveRate - (result.calculatedRate ?? effectiveRate)) > 0.5;
+  
+  // Guard against Invalid Date
+  const safeEndDate = endDate instanceof Date && !isNaN(endDate.getTime()) 
+    ? endDate 
+    : new Date();
 
   return (
     <View style={styles.container}>
@@ -50,7 +55,7 @@ export const LoanPreviewCard = memo(function LoanPreviewCard({ result, principal
         <View style={styles.metric}>
           <Text style={styles.metricLabel}>Koniec</Text>
           <Text style={styles.metricValue}>
-            {endDate.toLocaleDateString('sk-SK', { month: 'short', year: 'numeric' })}
+            {safeEndDate.toLocaleDateString('sk-SK', { month: 'short', year: 'numeric' })}
           </Text>
         </View>
       </View>

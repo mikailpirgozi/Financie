@@ -132,8 +132,9 @@ export default function RevalueAssetScreen() {
       showToast('Majetok bol úspešne precenený', 'success');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+      // Navigate to asset detail explicitly instead of router.back()
       setTimeout(() => {
-        router.back();
+        router.replace(`/(screens)/assets/${id}`);
       }, 1500);
     } catch (error) {
       showToast(
@@ -163,8 +164,8 @@ export default function RevalueAssetScreen() {
         <View style={styles.errorContainer}>
           <Text style={styles.errorIcon}>⚠️</Text>
           <Text style={styles.errorText}>Majetok nebol nájdený</Text>
-          <Button onPress={() => router.back()} variant="outline">
-            Späť
+          <Button onPress={() => router.replace('/(screens)/assets')} variant="outline">
+            Späť na majetok
           </Button>
         </View>
       </View>
@@ -230,7 +231,7 @@ export default function RevalueAssetScreen() {
                 Potvrdiť precenenie
               </Button>
               <Button
-                onPress={() => router.back()}
+                onPress={() => router.replace(`/(screens)/assets/${id}`)}
                 variant="outline"
                 disabled={saving}
                 fullWidth

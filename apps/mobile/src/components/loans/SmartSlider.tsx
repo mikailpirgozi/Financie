@@ -29,16 +29,20 @@ export const SmartSlider = React.memo(function SmartSlider({
   formatDisplay,
   disabled = false,
 }: SmartSliderProps) {
+  // Ensure value is a valid number (prevent crash on undefined/NaN)
+  const safeValue = typeof value === 'number' && !isNaN(value) ? value : minimumValue;
+  
   const [inputValue, setInputValue] = useState(
-    step < 1 ? value.toFixed(2) : value.toString()
+    step < 1 ? safeValue.toFixed(2) : safeValue.toString()
   );
-  const [sliderValue, setSliderValue] = useState(value);
+  const [sliderValue, setSliderValue] = useState(safeValue);
   const lastUpdateRef = useRef<number>(Date.now());
 
   useEffect(() => {
-    setInputValue(step < 1 ? value.toFixed(2) : value.toString());
-    setSliderValue(value);
-  }, [value, step]);
+    const safe = typeof value === 'number' && !isNaN(value) ? value : minimumValue;
+    setInputValue(step < 1 ? safe.toFixed(2) : safe.toString());
+    setSliderValue(safe);
+  }, [value, step, minimumValue]);
 
   // Update parent every 200ms while sliding (throttled) + show local state immediately
   const handleSliderChange = useCallback((newValue: number) => {

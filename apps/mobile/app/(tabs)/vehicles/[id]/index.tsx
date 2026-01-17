@@ -101,7 +101,8 @@ export default function VehicleDetailScreen() {
           onPress: async () => {
             try {
               await deleteVehicle(id!);
-              router.back();
+              // Navigate to vehicles list after delete
+              router.replace('/(tabs)/vehicles');
             } catch (err) {
               Alert.alert('Chyba', 'Nepodarilo sa zmazať vozidlo');
             }
@@ -198,7 +199,7 @@ export default function VehicleDetailScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.replace('/(tabs)/vehicles')} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Vozidlo</Text>
@@ -215,7 +216,7 @@ export default function VehicleDetailScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.replace('/(tabs)/vehicles')} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Vozidlo</Text>
@@ -236,7 +237,7 @@ export default function VehicleDetailScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.replace('/(tabs)/vehicles')} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.text }]} numberOfLines={1}>

@@ -81,8 +81,9 @@ export default function InviteScreen() {
       showToast('Pozvánka bola odoslaná', 'success');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
+      // Navigate to household screen explicitly
       setTimeout(() => {
-        router.back();
+        router.replace('/(screens)/household');
       }, 1000);
     } catch (error) {
       showToast(

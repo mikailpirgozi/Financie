@@ -106,8 +106,9 @@ export default function NewExpenseScreen() {
       });
 
       showToast('Výdavok bol úspešne vytvorený', 'success');
+      // Navigate to expenses list explicitly instead of router.back()
       setTimeout(() => {
-        router.back();
+        router.replace('/(tabs)/expenses');
       }, 1500);
     } catch (error) {
       showToast(

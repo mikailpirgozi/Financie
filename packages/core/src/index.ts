@@ -7,6 +7,7 @@ export * from './utils';
 export * from './categorization';
 export * from './dashboard/types';
 export * from './loan-defaults';
+export * from './vehicle-defaults';
 export * from './portfolio';
 export * from './asset-management-types';
 export { calculateLoanData, quickCalculateLoanData } from './hooks/useLoanCalculator';

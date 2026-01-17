@@ -224,9 +224,9 @@ export default function PayLoanScreen() {
           showToast('Splatka bola uspesne zaplatena', 'success');
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-          // Navigate back - cache is already invalidated by the mutation
+          // Navigate to loan detail explicitly instead of router.back()
           setTimeout(() => {
-            router.back();
+            router.replace(`/(tabs)/loans/${id}`);
           }, 1000);
         },
         onError: (error) => {
@@ -261,8 +261,8 @@ export default function PayLoanScreen() {
           <Text style={[styles.errorText, { color: colors.danger }]}>
             Uver nebol najdeny
           </Text>
-          <Button onPress={() => router.back()} variant="outline">
-            Spat
+          <Button onPress={() => router.replace('/(tabs)/loans')} variant="outline">
+            Spat na uvery
           </Button>
         </View>
       </View>
@@ -280,8 +280,8 @@ export default function PayLoanScreen() {
           <Text style={[styles.errorSubtext, { color: colors.textSecondary }]}>
             Vsetky splatky su uz uhradene
           </Text>
-          <Button onPress={() => router.back()} variant="outline">
-            Spat
+          <Button onPress={() => router.replace(`/(tabs)/loans/${id}`)} variant="outline">
+            Spat na uver
           </Button>
         </View>
       </View>
@@ -504,7 +504,7 @@ export default function PayLoanScreen() {
                 Potvrdit platbu
               </Button>
               <Button
-                onPress={() => router.back()}
+                onPress={() => router.replace(`/(tabs)/loans/${id}`)}
                 variant="outline"
                 disabled={paying}
                 fullWidth

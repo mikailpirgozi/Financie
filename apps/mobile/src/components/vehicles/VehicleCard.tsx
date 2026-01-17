@@ -20,8 +20,19 @@ const FUEL_TYPE_LABELS: Record<string, string> = {
   diesel: 'Diesel',
   electric: 'Elektro',
   hybrid: 'Hybrid',
+  plugin_hybrid: 'Plug-in Hybrid',
   lpg: 'LPG',
   cng: 'CNG',
+};
+
+const FUEL_TYPE_ICONS: Record<string, string> = {
+  petrol: 'flame-outline',
+  diesel: 'flame-outline',
+  electric: 'flash-outline',
+  hybrid: 'leaf-outline',
+  plugin_hybrid: 'battery-charging-outline',
+  lpg: 'flame-outline',
+  cng: 'flame-outline',
 };
 
 function formatCurrency(value: number): string {
@@ -42,9 +53,21 @@ export function VehicleCard({ vehicle, onPress, onLongPress }: VehicleCardProps)
   const { theme } = useTheme();
   const hasAlerts = vehicle.stkExpiringSoon || vehicle.ekExpiringSoon || vehicle.insuranceExpiringSoon;
 
-  const vehicleTitle = vehicle.make && vehicle.model 
-    ? `${vehicle.make} ${vehicle.model}`
+  // Primary title: Make + Model if available, fallback to name
+  const vehicleTitle = vehicle.make 
+    ? `${vehicle.make}${vehicle.model ? ' ' + vehicle.model : ''}`
     : vehicle.name;
+
+  // Subtitle: ŠPZ + year + description (if different from make+model)
+  const autoName = vehicle.make 
+    ? `${vehicle.make}${vehicle.model ? ' ' + vehicle.model : ''}` 
+    : '';
+  const hasCustomDescription = vehicle.name && vehicle.name !== autoName;
+  
+  const subtitleParts: string[] = [];
+  if (vehicle.licensePlate) subtitleParts.push(vehicle.licensePlate);
+  if (vehicle.year) subtitleParts.push(vehicle.year.toString());
+  if (hasCustomDescription) subtitleParts.push(vehicle.name);
 
   return (
     <TouchableOpacity
@@ -69,10 +92,11 @@ export function VehicleCard({ vehicle, onPress, onLongPress }: VehicleCardProps)
           <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1}>
             {vehicleTitle}
           </Text>
-          <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]} numberOfLines={1}>
-            {vehicle.licensePlate || vehicle.name}
-            {vehicle.year && ` • ${vehicle.year}`}
-          </Text>
+          {subtitleParts.length > 0 && (
+            <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]} numberOfLines={1}>
+              {subtitleParts.join(' • ')}
+            </Text>
+          )}
         </View>
         <View style={styles.valueContainer}>
           <Text style={[styles.value, { color: theme.colors.text }]}>
@@ -101,7 +125,11 @@ export function VehicleCard({ vehicle, onPress, onLongPress }: VehicleCardProps)
         )}
         {vehicle.fuelType && (
           <View style={styles.infoItem}>
-            <Ionicons name="flash-outline" size={14} color={theme.colors.textSecondary} />
+            <Ionicons 
+              name={(FUEL_TYPE_ICONS[vehicle.fuelType] || 'flash-outline') as keyof typeof Ionicons.glyphMap} 
+              size={14} 
+              color={theme.colors.textSecondary} 
+            />
             <Text style={[styles.infoText, { color: theme.colors.textSecondary }]}>
               {FUEL_TYPE_LABELS[vehicle.fuelType] || vehicle.fuelType}
             </Text>

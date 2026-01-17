@@ -123,8 +123,9 @@ export default function NewAssetScreen() {
       }
 
       showToast('Majetok bol úspešne vytvorený', 'success');
+      // Navigate to assets list explicitly instead of router.back()
       setTimeout(() => {
-        router.back();
+        router.replace('/(screens)/assets');
       }, 1500);
     } catch (error) {
       showToast(
@@ -214,7 +215,7 @@ export default function NewAssetScreen() {
                 Uložiť majetok
               </Button>
               <Button
-                onPress={() => router.back()}
+                onPress={() => router.replace('/(screens)/assets')}
                 variant="outline"
                 disabled={loading}
                 fullWidth

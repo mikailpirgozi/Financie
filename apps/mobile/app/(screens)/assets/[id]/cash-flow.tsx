@@ -100,8 +100,9 @@ export default function AssetCashFlowScreen() {
       showToast('Nastavenia boli uložené', 'success');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+      // Navigate to asset detail explicitly instead of router.back()
       setTimeout(() => {
-        router.back();
+        router.replace(`/(screens)/assets/${id}`);
       }, 1500);
     } catch (error) {
       console.error('Failed to save:', error);

@@ -129,8 +129,9 @@ export default function EditExpenseScreen() {
       if (error) throw error;
 
       showToast('Výdavok bol úspešne upravený', 'success');
+      // Navigate to expense detail explicitly instead of router.back()
       setTimeout(() => {
-        router.back();
+        router.replace(`/(tabs)/expenses/${id}`);
       }, 1500);
     } catch (error) {
       showToast(

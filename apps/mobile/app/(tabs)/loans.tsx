@@ -39,7 +39,7 @@ interface LoanNote {
   is_pinned: boolean;
 }
 
-type FilterStatus = 'all' | 'active' | 'paid_off';
+type FilterStatus = 'all' | 'active' | 'overdue' | 'paid_off';
 
 export default function LoansScreen() {
   const router = useRouter();
@@ -168,6 +168,8 @@ export default function LoansScreen() {
   const stats = useMemo(() => {
     const activeLoans = loans.filter((l) => l.status === 'active');
     const paidOffLoans = loans.filter((l) => l.status === 'paid_off');
+    // Loans with at least one overdue installment
+    const overdueLoans = loans.filter((l) => l.status === 'active' && (l.overdue_count || 0) > 0);
 
     const totalRemaining = activeLoans.reduce(
       (sum, l) => sum + parseAmount(l.remaining_balance),
@@ -244,6 +246,7 @@ export default function LoansScreen() {
     return {
       activeLoans,
       paidOffLoans,
+      overdueLoans,
       totalRemaining,
       totalPrincipal,
       totalOverdueCount,
@@ -259,6 +262,10 @@ export default function LoansScreen() {
   // Filter loans by status first
   const statusFilteredLoans = useMemo(() => {
     if (filterStatus === 'all') return loans;
+    if (filterStatus === 'overdue') {
+      // Filter active loans with overdue installments
+      return loans.filter((loan) => loan.status === 'active' && (loan.overdue_count || 0) > 0);
+    }
     return loans.filter((loan) => loan.status === filterStatus);
   }, [loans, filterStatus]);
 
@@ -269,9 +276,10 @@ export default function LoansScreen() {
 
   // Update filter options with counts
   const dynamicFilterOptions: SegmentOption<FilterStatus>[] = [
-    { value: 'all', label: 'Vsetky', count: loans.length },
-    { value: 'active', label: 'Aktivne', count: stats.activeLoans.length },
-    { value: 'paid_off', label: 'Splatene', count: stats.paidOffLoans.length },
+    { value: 'all', label: 'Všetky', count: loans.length },
+    { value: 'active', label: 'Aktívne', count: stats.activeLoans.length },
+    { value: 'overdue', label: 'Dlžné', count: stats.overdueLoans.length },
+    { value: 'paid_off', label: 'Hotové', count: stats.paidOffLoans.length },
   ];
 
   const handleLoanPress = (loanId: string) => {
@@ -462,17 +470,6 @@ export default function LoansScreen() {
         />
       )}
 
-      {/* Search and Filters */}
-      {loans.length > 0 && (
-        <View style={styles.searchSection}>
-          <LoanSearchFilter
-            loans={statusFilteredLoans}
-            filters={advancedFilters}
-            onFiltersChange={setAdvancedFilters}
-          />
-        </View>
-      )}
-
       {/* Filter Segment */}
       {loans.length > 0 && (
         <View style={styles.filterSection}>
@@ -531,17 +528,21 @@ export default function LoansScreen() {
       </View>
       <Text style={[styles.emptyTitle, { color: colors.text }]}>
         {filterStatus === 'paid_off'
-          ? 'Ziadne splatene uvery'
+          ? 'Žiadne hotové úvery'
           : filterStatus === 'active'
-          ? 'Ziadne aktivne uvery'
-          : 'Zatial nemate ziadne uvery'}
+          ? 'Žiadne aktívne úvery'
+          : filterStatus === 'overdue'
+          ? 'Žiadne dlžné úvery'
+          : 'Zatiaľ nemáte žiadne úvery'}
       </Text>
       <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
         {filterStatus === 'paid_off'
-          ? 'Splatene uvery sa zobrazia tu'
+          ? 'Doplatené úvery sa zobrazia tu'
           : filterStatus === 'active'
-          ? 'Aktivne uvery sa zobrazia tu'
-          : 'Pridajte svoj prvy uver a zacnite sledovat splatky'}
+          ? 'Aktívne úvery sa zobrazia tu'
+          : filterStatus === 'overdue'
+          ? 'Skvelé! Všetky splátky sú uhradené včas'
+          : 'Pridajte svoj prvý úver a začnite sledovať splátky'}
       </Text>
       {filterStatus === 'all' && (
         <TouchableOpacity
@@ -606,6 +607,17 @@ export default function LoansScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Search Filter - Outside FlatList to prevent focus loss */}
+      {loans.length > 0 && (
+        <View style={[styles.searchSection, { backgroundColor: colors.background }]}>
+          <LoanSearchFilter
+            loans={statusFilteredLoans}
+            filters={advancedFilters}
+            onFiltersChange={setAdvancedFilters}
+          />
+        </View>
+      )}
+
       {/* Content */}
       <FlatList
         data={filteredAndSortedLoans}
@@ -630,6 +642,7 @@ export default function LoansScreen() {
           filteredAndSortedLoans.length === 0 && !(advancedFilters.search || advancedFilters.lender || advancedFilters.loanType) && styles.listContentEmpty,
         ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       />
 
       <Toast
@@ -716,7 +729,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   searchSection: {
-    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   filterSection: {
     marginTop: 12,

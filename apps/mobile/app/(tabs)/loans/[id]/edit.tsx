@@ -193,8 +193,9 @@ export default function EditLoanScreen() {
       }
 
       showToast('Úver bol úspešne upravený', 'success');
+      // Navigate back to loan detail explicitly instead of router.back()
       setTimeout(() => {
-        router.back();
+        router.replace(`/(tabs)/loans/${id}`);
       }, 1500);
     } catch (error) {
       showToast(
@@ -231,8 +232,8 @@ export default function EditLoanScreen() {
         <View style={styles.errorContainer}>
           <Text style={styles.errorIcon}>⚠️</Text>
           <Text style={styles.errorText}>Úver nebol nájdený</Text>
-          <Button onPress={() => router.back()} variant="outline">
-            Späť
+          <Button onPress={() => router.replace('/(tabs)/loans')} variant="outline">
+            Späť na úvery
           </Button>
         </View>
       </View>
@@ -357,7 +358,7 @@ export default function EditLoanScreen() {
                 Uložiť zmeny
               </Button>
               <Button
-                onPress={() => router.back()}
+                onPress={() => router.replace(`/(tabs)/loans/${id}`)}
                 variant="outline"
                 disabled={saving}
                 fullWidth

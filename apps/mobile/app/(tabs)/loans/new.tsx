@@ -16,7 +16,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  calculateLoanData,
+  quickCalculateLoanData,
   LOAN_TYPE_INFO,
   LOAN_TYPE_OPTIONS,
   RATE_TYPE_OPTIONS,
@@ -165,17 +165,25 @@ export default function NewLoanScreen() {
   };
 
   // Calculate loan data with memoization
+  // Using quickCalculateLoanData for real-time preview (no schedule generation = ~100x faster)
   const calculatedData = useMemo(() => {
     if (isInitializing) return null;
 
+    // Validate startDate before creating Date object
+    const startDateStr = formValues.startDate;
+    if (!startDateStr || startDateStr.length < 10) return null;
+    
+    const startDate = new Date(startDateStr);
+    if (isNaN(startDate.getTime())) return null;
+
     try {
-      return calculateLoanData({
+      return quickCalculateLoanData({
         loanType: formValues.loanType,
         principal: formValues.principal,
         annualRate: formValues.calculationMode !== 'payment_term' ? formValues.annualRate : undefined,
         monthlyPayment: formValues.calculationMode !== 'rate_term' ? formValues.monthlyPayment : undefined,
         termMonths: formValues.calculationMode !== 'rate_payment' ? formValues.termMonths : undefined,
-        startDate: new Date(formValues.startDate),
+        startDate,
         feeSetup: formValues.feeSetup ?? 0,
         feeMonthly: formValues.feeMonthly ?? 0,
         insuranceMonthly: formValues.insuranceMonthly ?? 0,
@@ -230,6 +238,13 @@ export default function NewLoanScreen() {
       return;
     }
 
+    // Validate date before submission
+    const startDate = new Date(data.startDate);
+    if (isNaN(startDate.getTime())) {
+      showToast('Neplatný dátum začiatku', 'error');
+      return;
+    }
+
     try {
       const finalRate = calculatedData.calculatedRate ?? data.annualRate ?? 0;
       const finalTerm = calculatedData.calculatedTerm ?? data.termMonths;
@@ -243,7 +258,7 @@ export default function NewLoanScreen() {
         principal: data.principal,
         annualRate: finalRate,
         rateType: data.rateType,
-        startDate: new Date(data.startDate),
+        startDate,
         termMonths: finalTerm,
         feeSetup: data.feeSetup ?? 0,
         feeMonthly: data.feeMonthly ?? 0,
@@ -263,7 +278,14 @@ export default function NewLoanScreen() {
       }
 
       showToast('Úver bol úspešne vytvorený', 'success');
-      setTimeout(() => router.back(), 1000);
+      // Navigate to the newly created loan detail, or to loans list as fallback
+      setTimeout(() => {
+        if (result.loan?.id) {
+          router.replace(`/(tabs)/loans/${result.loan.id}`);
+        } else {
+          router.replace('/(tabs)/loans');
+        }
+      }, 1000);
     } catch (error) {
       showToast(
         error instanceof Error ? error.message : 'Nepodarilo sa vytvoriť úver',

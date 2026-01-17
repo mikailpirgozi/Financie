@@ -1,7 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import {
-  Target,
   CheckCircle2,
   Circle,
   Clock,
@@ -114,27 +113,7 @@ export function LoanMilestones({
   };
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: colors.surface,
-          borderColor: colors.border,
-        },
-      ]}
-    >
-      <View style={styles.header}>
-        <Target size={20} color={colors.primary} />
-        <Text style={[styles.title, { color: colors.text }]}>
-          Milniky
-        </Text>
-        <View style={[styles.progressBadge, { backgroundColor: colors.primaryLight }]}>
-          <Text style={[styles.progressText, { color: colors.primary }]}>
-            {progress.toFixed(0)}% splatene
-          </Text>
-        </View>
-      </View>
-
+    <View style={styles.container}>
       {/* Progress Timeline */}
       <View style={styles.timeline}>
         <View style={[styles.timelineTrack, { backgroundColor: colors.borderLight }]}>
@@ -276,30 +255,8 @@ export function LoanMilestones({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    marginTop: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    flex: 1,
-  },
-  progressBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  progressText: {
-    fontSize: 12,
-    fontWeight: '700',
+    // No border/bg - used inside CollapsibleSection
+    paddingTop: 8,
   },
   timeline: {
     marginBottom: 20,

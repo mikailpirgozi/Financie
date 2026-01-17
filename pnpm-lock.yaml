@@ -170,6 +170,9 @@ importers:
       '@types/react':
         specifier: 19.2.8
         version: 19.2.8
+      babel-preset-expo:
+        specifier: ^54.0.9
+        version: 54.0.9(@babel/core@7.28.5)(@babel/runtime@7.28.4)(expo@54.0.31)(react-refresh@0.14.2)
       pngjs:
         specifier: ^7.0.0
         version: 7.0.0

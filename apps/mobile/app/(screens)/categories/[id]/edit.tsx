@@ -119,8 +119,9 @@ export default function EditCategoryScreen() {
       showToast('Kategória bola aktualizovaná', 'success');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
+      // Navigate to categories list explicitly
       setTimeout(() => {
-        router.back();
+        router.replace('/(screens)/categories');
       }, 500);
     } catch (error) {
       showToast(
@@ -148,8 +149,9 @@ export default function EditCategoryScreen() {
               await deleteCategory(categoryId);
               showToast('Kategória bola zmazaná', 'success');
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              // Navigate to categories list after delete
               setTimeout(() => {
-                router.back();
+                router.replace('/(screens)/categories');
               }, 500);
             } catch (error) {
               showToast(

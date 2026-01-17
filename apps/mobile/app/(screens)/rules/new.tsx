@@ -97,9 +97,9 @@ export default function NewRuleScreen() {
       showToast('Pravidlo bolo vytvorené', 'success');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
-      // Small delay before navigating back
+      // Navigate to rules list explicitly
       setTimeout(() => {
-        router.back();
+        router.replace('/(screens)/rules');
       }, 500);
     } catch (error) {
       showToast(

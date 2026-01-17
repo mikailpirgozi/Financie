@@ -110,8 +110,9 @@ export default function AssetDetailScreen() {
               showToast('Majetok bol zmazaný', 'success');
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               
+              // Navigate to assets list after delete
               setTimeout(() => {
-                router.back();
+                router.replace('/(screens)/assets');
               }, 1500);
             } catch (error) {
               showToast('Nepodarilo sa zmazať majetok', 'error');
@@ -172,8 +173,8 @@ export default function AssetDetailScreen() {
         <View style={styles.errorContainer}>
           <Text style={styles.errorIcon}>⚠️</Text>
           <Text style={styles.errorText}>{error || 'Majetok nebol nájdený'}</Text>
-          <Button onPress={() => router.back()} variant="outline">
-            Späť
+          <Button onPress={() => router.replace('/(screens)/assets')} variant="outline">
+            Späť na majetok
           </Button>
         </View>
       </View>

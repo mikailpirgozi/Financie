@@ -98,7 +98,8 @@ export default function NewTemplateScreen() {
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert('Úspešne', 'Šablóna bola vytvorená');
-      router.back();
+      // Navigate to templates list explicitly
+      router.replace('/(tabs)/incomes/templates');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Nepodarilo sa vytvoriť šablónu';
       setError(message);

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,13 +15,30 @@ import {
   SlidersHorizontal,
   Building2,
   CreditCard,
-  Percent,
   ChevronDown,
   Check,
+  ArrowUpDown,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../contexts';
 import type { Loan } from '../../lib/api';
+
+// Debounce hook for search input
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
 
 // Loan type labels
 const LOAN_TYPES = [
@@ -32,16 +49,19 @@ const LOAN_TYPES = [
   { value: 'auto_loan', label: 'Auto úver' },
 ];
 
-// Sort options
+// Sort options - organized by category
 const SORT_OPTIONS = [
-  { value: 'next_payment', label: 'Najbližšia splátka' },
-  { value: 'balance', label: 'Zostatok (najvyšší)' },
-  { value: 'balance_asc', label: 'Zostatok (najnižší)' },
-  { value: 'rate', label: 'Úrok (najvyšší)' },
-  { value: 'rate_asc', label: 'Úrok (najnižší)' },
-  { value: 'overdue', label: 'Po splatnosti' },
-  { value: 'progress', label: 'Pokrok (najvyšší)' },
-  { value: 'name', label: 'Názov A-Z' },
+  { value: 'next_payment', label: 'Najbližšia splátka', icon: '📅' },
+  { value: 'overdue', label: 'Meškajúce najskôr', icon: '⚠️' },
+  { value: 'name', label: 'Názov A-Z', icon: '🔤' },
+  { value: 'name_desc', label: 'Názov Z-A', icon: '🔤' },
+  { value: 'principal', label: 'Výška úveru ↓', icon: '💰' },
+  { value: 'principal_asc', label: 'Výška úveru ↑', icon: '💰' },
+  { value: 'balance', label: 'Zostatok ↓', icon: '📊' },
+  { value: 'balance_asc', label: 'Zostatok ↑', icon: '📊' },
+  { value: 'rate', label: 'Úrok ↓', icon: '📈' },
+  { value: 'rate_asc', label: 'Úrok ↑', icon: '📈' },
+  { value: 'progress', label: 'Pokrok splácania', icon: '✅' },
 ];
 
 export interface LoanFilters {
@@ -70,31 +90,49 @@ export function LoanSearchFilter({
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [showSortPicker, setShowSortPicker] = useState(false);
 
+  // Local state for search input - prevents losing focus on each keystroke
+  const [localSearchText, setLocalSearchText] = useState(filters.search);
+  const isFirstRender = useRef(true);
+  
+  // Debounce the search text - only update parent after user stops typing
+  const debouncedSearchText = useDebounce(localSearchText, 300);
+
+  // Sync debounced search value to parent filters
+  useEffect(() => {
+    // Skip the first render to avoid unnecessary update
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    
+    // Only update if the debounced value differs from filters
+    if (debouncedSearchText !== filters.search) {
+      onFiltersChange({ ...filters, search: debouncedSearchText });
+    }
+  }, [debouncedSearchText]);
+
+  // Sync external filter changes to local state (e.g., when clearing filters)
+  useEffect(() => {
+    if (filters.search !== localSearchText && filters.search === '') {
+      setLocalSearchText('');
+    }
+  }, [filters.search]);
+
   // Get unique lenders from loans
   const uniqueLenders = useMemo(() => {
     const lenders = new Set(loans.map((l) => l.lender));
     return ['all', ...Array.from(lenders)];
   }, [loans]);
 
-  // Count active filters
-  const activeFiltersCount = useMemo(() => {
-    let count = 0;
-    if (filters.search) count++;
-    if (filters.lender) count++;
-    if (filters.loanType) count++;
-    if (filters.sortBy !== 'next_payment') count++;
-    return count;
-  }, [filters]);
-
-  const handleSearchChange = useCallback(
-    (text: string) => {
-      onFiltersChange({ ...filters, search: text });
-    },
-    [filters, onFiltersChange]
-  );
+  const handleSearchChange = useCallback((text: string) => {
+    // Update local state immediately - no re-render of parent
+    setLocalSearchText(text);
+  }, []);
 
   const handleClearSearch = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setLocalSearchText('');
+    // Immediately update parent when clearing
     onFiltersChange({ ...filters, search: '' });
   }, [filters, onFiltersChange]);
 
@@ -145,7 +183,7 @@ export function LoanSearchFilter({
     visible: boolean,
     onClose: () => void,
     title: string,
-    options: { value: string; label: string }[],
+    options: { value: string; label: string; icon?: string }[],
     selectedValue: string | null,
     onSelect: (value: string) => void
   ) => (
@@ -169,46 +207,51 @@ export function LoanSearchFilter({
           </View>
 
           <ScrollView style={styles.optionsList}>
-            {options.map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.optionItem,
-                  {
-                    backgroundColor:
-                      (selectedValue === option.value ||
-                        (!selectedValue && option.value === 'all'))
+            {options.map((option) => {
+              const isSelected = selectedValue === option.value ||
+                (!selectedValue && option.value === 'all');
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.optionItem,
+                    {
+                      backgroundColor: isSelected
                         ? colors.primaryLight
                         : 'transparent',
-                  },
-                ]}
-                onPress={() => onSelect(option.value)}
-              >
-                <Text
-                  style={[
-                    styles.optionText,
-                    {
-                      color:
-                        (selectedValue === option.value ||
-                          (!selectedValue && option.value === 'all'))
-                          ? colors.primary
-                          : colors.text,
                     },
                   ]}
+                  onPress={() => onSelect(option.value)}
                 >
-                  {option.label}
-                </Text>
-                {(selectedValue === option.value ||
-                  (!selectedValue && option.value === 'all')) && (
-                  <Check size={20} color={colors.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
+                  <View style={styles.optionContent}>
+                    {option.icon && (
+                      <Text style={styles.optionIcon}>{option.icon}</Text>
+                    )}
+                    <Text
+                      style={[
+                        styles.optionText,
+                        {
+                          color: isSelected ? colors.primary : colors.text,
+                        },
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </View>
+                  {isSelected && (
+                    <Check size={20} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
   );
+
+  // Get current sort option label
+  const currentSortLabel = SORT_OPTIONS.find((s) => s.value === filters.sortBy)?.label || 'Zoradiť';
 
   return (
     <View style={styles.container}>
@@ -225,13 +268,15 @@ export function LoanSearchFilter({
         <Search size={20} color={colors.textMuted} />
         <TextInput
           style={[styles.searchInput, { color: colors.text }]}
-          placeholder="Hladat uver..."
+          placeholder="Hľadať úver..."
           placeholderTextColor={colors.textMuted}
-          value={filters.search}
+          value={localSearchText}
           onChangeText={handleSearchChange}
           returnKeyType="search"
+          autoCorrect={false}
+          autoCapitalize="none"
         />
-        {filters.search.length > 0 && (
+        {localSearchText.length > 0 && (
           <TouchableOpacity onPress={handleClearSearch}>
             <X size={18} color={colors.textMuted} />
           </TouchableOpacity>
@@ -255,17 +300,43 @@ export function LoanSearchFilter({
             size={18}
             color={showAdvancedFilters ? colors.textInverse : colors.textSecondary}
           />
-          {activeFiltersCount > 0 && (
+          {(filters.lender || filters.loanType) && (
             <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
               <Text style={[styles.filterBadgeText, { color: colors.textInverse }]}>
-                {activeFiltersCount}
+                {(filters.lender ? 1 : 0) + (filters.loanType ? 1 : 0)}
               </Text>
             </View>
           )}
         </TouchableOpacity>
       </View>
 
-      {/* Advanced Filters */}
+      {/* Sort Selector - Always visible */}
+      <View style={styles.sortRow}>
+        <Text style={[styles.sortLabel, { color: colors.textSecondary }]}>
+          Zoradiť:
+        </Text>
+        <TouchableOpacity
+          style={[
+            styles.sortSelector,
+            {
+              backgroundColor: colors.surfacePressed,
+              borderColor: colors.border,
+            },
+          ]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowSortPicker(true);
+          }}
+        >
+          <ArrowUpDown size={14} color={colors.primary} />
+          <Text style={[styles.sortSelectorText, { color: colors.text }]} numberOfLines={1}>
+            {currentSortLabel}
+          </Text>
+          <ChevronDown size={14} color={colors.textMuted} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Advanced Filters (Lender & Loan Type) */}
       {showAdvancedFilters && (
         <View style={styles.advancedFilters}>
           {/* Lender Filter */}
@@ -292,7 +363,7 @@ export function LoanSearchFilter({
               ]}
               numberOfLines={1}
             >
-              {filters.lender || 'Veritel'}
+              {filters.lender || 'Veriteľ'}
             </Text>
             <ChevronDown
               size={14}
@@ -325,7 +396,7 @@ export function LoanSearchFilter({
               numberOfLines={1}
             >
               {LOAN_TYPES.find((t) => t.value === filters.loanType)?.label ||
-                'Typ uveru'}
+                'Typ úveru'}
             </Text>
             <ChevronDown
               size={14}
@@ -333,65 +404,15 @@ export function LoanSearchFilter({
             />
           </TouchableOpacity>
 
-          {/* Sort */}
-          <TouchableOpacity
-            style={[
-              styles.filterPill,
-              {
-                backgroundColor:
-                  filters.sortBy !== 'next_payment'
-                    ? colors.primaryLight
-                    : colors.surfacePressed,
-                borderColor:
-                  filters.sortBy !== 'next_payment'
-                    ? colors.primary
-                    : colors.border,
-              },
-            ]}
-            onPress={() => setShowSortPicker(true)}
-          >
-            <Percent
-              size={14}
-              color={
-                filters.sortBy !== 'next_payment'
-                  ? colors.primary
-                  : colors.textSecondary
-              }
-            />
-            <Text
-              style={[
-                styles.filterPillText,
-                {
-                  color:
-                    filters.sortBy !== 'next_payment'
-                      ? colors.primary
-                      : colors.textSecondary,
-                },
-              ]}
-              numberOfLines={1}
-            >
-              {SORT_OPTIONS.find((s) => s.value === filters.sortBy)?.label ||
-                'Zoradit'}
-            </Text>
-            <ChevronDown
-              size={14}
-              color={
-                filters.sortBy !== 'next_payment'
-                  ? colors.primary
-                  : colors.textMuted
-              }
-            />
-          </TouchableOpacity>
-
-          {/* Clear All */}
-          {activeFiltersCount > 0 && (
+          {/* Clear All Filters */}
+          {(filters.lender || filters.loanType) && (
             <TouchableOpacity
               style={[styles.clearButton, { borderColor: colors.danger }]}
               onPress={handleClearAllFilters}
             >
               <X size={14} color={colors.danger} />
               <Text style={[styles.clearButtonText, { color: colors.danger }]}>
-                Zrusit
+                Zrušiť
               </Text>
             </TouchableOpacity>
           )}
@@ -402,7 +423,7 @@ export function LoanSearchFilter({
       {renderPickerModal(
         showLenderPicker,
         () => setShowLenderPicker(false),
-        'Vyber veritela',
+        'Vybrať veriteľa',
         uniqueLenders.map((l) => ({
           value: l,
           label: l === 'all' ? 'Všetci veritelia' : l,
@@ -414,7 +435,7 @@ export function LoanSearchFilter({
       {renderPickerModal(
         showTypePicker,
         () => setShowTypePicker(false),
-        'Vyber typ uveru',
+        'Vybrať typ úveru',
         LOAN_TYPES,
         filters.loanType,
         handleTypeSelect
@@ -423,7 +444,7 @@ export function LoanSearchFilter({
       {renderPickerModal(
         showSortPicker,
         () => setShowSortPicker(false),
-        'Zoradit podla',
+        'Zoradiť podľa',
         SORT_OPTIONS,
         filters.sortBy,
         handleSortSelect
@@ -469,7 +490,12 @@ export function filterAndSortLoans(
   filtered.sort((a, b) => {
     switch (filters.sortBy) {
       case 'overdue':
-        return (b.overdue_count || 0) - (a.overdue_count || 0);
+        // Sort by overdue count (most overdue first), then by days until next payment
+        const aOverdue = a.overdue_count || 0;
+        const bOverdue = b.overdue_count || 0;
+        if (aOverdue !== bOverdue) return bOverdue - aOverdue;
+        // Secondary sort: next payment date
+        return (a.next_installment?.days_until ?? 999) - (b.next_installment?.days_until ?? 999);
 
       case 'next_payment':
         const aDays = a.next_installment?.days_until ?? 999;
@@ -481,6 +507,12 @@ export function filterAndSortLoans(
 
       case 'balance_asc':
         return parseAmount(a.remaining_balance) - parseAmount(b.remaining_balance);
+
+      case 'principal':
+        return parseAmount(b.principal) - parseAmount(a.principal);
+
+      case 'principal_asc':
+        return parseAmount(a.principal) - parseAmount(b.principal);
 
       case 'rate':
         return parseAmount(b.annual_rate) - parseAmount(a.annual_rate);
@@ -499,7 +531,10 @@ export function filterAndSortLoans(
       }
 
       case 'name':
-        return (a.name || a.lender).localeCompare(b.name || b.lender);
+        return (a.name || a.lender).localeCompare(b.name || b.lender, 'sk');
+
+      case 'name_desc':
+        return (b.name || b.lender).localeCompare(a.name || a.lender, 'sk');
 
       default:
         return 0;
@@ -617,8 +652,42 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 4,
   },
+  optionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  optionIcon: {
+    fontSize: 16,
+  },
   optionText: {
     fontSize: 15,
+    fontWeight: '500',
+  },
+  sortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 8,
+  },
+  sortLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  sortSelector: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 8,
+  },
+  sortSelectorText: {
+    flex: 1,
+    fontSize: 14,
     fontWeight: '500',
   },
 });

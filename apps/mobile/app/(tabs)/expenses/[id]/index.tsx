@@ -109,8 +109,9 @@ export default function ExpenseDetailScreen() {
               showToast('Výdavok bol zmazaný', 'success');
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               
+              // Navigate to expenses list after delete
               setTimeout(() => {
-                router.back();
+                router.replace('/(tabs)/expenses');
               }, 1500);
             } catch (error) {
               showToast('Nepodarilo sa zmazať výdavok', 'error');
@@ -171,8 +172,8 @@ export default function ExpenseDetailScreen() {
         <View style={styles.errorContainer}>
           <Text style={styles.errorIcon}>⚠️</Text>
           <Text style={styles.errorText}>{error || 'Výdavok nebol nájdený'}</Text>
-          <Button onPress={() => router.back()} variant="outline">
-            Späť
+          <Button onPress={() => router.replace('/(tabs)/expenses')} variant="outline">
+            Späť na výdavky
           </Button>
         </View>
       </View>

@@ -105,8 +105,9 @@ export default function NewIncomeScreen() {
       });
 
       showToast('Príjem bol úspešne vytvorený', 'success');
+      // Navigate to incomes list explicitly instead of router.back()
       setTimeout(() => {
-        router.back();
+        router.replace('/(tabs)/incomes');
       }, 1500);
     } catch (error) {
       showToast(

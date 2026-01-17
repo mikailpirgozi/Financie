@@ -127,8 +127,9 @@ export default function EditIncomeScreen() {
       if (error) throw error;
 
       showToast('Príjem bol úspešne upravený', 'success');
+      // Navigate to income detail explicitly instead of router.back()
       setTimeout(() => {
-        router.back();
+        router.replace(`/(tabs)/incomes/${id}`);
       }, 1500);
     } catch (error) {
       showToast(

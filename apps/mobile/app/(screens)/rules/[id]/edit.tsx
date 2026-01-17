@@ -126,8 +126,9 @@ export default function EditRuleScreen() {
       showToast('Pravidlo bolo aktualizované', 'success');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
+      // Navigate to rules list explicitly
       setTimeout(() => {
-        router.back();
+        router.replace('/(screens)/rules');
       }, 500);
     } catch (error) {
       showToast(
@@ -155,8 +156,9 @@ export default function EditRuleScreen() {
               await deleteRule(ruleId);
               showToast('Pravidlo bolo zmazané', 'success');
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              // Navigate to rules list after delete
               setTimeout(() => {
-                router.back();
+                router.replace('/(screens)/rules');
               }, 500);
             } catch (error) {
               showToast('Nepodarilo sa zmazať pravidlo', 'error');

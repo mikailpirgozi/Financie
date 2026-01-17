@@ -128,7 +128,8 @@ export default function EarlyRepaymentScreen() {
       });
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.back();
+      // Navigate to loan detail explicitly instead of router.back()
+      router.replace(`/(tabs)/loans/${id}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Nepodarilo sa zaznamenať platbu';
       setError(message);
@@ -225,7 +226,7 @@ export default function EarlyRepaymentScreen() {
           Potvrdiť splatenie
         </Button>
         <Button
-          onPress={() => router.back()}
+          onPress={() => router.replace(`/(tabs)/loans/${id}`)}
           variant="outline"
           fullWidth
           style={styles.button}

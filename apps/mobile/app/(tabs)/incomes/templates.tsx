@@ -105,8 +105,8 @@ export default function IncomeTemplatesScreen() {
               await applyIncomeTemplate(template, today);
               await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               Alert.alert('Úspešne', 'Príjem bol vytvorený');
-              // Refresh parent screen
-              router.back();
+              // Navigate to incomes list explicitly
+              router.replace('/(tabs)/incomes');
             } catch (err) {
               console.error('Failed to apply template:', err);
               Alert.alert('Chyba', 'Nepodarilo sa vytvoriť príjem');

@@ -656,7 +656,7 @@ export function AddDocumentModal({
 
     try {
       // Upload files to Supabase Storage first
-      let uploadedFilePaths: string[] = [];
+      const uploadedFilePaths: string[] = [];
       
       if (selectedFiles.length > 0 && householdId) {
         console.log(`📤 Uploading ${selectedFiles.length} files...`);

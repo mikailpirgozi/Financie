@@ -86,8 +86,9 @@ export default function IncomeDetailScreen() {
               showToast('Príjem bol zmazaný', 'success');
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               
+              // Navigate to incomes list after delete
               setTimeout(() => {
-                router.back();
+                router.replace('/(tabs)/incomes');
               }, 1500);
             } catch (error) {
               showToast('Nepodarilo sa zmazať príjem', 'error');
@@ -148,8 +149,8 @@ export default function IncomeDetailScreen() {
         <View style={styles.errorContainer}>
           <Text style={styles.errorIcon}>⚠️</Text>
           <Text style={styles.errorText}>{error || 'Príjem nebol nájdený'}</Text>
-          <Button onPress={() => router.back()} variant="outline">
-            Späť
+          <Button onPress={() => router.replace('/(tabs)/incomes')} variant="outline">
+            Späť na príjmy
           </Button>
         </View>
       </View>

@@ -87,8 +87,9 @@ export default function NewCategoryScreen() {
       showToast('Kategória bola vytvorená', 'success');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
+      // Navigate to categories list explicitly
       setTimeout(() => {
-        router.back();
+        router.replace('/(screens)/categories');
       }, 500);
     } catch (error) {
       showToast(
