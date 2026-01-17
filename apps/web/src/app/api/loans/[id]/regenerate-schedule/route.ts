@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { refreshLoanMetrics } from '@/lib/api/loans';
 import { calculateLoan } from '@finapp/core';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: loanId } = await params;
     const supabase = await createClient();
     const {
       data: { user },
@@ -17,8 +19,6 @@ export async function POST(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const loanId = params.id;
 
     // Get loan
     const { data: loan, error: loanError } = await supabase
@@ -83,6 +83,9 @@ export async function POST(
         { status: 500 }
       );
     }
+
+    // Refresh loan_metrics materialized view to update balances and overdue counts
+    await refreshLoanMetrics();
 
     return NextResponse.json({
       success: true,

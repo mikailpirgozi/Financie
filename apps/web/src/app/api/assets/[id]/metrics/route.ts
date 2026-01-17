@@ -10,17 +10,16 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: assetId } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const assetId = params.id;
     const searchParams = request.nextUrl.searchParams;
     const includeRoi = searchParams.get('includeRoi') !== 'false';
     const roiPeriodMonths = parseInt(searchParams.get('roiPeriodMonths') || '12', 10);

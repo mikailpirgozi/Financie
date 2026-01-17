@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { useEffect, useState, useCallback } from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LayoutDashboard, Wallet, ShoppingCart, DollarSign, MoreHorizontal } from 'lucide-react-native';
+import { LayoutDashboard, Wallet, FileText, Car, MoreHorizontal } from 'lucide-react-native';
 import { supabase } from '../../src/lib/supabase';
 import { getCurrentHousehold } from '../../src/lib/api';
 
@@ -117,19 +117,33 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="vehicles"
+        options={{
+          title: 'Vozidlá',
+          tabBarIcon: ({ color, size }) => <Car color={color} size={size} />,
+          href: '/(tabs)/vehicles',
+        }}
+      />
+      <Tabs.Screen
+        name="documents"
+        options={{
+          title: 'Dokumenty',
+          tabBarIcon: ({ color, size }) => <FileText color={color} size={size} />,
+          href: '/(tabs)/documents',
+        }}
+      />
+      <Tabs.Screen
         name="expenses"
         options={{
           title: 'Výdavky',
-          tabBarIcon: ({ color, size }) => <ShoppingCart color={color} size={size} />,
-          href: '/(tabs)/expenses',
+          href: null, // Hidden from tab bar, accessible via settings
         }}
       />
       <Tabs.Screen
         name="incomes"
         options={{
           title: 'Príjmy',
-          tabBarIcon: ({ color, size }) => <DollarSign color={color} size={size} />,
-          href: '/(tabs)/incomes',
+          href: null, // Hidden from tab bar, accessible via settings
         }}
       />
       <Tabs.Screen
@@ -163,6 +177,9 @@ export default function TabsLayout() {
       <Tabs.Screen name="settings/help" options={{ href: null }} />
       <Tabs.Screen name="settings/privacy" options={{ href: null }} />
       <Tabs.Screen name="settings/subscription" options={{ href: null }} />
+      <Tabs.Screen name="vehicles/[id]/index" options={{ href: null }} />
+      <Tabs.Screen name="vehicles/[id]/edit" options={{ href: null }} />
+      <Tabs.Screen name="vehicles/new" options={{ href: null }} />
     </Tabs>
   );
 }

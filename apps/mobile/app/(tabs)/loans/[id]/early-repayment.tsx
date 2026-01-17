@@ -24,7 +24,7 @@ const earlyRepaymentSchema = z.object({
     .string()
     .min(1, 'Zadajte sumu')
     .refine((s) => !isNaN(Number(s)) && Number(s) > 0, 'Suma musí byť väčšia ako 0'),
-  payment_date: z.date({ invalid_type_error: 'Vyberte dátum' }),
+  payment_date: z.date({ error: 'Vyberte dátum' }),
 });
 
 type EarlyRepaymentFormData = z.infer<typeof earlyRepaymentSchema>;

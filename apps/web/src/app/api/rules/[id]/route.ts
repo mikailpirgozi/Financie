@@ -5,9 +5,10 @@ export const dynamic = 'force-dynamic';
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -18,7 +19,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('rules')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) throw error;
 
@@ -34,9 +35,10 @@ export async function DELETE(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -55,13 +57,13 @@ export async function PUT(
         category_id: categoryId,
         apply_to: applyTo,
       })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
 
-    return NextResponse.json(rule);
+    return NextResponse.json({ rule });
   } catch (error) {
     console.error('PUT /api/rules/[id] error:', error);
     return NextResponse.json(

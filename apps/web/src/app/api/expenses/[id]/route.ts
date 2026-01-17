@@ -6,9 +6,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -16,7 +17,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const expense = await getExpense(params.id);
+    const expense = await getExpense(id);
 
     return NextResponse.json({ expense });
   } catch (error) {
@@ -30,9 +31,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -47,7 +49,7 @@ export async function PUT(
       date: body.date ? new Date(body.date) : undefined,
     };
 
-    const expense = await updateExpense(params.id, updates);
+    const expense = await updateExpense(id, updates);
 
     return NextResponse.json({ expense });
   } catch (error) {
@@ -61,9 +63,10 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -75,7 +78,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('expenses')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) throw error;
 
@@ -88,4 +91,3 @@ export async function DELETE(
     );
   }
 }
-

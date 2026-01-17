@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@finapp/ui';
 import { Input } from '@finapp/ui';
@@ -12,8 +12,10 @@ interface Category {
   name: string;
 }
 
-export default function EditIncomePage({ params }: { params: { id: string } }): React.JSX.Element {
+export default function EditIncomePage(): React.JSX.Element {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const incomeId = params.id;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +31,7 @@ export default function EditIncomePage({ params }: { params: { id: string } }): 
     async function loadData() {
       try {
         // Load income
-        const incomeRes = await fetch(`/api/incomes/${params.id}`);
+        const incomeRes = await fetch(`/api/incomes/${incomeId}`);
         if (!incomeRes.ok) throw new Error('Nepodarilo sa načítať príjem');
         const { income } = await incomeRes.json();
 
@@ -54,7 +56,7 @@ export default function EditIncomePage({ params }: { params: { id: string } }): 
     }
 
     loadData();
-  }, [params.id]);
+  }, [incomeId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +64,7 @@ export default function EditIncomePage({ params }: { params: { id: string } }): 
     setError(null);
 
     try {
-      const response = await fetch(`/api/incomes/${params.id}`, {
+      const response = await fetch(`/api/incomes/${incomeId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

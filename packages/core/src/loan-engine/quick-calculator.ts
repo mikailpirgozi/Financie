@@ -4,6 +4,11 @@ import type { LoanType } from '../types';
  * Quick loan calculator for UI preview (mobile optimized)
  * Only calculates summary without generating full schedule
  * ~100x faster than full calculator
+ * 
+ * Handles edge cases:
+ * - Zero interest rate (0%)
+ * - Very long terms (up to 50 years)
+ * - All loan types
  */
 export interface QuickLoanResult {
   firstPayment: number;
@@ -37,20 +42,21 @@ export function quickCalculateLoan(
   switch (loanType) {
     case 'annuity':
     case 'auto_loan': {
-      // Calculate monthly payment
-      const calculatedPayment = fixedMonthlyPayment ?? (
-        effectivePrincipal *
-        (monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
-        (Math.pow(1 + monthlyRate, termMonths) - 1)
-      );
-      
-      // Quick interest approximation using average balance
-      // For annuity: average balance ≈ principal / 2
-      const avgBalance = effectivePrincipal / 2;
-      totalInterest = avgBalance * (annualRate / 100) * (termMonths / 12);
-      
-      // More accurate: total paid - principal
-      totalInterest = (calculatedPayment * termMonths) - effectivePrincipal;
+      // Handle zero interest rate
+      let calculatedPayment: number;
+      if (annualRate === 0 || monthlyRate === 0) {
+        calculatedPayment = effectivePrincipal / termMonths;
+        totalInterest = 0;
+      } else {
+        // Calculate monthly payment using annuity formula
+        calculatedPayment = fixedMonthlyPayment ?? (
+          effectivePrincipal *
+          (monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
+          (Math.pow(1 + monthlyRate, termMonths) - 1)
+        );
+        // Total interest = total paid - principal
+        totalInterest = (calculatedPayment * termMonths) - effectivePrincipal;
+      }
       
       firstPayment = calculatedPayment + feeMonthly + insuranceMonthly;
       lastPayment = firstPayment;
@@ -60,28 +66,69 @@ export function quickCalculateLoan(
     case 'fixed_principal': {
       const principalPayment = effectivePrincipal / termMonths;
       
-      // First payment: full interest on entire principal
-      const firstInterest = effectivePrincipal * monthlyRate;
-      firstPayment = principalPayment + firstInterest + feeMonthly + insuranceMonthly;
-      
-      // Last payment: minimal interest
-      const lastInterest = principalPayment * monthlyRate;
-      lastPayment = principalPayment + lastInterest + feeMonthly + insuranceMonthly;
-      
-      // Total interest = (first + last) / 2 * termMonths (arithmetic sequence)
-      totalInterest = ((firstInterest + lastInterest) / 2) * termMonths;
+      // Handle zero interest rate
+      if (annualRate === 0 || monthlyRate === 0) {
+        firstPayment = principalPayment + feeMonthly + insuranceMonthly;
+        lastPayment = firstPayment;
+        totalInterest = 0;
+      } else {
+        // First payment: full interest on entire principal
+        const firstInterest = effectivePrincipal * monthlyRate;
+        firstPayment = principalPayment + firstInterest + feeMonthly + insuranceMonthly;
+        
+        // Last payment: minimal interest
+        const lastInterest = principalPayment * monthlyRate;
+        lastPayment = principalPayment + lastInterest + feeMonthly + insuranceMonthly;
+        
+        // Total interest = (first + last) / 2 * termMonths (arithmetic sequence)
+        totalInterest = ((firstInterest + lastInterest) / 2) * termMonths;
+      }
       break;
     }
 
     case 'interest_only': {
-      const monthlyInterest = effectivePrincipal * monthlyRate;
-      firstPayment = monthlyInterest + feeMonthly + insuranceMonthly;
+      // Handle zero interest rate
+      if (annualRate === 0 || monthlyRate === 0) {
+        firstPayment = feeMonthly + insuranceMonthly;
+        const balloonPmt = balloonAmount > 0 ? balloonAmount : effectivePrincipal;
+        lastPayment = feeMonthly + insuranceMonthly + balloonPmt;
+        totalInterest = 0;
+      } else {
+        const monthlyInterest = effectivePrincipal * monthlyRate;
+        firstPayment = monthlyInterest + feeMonthly + insuranceMonthly;
+        
+        // Last payment includes balloon
+        const balloonPmt = balloonAmount > 0 ? balloonAmount : effectivePrincipal;
+        lastPayment = monthlyInterest + feeMonthly + insuranceMonthly + balloonPmt;
+        
+        totalInterest = monthlyInterest * termMonths;
+      }
+      break;
+    }
+
+    case 'graduated_payment': {
+      // For quick calculation, approximate graduated payment
+      // First payment is typically 75% of standard annuity
+      // Last payment (after graduation) matches standard annuity
+      const initialPaymentPct = 75; // Default
       
-      // Last payment includes balloon
-      const balloonPmt = balloonAmount > 0 ? balloonAmount : effectivePrincipal;
-      lastPayment = monthlyInterest + feeMonthly + insuranceMonthly + balloonPmt;
-      
-      totalInterest = monthlyInterest * termMonths;
+      if (annualRate === 0 || monthlyRate === 0) {
+        const standardPayment = effectivePrincipal / termMonths;
+        firstPayment = (standardPayment * initialPaymentPct / 100) + feeMonthly + insuranceMonthly;
+        lastPayment = standardPayment + feeMonthly + insuranceMonthly;
+        totalInterest = 0;
+      } else {
+        const standardPayment = effectivePrincipal *
+          (monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
+          (Math.pow(1 + monthlyRate, termMonths) - 1);
+        
+        firstPayment = (standardPayment * initialPaymentPct / 100) + feeMonthly + insuranceMonthly;
+        lastPayment = standardPayment + feeMonthly + insuranceMonthly;
+        
+        // Approximate total interest (slightly higher than standard annuity due to slower principal reduction)
+        const standardTotalInterest = (standardPayment * termMonths) - effectivePrincipal;
+        totalInterest = standardTotalInterest * 1.05; // ~5% higher due to negative amortization
+      }
       break;
     }
 

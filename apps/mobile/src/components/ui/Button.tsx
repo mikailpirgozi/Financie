@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   TouchableOpacity,
   Text,
@@ -6,16 +6,9 @@ import {
   ActivityIndicator,
   ViewStyle,
   TextStyle,
+  Animated,
 } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-
-const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -57,15 +50,15 @@ const variantStyles: Record<ButtonVariant, { container: ViewStyle; text: TextSty
 
 const sizeStyles: Record<ButtonSize, { container: ViewStyle; text: TextStyle }> = {
   sm: {
-    container: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 },
+    container: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, minHeight: 36 },
     text: { fontSize: 14, fontWeight: '500' },
   },
   md: {
-    container: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 8 },
+    container: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 8, minHeight: 48 },
     text: { fontSize: 16, fontWeight: '600' },
   },
   lg: {
-    container: { paddingHorizontal: 20, paddingVertical: 16, borderRadius: 10 },
+    container: { paddingHorizontal: 20, paddingVertical: 16, borderRadius: 10, minHeight: 56 },
     text: { fontSize: 18, fontWeight: '600' },
   },
 };
@@ -81,30 +74,25 @@ export function Button({
   style,
   testID,
 }: ButtonProps) {
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
+  const scale = useRef(new Animated.Value(1)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
     if (!disabled && !loading) {
-      scale.value = withSpring(0.95, {
-        damping: 15,
-        stiffness: 300,
-      });
+      Animated.spring(scale, {
+        toValue: 0.95,
+        useNativeDriver: true,
+      }).start();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
 
   const handlePressOut = () => {
     if (!disabled && !loading) {
-      scale.value = withSpring(1, {
-        damping: 15,
-        stiffness: 300,
-      });
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: true,
+      }).start();
     }
   };
 
@@ -115,16 +103,56 @@ export function Button({
     }
   };
 
-  React.useEffect(() => {
-    opacity.value = withTiming(disabled || loading ? 0.5 : 1, { duration: 200 });
+  useEffect(() => {
+    Animated.timing(opacity, {
+      toValue: disabled || loading ? 0.5 : 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
   }, [disabled, loading, opacity]);
+
+  // Check if flex-related styles are present
+  const hasFlexStyle = style && typeof style === 'object' && 
+    ('flex' in style || 'flexGrow' in style || 'flexShrink' in style || 'flexBasis' in style);
+
+  // Extract flex-related styles for the outer wrapper (don't pass them to inner TouchableOpacity)
+  const outerStyle: ViewStyle = {
+    transform: [{ scale }],
+    opacity,
+  };
+  
+  // Filter out flex-related styles from the style prop for the inner container
+  let innerStyle: ViewStyle | undefined;
+  if (style && typeof style === 'object') {
+    const { flex, flexGrow, flexShrink, flexBasis, alignSelf, ...rest } = style as ViewStyle & { flex?: number; flexGrow?: number; flexShrink?: number; flexBasis?: number | string };
+    
+    // Apply flex styles to outer wrapper
+    if (flex !== undefined) {
+      outerStyle.flex = flex;
+      // When flex is used, ensure the wrapper stretches in cross-axis
+      if (alignSelf === undefined) outerStyle.alignSelf = 'stretch';
+    }
+    if (flexGrow !== undefined) outerStyle.flexGrow = flexGrow;
+    if (flexShrink !== undefined) outerStyle.flexShrink = flexShrink;
+    if (flexBasis !== undefined) outerStyle.flexBasis = flexBasis;
+    if (alignSelf !== undefined) outerStyle.alignSelf = alignSelf;
+    
+    // Keep non-flex styles for inner container
+    innerStyle = Object.keys(rest).length > 0 ? rest : undefined;
+  }
+  
+  if (fullWidth) {
+    outerStyle.width = '100%';
+  }
 
   const containerStyle: (ViewStyle | false | undefined)[] = [
     styles.container,
     variantStyles[variant].container,
     sizeStyles[size].container,
     fullWidth && styles.fullWidth,
-    style,
+    // When outer has flex, inner should fill it
+    hasFlexStyle && styles.fillParent,
+    innerStyle,
   ];
 
   const textStyle: (TextStyle | undefined)[] = [
@@ -134,24 +162,26 @@ export function Button({
   ];
 
   return (
-    <AnimatedTouchable
-      style={[containerStyle, animatedStyle]}
-      onPress={handlePress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      disabled={disabled || loading}
-      activeOpacity={0.8}
-      testID={testID}
-    >
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={variantStyles[variant].text.color}
-        />
-      ) : (
-        <Text style={textStyle}>{children}</Text>
-      )}
-    </AnimatedTouchable>
+    <Animated.View style={outerStyle}>
+      <TouchableOpacity
+        style={containerStyle}
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={disabled || loading}
+        activeOpacity={0.8}
+        testID={testID}
+      >
+        {loading ? (
+          <ActivityIndicator
+            size="small"
+            color={variantStyles[variant].text.color}
+          />
+        ) : (
+          <Text style={textStyle}>{children}</Text>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -163,6 +193,9 @@ const styles = StyleSheet.create({
   },
   fullWidth: {
     width: '100%',
+  },
+  fillParent: {
+    flex: 1,
   },
   text: {
     textAlign: 'center',

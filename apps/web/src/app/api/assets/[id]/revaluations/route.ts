@@ -6,9 +6,10 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -27,7 +28,7 @@ export async function POST(
     }
 
     const valuation = await addAssetValuation({
-      assetId: params.id,
+      assetId: id,
       date: new Date(date),
       value: parseFloat(value),
       source: source as 'manual' | 'automatic',

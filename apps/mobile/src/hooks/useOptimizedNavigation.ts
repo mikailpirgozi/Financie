@@ -10,7 +10,7 @@ export function useOptimizedNavigation() {
 
   const navigate = (href: string) => {
     // Navigate immediately for instant UI feedback
-    router.push(href as any);
+    router.push(href as Parameters<typeof router.push>[0]);
     
     // Defer any heavy operations until after navigation animation
     InteractionManager.runAfterInteractions(() => {

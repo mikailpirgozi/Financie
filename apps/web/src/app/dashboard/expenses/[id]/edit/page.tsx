@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@finapp/ui';
 import { Input } from '@finapp/ui';
@@ -12,8 +12,10 @@ interface Category {
   name: string;
 }
 
-export default function EditExpensePage({ params }: { params: { id: string } }): React.JSX.Element {
+export default function EditExpensePage(): React.JSX.Element {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const expenseId = params.id;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +31,7 @@ export default function EditExpensePage({ params }: { params: { id: string } }):
     async function loadData() {
       try {
         // Load expense
-        const expenseRes = await fetch(`/api/expenses/${params.id}`);
+        const expenseRes = await fetch(`/api/expenses/${expenseId}`);
         if (!expenseRes.ok) throw new Error('Nepodarilo sa načítať výdavok');
         const { expense } = await expenseRes.json();
 
@@ -54,7 +56,7 @@ export default function EditExpensePage({ params }: { params: { id: string } }):
     }
 
     loadData();
-  }, [params.id]);
+  }, [expenseId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +64,7 @@ export default function EditExpensePage({ params }: { params: { id: string } }):
     setError(null);
 
     try {
-      const response = await fetch(`/api/expenses/${params.id}`, {
+      const response = await fetch(`/api/expenses/${expenseId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

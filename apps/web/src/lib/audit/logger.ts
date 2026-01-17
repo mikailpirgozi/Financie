@@ -9,7 +9,13 @@ export type AuditEntityType =
   | 'asset' 
   | 'household_member' 
   | 'category' 
-  | 'payment';
+  | 'payment'
+  | 'insurance'
+  | 'vehicle'
+  | 'vehicle_document'
+  | 'service_record'
+  | 'fine'
+  | 'insurance_claim';
 
 interface AuditLogData {
   householdId: string;

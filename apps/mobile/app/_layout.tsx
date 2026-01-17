@@ -9,6 +9,7 @@ import { supabase } from '../src/lib/supabase';
 import { registerForPushNotifications } from '../src/lib/notifications';
 import { initializeSubscriptions } from '../src/lib/subscriptions';
 import { queryClient } from '../src/lib/queryClient';
+import { ThemeProvider } from '../src/contexts';
 
 const ONBOARDING_COMPLETED_KEY = '@onboarding_completed';
 
@@ -127,14 +128,16 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <GestureHandlerRootView style={styles.container}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="(screens)" />
-          <Stack.Screen name="index" />
-        </Stack>
-      </GestureHandlerRootView>
+      <ThemeProvider>
+        <GestureHandlerRootView style={styles.container}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="(screens)" />
+            <Stack.Screen name="index" />
+          </Stack>
+        </GestureHandlerRootView>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

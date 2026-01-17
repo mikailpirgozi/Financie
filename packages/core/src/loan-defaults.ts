@@ -51,7 +51,46 @@ export const LOAN_TYPE_INFO = {
     icon: '🚗',
     typical: 'Autá, motocykle, vozidlá',
   },
+  graduated_payment: {
+    label: 'Rastúce splátky',
+    description: 'Splátky začínajú nižšie a postupne rastú',
+    icon: '📈',
+    typical: 'Mladí profesionáli, očakávaný rast príjmu',
+  },
 } as const;
+
+/**
+ * Loan types as select options (for form dropdowns)
+ */
+export const LOAN_TYPE_OPTIONS = [
+  { value: 'annuity', label: '💳 Anuitný' },
+  { value: 'fixed_principal', label: '📉 Fixná istina' },
+  { value: 'interest_only', label: '🎈 Interest-only' },
+  { value: 'auto_loan', label: '🚗 Auto úver' },
+  { value: 'graduated_payment', label: '📈 Rastúce splátky' },
+] as const;
+
+/**
+ * Rate type info for variable/fixed rate selection
+ */
+export const RATE_TYPE_INFO = {
+  fixed: {
+    label: 'Fixná',
+    description: 'Úroková sadzba sa nemení počas fixácie',
+  },
+  variable: {
+    label: 'Variabilná',
+    description: 'Úrok sa môže meniť podľa EURIBOR',
+  },
+} as const;
+
+/**
+ * Rate types as select options
+ */
+export const RATE_TYPE_OPTIONS = [
+  { value: 'fixed', label: 'Fixná sadzba' },
+  { value: 'variable', label: 'Variabilná sadzba' },
+] as const;
 
 export const LOAN_AMOUNT_PRESETS = [
   { value: 1000, label: '1 000 €' },

@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@finapp/ui';
 import { LoanDetailClient } from './LoanDetailClient';
 
-export default async function LoanDetailPage({ params }: { params: { id: string } }): Promise<React.ReactNode> {
+export default async function LoanDetailPage({ params }: { params: Promise<{ id: string }> }): Promise<React.ReactNode> {
+  const { id } = await params;
   const supabase = await createClient();
   const {
     data: { user },
@@ -16,7 +17,7 @@ export default async function LoanDetailPage({ params }: { params: { id: string 
   const { data: loan, error: loanError } = await supabase
     .from('loans')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
 
   if (loanError || !loan) {
@@ -26,7 +27,7 @@ export default async function LoanDetailPage({ params }: { params: { id: string 
   const { data: schedule } = await supabase
     .from('loan_schedules')
     .select('*')
-    .eq('loan_id', params.id)
+    .eq('loan_id', id)
     .order('installment_no', { ascending: true });
 
   const today = new Date();
@@ -135,7 +136,7 @@ export default async function LoanDetailPage({ params }: { params: { id: string 
       {overdueCount > 0 && (
         <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <span className="text-2xl">⚠️</span>
             </div>
             <div className="ml-3">
@@ -153,7 +154,7 @@ export default async function LoanDetailPage({ params }: { params: { id: string 
       {dueSoonCount > 0 && overdueCount === 0 && (
         <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <span className="text-2xl">🔔</span>
             </div>
             <div className="ml-3">
@@ -426,7 +427,7 @@ export default async function LoanDetailPage({ params }: { params: { id: string 
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <LoanDetailClient loanId={params.id} schedule={scheduleWithStatus} />
+          <LoanDetailClient loanId={id} schedule={scheduleWithStatus} />
         </CardContent>
       </Card>
     </div>

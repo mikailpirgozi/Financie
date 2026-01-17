@@ -7,9 +7,9 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
+  Pressable,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Swipeable } from 'react-native-gesture-handler';
 import { getCurrentHousehold, getRules, deleteRule, type Rule } from '../../src/lib/api';
 import { ErrorMessage } from '../../src/components/ErrorMessage';
 import { Badge } from '@/components/ui/Badge';
@@ -96,28 +96,23 @@ export default function RulesScreen() {
     return badges[matchType] || { variant: 'default', label: matchType };
   };
 
-  const renderRightActions = (rule: Rule) => {
-    return (
-      <View style={styles.swipeActions}>
-        <TouchableOpacity
-          style={[styles.swipeAction, styles.editAction]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            router.push(`/(screens)/rules/${rule.id}/edit`);
-          }}
-        >
-          <Text style={styles.swipeActionText}>✏️</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.swipeAction, styles.deleteAction]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            handleDelete(rule);
-          }}
-        >
-          <Text style={styles.swipeActionText}>🗑️</Text>
-        </TouchableOpacity>
-      </View>
+  const handleRuleLongPress = (rule: Rule) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      rule.match_value,
+      'Vyberte akciu',
+      [
+        {
+          text: 'Upraviť',
+          onPress: () => router.push(`/(screens)/rules/${rule.id}/edit`),
+        },
+        {
+          text: 'Zmazať',
+          style: 'destructive',
+          onPress: () => handleDelete(rule),
+        },
+        { text: 'Zrušiť', style: 'cancel' },
+      ]
     );
   };
 
@@ -125,34 +120,30 @@ export default function RulesScreen() {
     const matchTypeBadge = getMatchTypeBadge(item.match_type);
     
     return (
-      <Swipeable renderRightActions={() => renderRightActions(item)}>
-        <TouchableOpacity
-          style={styles.ruleCard}
-          onPress={() => {
-            // Could navigate to detail if needed
-          }}
-        >
-          <View style={styles.ruleHeader}>
-            <Badge variant={matchTypeBadge.variant}>{matchTypeBadge.label}</Badge>
-            <Badge variant={item.applies_to === 'expense' ? 'error' : 'success'}>
-              {item.applies_to === 'expense' ? '💸 Výdavok' : '💰 Príjem'}
-            </Badge>
-          </View>
-          
-          <Text style={styles.matchValue}>"{item.match_value}"</Text>
-          
-          <View style={styles.arrow}>
-            <Text style={styles.arrowText}>→</Text>
-          </View>
-          
-          <View style={styles.categoryInfo}>
-            <Text style={styles.categoryLabel}>Kategória:</Text>
-            <Text style={styles.categoryName}>
-              {item.target_category?.name || 'Neznáma kategória'}
-            </Text>
-          </View>
-        </TouchableOpacity>
-      </Swipeable>
+      <Pressable
+        style={styles.ruleCard}
+        onLongPress={() => handleRuleLongPress(item)}
+      >
+        <View style={styles.ruleHeader}>
+          <Badge variant={matchTypeBadge.variant}>{matchTypeBadge.label}</Badge>
+          <Badge variant={item.applies_to === 'expense' ? 'error' : 'success'}>
+            {item.applies_to === 'expense' ? '💸 Výdavok' : '💰 Príjem'}
+          </Badge>
+        </View>
+        
+        <Text style={styles.matchValue}>"{item.match_value}"</Text>
+        
+        <View style={styles.arrow}>
+          <Text style={styles.arrowText}>→</Text>
+        </View>
+        
+        <View style={styles.categoryInfo}>
+          <Text style={styles.categoryLabel}>Kategória:</Text>
+          <Text style={styles.categoryName}>
+            {item.target_category?.name || 'Neznáma kategória'}
+          </Text>
+        </View>
+      </Pressable>
     );
   };
 
@@ -317,25 +308,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#111827',
-  },
-  swipeActions: {
-    flexDirection: 'row',
-  },
-  swipeAction: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 70,
-    marginLeft: 8,
-    borderRadius: 12,
-  },
-  editAction: {
-    backgroundColor: '#0070f3',
-  },
-  deleteAction: {
-    backgroundColor: '#ef4444',
-  },
-  swipeActionText: {
-    fontSize: 24,
   },
   emptyState: {
     flex: 1,

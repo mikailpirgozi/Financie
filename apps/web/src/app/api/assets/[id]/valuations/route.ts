@@ -7,9 +7,10 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -21,7 +22,7 @@ export async function POST(
     
     // Validate input
     const validatedInput = updateAssetValueSchema.parse({
-      assetId: params.id,
+      assetId: id,
       value: body.value,
       date: new Date(body.date),
       source: body.source ?? 'manual',

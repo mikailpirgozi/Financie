@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { refreshLoanMetrics } from '@/lib/api/loans';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: loanId } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -25,7 +27,7 @@ export async function POST(
     const { data: loan } = await supabase
       .from('loans')
       .select('household_id')
-      .eq('id', params.id)
+      .eq('id', loanId)
       .single();
 
     if (!loan) {
@@ -50,7 +52,7 @@ export async function POST(
         status: 'paid',
         paid_at: new Date().toISOString(),
       })
-      .eq('loan_id', params.id)
+      .eq('loan_id', loanId)
       .in('status', ['pending', 'overdue'])
       .lte('due_date', date)
       .select();
@@ -59,6 +61,9 @@ export async function POST(
       console.error('Error marking installments as paid:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // Refresh loan_metrics materialized view to update balances and overdue counts
+    await refreshLoanMetrics();
 
     return NextResponse.json({ 
       success: true, 

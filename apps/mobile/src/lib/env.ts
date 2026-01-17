@@ -21,16 +21,16 @@ function validateEnv(): Env {
 
   try {
     return envSchema.parse(env);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      const missingVars = error.errors.map((e) => e.path.join('.')).join(', ');
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      const missingVars = err.issues.map((e: z.ZodIssue) => e.path.join('.')).join(', ');
       throw new Error(
         `Missing or invalid environment variables: ${missingVars}\n` +
         'Please check your .env file and ensure all required variables are set.\n' +
         'See .env.example for reference.'
       );
     }
-    throw error;
+    throw err;
   }
 }
 

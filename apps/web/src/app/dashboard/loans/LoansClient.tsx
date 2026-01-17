@@ -5,74 +5,21 @@ import Link from 'next/link';
 import { Button } from '@finapp/ui';
 import { Card, CardHeader, CardTitle, CardContent } from '@finapp/ui';
 import { DeleteDialog } from '@/components/DeleteDialog';
-import { useEffect, useState } from 'react';
-
-interface Loan {
-  id: string;
-  name?: string;
-  lender: string;
-  loan_type: string;
-  principal: number;
-  annual_rate: number;
-  status: string;
-  start_date: string;
-  term_months: number;
-}
-
-interface LoanSchedule {
-  id: string;
-  loan_id: string;
-  installment_no: number;
-  due_date: string;
-  principal_due: number;
-  interest_due: number;
-  fees_due: number;
-  total_due: number;
-  principal_balance_after: number;
-  status: string;
-  paid_at: string | null;
-}
-
-interface LoanWithSchedule extends Loan {
-  schedule: LoanSchedule[];
-}
+import type { LoanWithMetrics, LoansSummary } from '@/lib/api/loans';
+import { formatCurrency, formatCurrencyCompact } from '@/lib/formatters';
 
 interface LoansClientProps {
-  loans: Loan[];
+  loans: LoanWithMetrics[];
+  summary: LoansSummary;
 }
 
-export function LoansClient({ loans }: LoansClientProps): React.JSX.Element {
+/**
+ * Pure display component for loans list.
+ * All data fetching and calculations are done server-side.
+ * This component only handles rendering and user interactions.
+ */
+export function LoansClient({ loans, summary }: LoansClientProps): React.JSX.Element {
   const router = useRouter();
-  const [loansWithSchedule, setLoansWithSchedule] = useState<LoanWithSchedule[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchSchedules() {
-      const loanIds = loans.map(l => l.id).join(',');
-      const response = await fetch(`/api/loans/schedules?loanIds=${loanIds}`);
-      
-      if (response.ok) {
-        const schedulesMap = await response.json();
-        
-        const loansWithScheduleData = loans.map((loan) => ({
-          ...loan,
-          schedule: schedulesMap[loan.id] || [],
-        }));
-        
-        setLoansWithSchedule(loansWithScheduleData);
-      } else {
-        setLoansWithSchedule(loans.map(l => ({ ...l, schedule: [] })));
-      }
-      
-      setLoading(false);
-    }
-
-    if (loans.length > 0) {
-      fetchSchedules();
-    } else {
-      setLoading(false);
-    }
-  }, [loans]);
 
   const handleDelete = async (id: string) => {
     const response = await fetch(`/api/loans/${id}`, {
@@ -86,100 +33,28 @@ export function LoansClient({ loans }: LoansClientProps): React.JSX.Element {
     router.refresh();
   };
 
-  // Calculate summary statistics
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  let totalBalance = 0;
-  let totalMonthlyPayment = 0;
-  let totalPaid = 0;
-  let totalOriginal = 0;
-  let overdueCount = 0;
-  let dueSoonCount = 0;
-  
-  type NextPayment = { date: Date; amount: number; lender: string };
-  let nextPayment: NextPayment | null = null;
-
-  loansWithSchedule.forEach((loan) => {
-    totalOriginal += Number(loan.principal);
-
-    const paidSchedules = loan.schedule.filter((s) => s.status === 'paid');
-    const lastPaid = paidSchedules[paidSchedules.length - 1];
-    const currentBalance = lastPaid
-      ? Number(lastPaid.principal_balance_after)
-      : Number(loan.principal);
-
-    totalBalance += currentBalance;
-    totalPaid += paidSchedules.reduce((sum, s) => sum + Number(s.total_due), 0);
-
-    // For monthly payment and next payment, use next unpaid installment (especially important for fixed_principal)
-    const nextInstallment = loan.schedule.find(
-      (s) => s.status === 'pending' || s.status === 'overdue'
-    );
-    if (nextInstallment) {
-      totalMonthlyPayment += Number(nextInstallment.total_due);
-      
-      // Find next payment
-      const dueDate = new Date(nextInstallment.due_date);
-      if (!nextPayment || dueDate < nextPayment.date) {
-        nextPayment = {
-          date: dueDate,
-          amount: Number(nextInstallment.total_due),
-          lender: loan.lender,
-        };
-      }
-    }
-
-    // Count overdue and due soon
-    loan.schedule.forEach((s) => {
-      if (s.status === 'paid') return;
-
-      const dueDate = new Date(s.due_date);
-      dueDate.setHours(0, 0, 0, 0);
-
-      if (dueDate < today) {
-        overdueCount++;
-      } else {
-        const dueSoonDate = new Date(today);
-        dueSoonDate.setDate(dueSoonDate.getDate() + 7);
-        if (dueDate <= dueSoonDate) {
-          dueSoonCount++;
-        }
-      }
-    });
-  });
-
-  const totalSplatene = totalOriginal > 0 ? ((totalPaid / (totalOriginal + totalPaid)) * 100) : 0;
-  const daysUntilNext: number | null = nextPayment !== null
-    ? Math.ceil(((nextPayment as NextPayment).date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-    : null;
-
-  if (loading) {
-    return <div className="text-center py-12">Načítavam údaje...</div>;
-  }
-
   return (
     <div className="space-y-6">
       {/* Mini Widget */}
-      <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+      <Card className="bg-linear-to-r from-purple-50 to-blue-50 border-purple-200">
         <CardContent className="py-4">
           <div className="flex flex-wrap items-center justify-between gap-4 text-sm">
             <div className="flex items-center gap-2">
               <span className="font-medium">💰 Zostatok:</span>
-              <span className="font-bold">{totalBalance.toFixed(2)} €</span>
+              <span className="font-bold">{formatCurrency(summary.totalBalance)}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="font-medium">📅 Mesačne:</span>
-              <span className="font-bold">{totalMonthlyPayment.toFixed(2)} €</span>
+              <span className="font-bold">{formatCurrency(summary.totalMonthlyPayment)}</span>
             </div>
-            {overdueCount > 0 && (
+            {summary.overdueCount > 0 && (
               <div className="flex items-center gap-2 text-red-600">
-                <span className="font-medium">⚠️ {overdueCount} omeškané</span>
+                <span className="font-medium">⚠️ {summary.overdueCount} omeškané</span>
               </div>
             )}
-            {dueSoonCount > 0 && overdueCount === 0 && (
+            {summary.dueSoonCount > 0 && summary.overdueCount === 0 && (
               <div className="flex items-center gap-2 text-orange-600">
-                <span className="font-medium">🔔 {dueSoonCount} čoskoro</span>
+                <span className="font-medium">🔔 {summary.dueSoonCount} čoskoro</span>
               </div>
             )}
           </div>
@@ -195,9 +70,9 @@ export function LoansClient({ loans }: LoansClientProps): React.JSX.Element {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalBalance.toFixed(2)} €</div>
+            <div className="text-2xl font-bold">{formatCurrency(summary.totalBalance)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              z {loansWithSchedule.length} {loansWithSchedule.length === 1 ? 'úveru' : 'úverov'}
+              z {summary.loanCount} {summary.loanCount === 1 ? 'úveru' : 'úverov'}
             </p>
           </CardContent>
         </Card>
@@ -209,7 +84,7 @@ export function LoansClient({ loans }: LoansClientProps): React.JSX.Element {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalMonthlyPayment.toFixed(2)} €</div>
+            <div className="text-2xl font-bold">{formatCurrency(summary.totalMonthlyPayment)}</div>
             <p className="text-xs text-muted-foreground mt-1">spolu</p>
           </CardContent>
         </Card>
@@ -221,9 +96,9 @@ export function LoansClient({ loans }: LoansClientProps): React.JSX.Element {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalSplatene.toFixed(0)}%</div>
+            <div className="text-2xl font-bold">{summary.totalSplatene}%</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {totalPaid.toFixed(0)} € ✅
+              {formatCurrencyCompact(summary.totalPaid)} ✅
             </p>
           </CardContent>
         </Card>
@@ -235,21 +110,21 @@ export function LoansClient({ loans }: LoansClientProps): React.JSX.Element {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {nextPayment ? (
+            {summary.nextPayment ? (
               <>
                 <div className="text-2xl font-bold">
-                  {(nextPayment as NextPayment).date.toLocaleDateString('sk-SK', {
+                  {new Date(summary.nextPayment.date).toLocaleDateString('sk-SK', {
                     day: 'numeric',
                     month: 'short',
                   })}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {(nextPayment as NextPayment).amount.toFixed(0)} € (
-                  {daysUntilNext !== null && daysUntilNext < 0
-                    ? `${Math.abs(daysUntilNext)} dní po splatnosti`
-                    : daysUntilNext === 0
+                  {formatCurrencyCompact(summary.nextPayment.amount)} (
+                  {summary.nextPayment.daysUntil < 0
+                    ? `${Math.abs(summary.nextPayment.daysUntil)} dní po splatnosti`
+                    : summary.nextPayment.daysUntil === 0
                     ? 'dnes'
-                    : `o ${daysUntilNext} dní`}
+                    : `o ${summary.nextPayment.daysUntil} dní`}
                   )
                 </p>
               </>
@@ -261,15 +136,15 @@ export function LoansClient({ loans }: LoansClientProps): React.JSX.Element {
       </div>
 
       {/* Alerts */}
-      {overdueCount > 0 && (
+      {summary.overdueCount > 0 && (
         <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <span className="text-2xl">⚠️</span>
             </div>
             <div className="ml-3">
               <h3 className="text-sm font-medium text-red-800">
-                URGENTNÉ: {overdueCount} {overdueCount === 1 ? 'splátka' : 'splátky'} po splatnosti!
+                URGENTNÉ: {summary.overdueCount} {summary.overdueCount === 1 ? 'splátka' : 'splátky'} po splatnosti!
               </h3>
               <p className="text-sm text-red-700 mt-1">
                 Prosím uhraďte omeškané splátky čo najskôr, aby ste sa vyhli ďalším poplatkom.
@@ -279,15 +154,15 @@ export function LoansClient({ loans }: LoansClientProps): React.JSX.Element {
         </div>
       )}
 
-      {dueSoonCount > 0 && overdueCount === 0 && (
+      {summary.dueSoonCount > 0 && summary.overdueCount === 0 && (
         <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <span className="text-2xl">🔔</span>
             </div>
             <div className="ml-3">
               <h3 className="text-sm font-medium text-orange-800">
-                Máte {dueSoonCount} {dueSoonCount === 1 ? 'splátku' : 'splátky'} splatnú v najbližších 7 dňoch
+                Máte {summary.dueSoonCount} {summary.dueSoonCount === 1 ? 'splátku' : 'splátky'} splatnú v najbližších 7 dňoch
               </h3>
               <p className="text-sm text-orange-700 mt-1">
                 Pripravte si prostriedky na úhradu.
@@ -316,34 +191,18 @@ export function LoansClient({ loans }: LoansClientProps): React.JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {loansWithSchedule.map((loan) => {
-                  const paidSchedules = loan.schedule.filter((s) => s.status === 'paid');
-                  const lastPaid = paidSchedules[paidSchedules.length - 1];
-                  const currentBalance = lastPaid
-                    ? Number(lastPaid.principal_balance_after)
-                    : Number(loan.principal);
-
-                  const nextInstallment = loan.schedule.find(
-                    (s) => s.status === 'pending' || s.status === 'overdue'
-                  );
-
-                  // Use next installment for monthly payment (important for fixed_principal with decreasing payments)
-                  const monthlyPayment = nextInstallment ? Number(nextInstallment.total_due) : 0;
-                  const principalDue = nextInstallment ? Number(nextInstallment.principal_due) : 0;
-                  const interestDue = nextInstallment ? Number(nextInstallment.interest_due) : 0;
-
-                  const progress = loan.schedule.length > 0
-                    ? (paidSchedules.length / loan.schedule.length) * 100
+                {loans.map((loan) => {
+                  const progress = loan.total_installments > 0
+                    ? (loan.paid_count / loan.total_installments) * 100
                     : 0;
 
+                  // Determine next installment status display
                   let nextStatus = '✅';
                   let nextText = 'OK';
                   let nextClass = '';
 
-                  if (nextInstallment) {
-                    const dueDate = new Date(nextInstallment.due_date);
-                    dueDate.setHours(0, 0, 0, 0);
-                    const daysUntil = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                  if (loan.next_installment) {
+                    const daysUntil = loan.next_installment.days_until;
 
                     if (daysUntil < 0) {
                       nextStatus = '⚠️';
@@ -358,6 +217,18 @@ export function LoansClient({ loans }: LoansClientProps): React.JSX.Element {
                     }
                   }
 
+                  // Get monthly payment details from next_installment
+                  // Note: principal_due and interest_due may not exist before migration runs
+                  const monthlyPayment = loan.next_installment 
+                    ? Number(loan.next_installment.total_due) 
+                    : 0;
+                  const principalDue = loan.next_installment?.principal_due 
+                    ? Number(loan.next_installment.principal_due) 
+                    : 0;
+                  const interestDue = loan.next_installment?.interest_due 
+                    ? Number(loan.next_installment.interest_due) 
+                    : 0;
+
                   return (
                     <tr key={loan.id} className="border-b hover:bg-muted/50">
                       <td className="p-2">
@@ -371,13 +242,13 @@ export function LoansClient({ loans }: LoansClientProps): React.JSX.Element {
                       </td>
                       <td className="text-right p-2">
                         <div className="font-medium">
-                          {Number(loan.principal).toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} → {currentBalance.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                          {formatCurrency(loan.principal)} → {formatCurrency(loan.current_balance)}
                         </div>
                       </td>
                       <td className="text-right p-2">
-                        <div className="font-medium">{monthlyPayment.toFixed(2)} €</div>
+                        <div className="font-medium">{formatCurrency(monthlyPayment.toFixed(2))}</div>
                         <div className="text-xs text-muted-foreground">
-                          ({principalDue.toFixed(2)}€/{interestDue.toFixed(2)}€)
+                          ({formatCurrency(principalDue.toFixed(2))}/{formatCurrency(interestDue.toFixed(2))})
                         </div>
                       </td>
                       <td className="p-2">
@@ -393,7 +264,7 @@ export function LoansClient({ loans }: LoansClientProps): React.JSX.Element {
                           <span className="text-xs font-medium">{progress.toFixed(0)}%</span>
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
-                          {paidSchedules.length}/{loan.schedule.length} splátok
+                          {loan.paid_count}/{loan.total_installments} splátok
                         </div>
                       </td>
                       <td className={`text-center p-2 ${nextClass}`}>

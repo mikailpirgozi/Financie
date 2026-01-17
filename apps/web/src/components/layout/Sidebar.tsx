@@ -7,15 +7,26 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { HouseholdSwitcher } from './HouseholdSwitcher';
 
-const navigation = [
+// Main navigation items
+const mainNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: '📊' },
   { name: 'Portfolio', href: '/portfolio', icon: '📈' },
   { name: 'Úvery', href: '/dashboard/loans', icon: '💰' },
+  { name: 'Vozidlá', href: '/dashboard/vehicles', icon: '🚗' },
+  { name: 'Majetok', href: '/dashboard/assets', icon: '🏠' },
+  { name: 'Dokumenty', href: '/dashboard/documents', icon: '📋' },
+];
+
+// Personal finance (collapsed section)
+const personalFinanceNavigation = [
   { name: 'Výdavky', href: '/dashboard/expenses', icon: '💸' },
   { name: 'Príjmy', href: '/dashboard/incomes', icon: '💵' },
-  { name: 'Majetok', href: '/dashboard/assets', icon: '🏠' },
-  { name: 'Mesačné výkazy', href: '/dashboard/summaries', icon: '📈' },
   { name: 'Kategórie', href: '/dashboard/categories', icon: '🏷️' },
+  { name: 'Mesačné výkazy', href: '/dashboard/summaries', icon: '📈' },
+];
+
+// Settings section
+const settingsNavigation = [
   { name: 'Domácnosť', href: '/dashboard/household', icon: '👥' },
   { name: 'Predplatné', href: '/dashboard/subscription', icon: '💳' },
   { name: 'Audit Log', href: '/dashboard/audit', icon: '📝' },
@@ -72,26 +83,89 @@ export function Sidebar({ isOpen = true, onClose, households, currentHouseholdId
           <HouseholdSwitcher households={households} currentHouseholdId={currentHouseholdId} />
         </div>
       )}
-      <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
-        {navigation.map((item) => {
-          const isActive = pathname ? (pathname === item.href || pathname.startsWith(item.href + '/')) : false;
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              onClick={handleLinkClick}
-              className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              )}
-            >
-              <span className="text-lg">{item.icon}</span>
-              {item.name}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 p-4 overflow-y-auto">
+        {/* Main Navigation */}
+        <div className="space-y-1">
+          {mainNavigation.map((item) => {
+            const isActive = pathname ? (pathname === item.href || pathname.startsWith(item.href + '/')) : false;
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                onClick={handleLinkClick}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                )}
+              >
+                <span className="text-lg">{item.icon}</span>
+                {item.name}
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Personal Finance Section */}
+        <div className="mt-6">
+          <div className="px-3 mb-2">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
+              Osobné financie
+            </span>
+          </div>
+          <div className="space-y-1">
+            {personalFinanceNavigation.map((item) => {
+              const isActive = pathname ? (pathname === item.href || pathname.startsWith(item.href + '/')) : false;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={handleLinkClick}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  )}
+                >
+                  <span className="text-lg">{item.icon}</span>
+                  {item.name}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Settings Section */}
+        <div className="mt-6">
+          <div className="px-3 mb-2">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
+              Nastavenia
+            </span>
+          </div>
+          <div className="space-y-1">
+            {settingsNavigation.map((item) => {
+              const isActive = pathname ? (pathname === item.href || pathname.startsWith(item.href + '/')) : false;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={handleLinkClick}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  )}
+                >
+                  <span className="text-lg">{item.icon}</span>
+                  {item.name}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       </nav>
       <div className="border-t p-4">
         <div className="text-xs text-muted-foreground">

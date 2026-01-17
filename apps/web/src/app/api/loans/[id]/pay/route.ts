@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { refreshLoanMetrics } from '@/lib/api/loans';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -12,9 +13,10 @@ const paymentSchema = z.object({
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: loanId } = await params;
     const supabase = await createClient();
     const {
       data: { user },
@@ -24,7 +26,6 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const loanId = params.id;
     const body = await req.json();
     const { installmentId, amount, date } = paymentSchema.parse(body);
 
@@ -143,6 +144,9 @@ export async function POST(
       // Don't fail the whole operation, just log
     }
 
+    // Refresh loan_metrics materialized view to update balances and overdue counts
+    await refreshLoanMetrics();
+
     return NextResponse.json({
       success: true,
       message: 'Payment recorded successfully',
@@ -153,18 +157,18 @@ export async function POST(
       },
       payment,
     });
-  } catch (error) {
-    console.error('Error processing payment:', error);
-    if (error instanceof z.ZodError) {
+  } catch (err) {
+    console.error('Error processing payment:', err);
+    if (err instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid request', details: error.errors },
+        { error: 'Invalid request', details: err.issues },
         { status: 400 }
       );
     }
     return NextResponse.json(
       {
         error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        details: err instanceof Error ? err.message : 'Unknown error',
       },
       { status: 500 }
     );

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,8 +12,11 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { getLoan, markLoanInstallmentPaid, markLoanPaidUntilToday, type Loan } from '@/lib/api';
+import { Plus, StickyNote, AlertTriangle, Calendar, CheckCircle, FileText, Upload } from 'lucide-react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import { type Loan, type LoanSchedule, type LoanDocument, getLoanDocuments, createLoanDocument, deleteLoanDocument } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
+import { env } from '@/lib/env';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -21,98 +24,390 @@ import { Toast } from '@/components/ui/Toast';
 import { SwipeableInstallmentCard } from '@/components/loans/SwipeableInstallmentCard';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
 import { OptionsMenu, type MenuItem } from '@/components/ui/OptionsMenu';
+import { NoteCard, type LoanNote } from '@/components/loans/NoteCard';
+import { NoteEditorModal } from '@/components/loans/NoteEditorModal';
+import { LoanFinancialOverview } from '@/components/loans/LoanFinancialOverview';
+import { LoanMilestones } from '@/components/loans/LoanMilestones';
+import { DocumentListItem } from '@/components/common';
+import { useTheme } from '../../../../src/contexts';
+import { useLoan, useMarkInstallmentPaid, useMarkPaidUntilToday } from '../../../../src/hooks';
+import { getCurrentHousehold } from '@/lib/api';
+import { LOAN_DOCUMENT_TYPE_LABELS, type LoanDocumentType } from '@finapp/core';
 import * as Haptics from 'expo-haptics';
 
-interface LoanScheduleEntry {
-  id: string;
-  loan_id: string;
-  installment_no: number;
-  due_date: string;
-  principal_due: string;
-  interest_due: string;
-  fees_due: string;
-  total_due: string;
-  principal_balance_after: string;
+// Extend LoanSchedule with computed overdue status
+type LoanScheduleEntry = LoanSchedule & {
   status: 'pending' | 'paid' | 'overdue';
-  paid_at: string | null;
-}
+};
 
 export default function LoanDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loan, setLoan] = useState<Loan | null>(null);
-  const [schedule, setSchedule] = useState<LoanScheduleEntry[]>([]);
+  const { theme } = useTheme();
+  const colors = theme.colors;
+
+  // React Query hooks for data fetching and mutations
+  const { data: loanData, isLoading: loading, error: queryError, refetch } = useLoan(id!);
+  const markInstallmentPaidMutation = useMarkInstallmentPaid();
+  const markPaidUntilTodayMutation = useMarkPaidUntilToday();
+
+  // Derive loan and schedule from query data
+  const loan = loanData?.loan || null;
+  
+  // Process schedule to mark overdue entries - stabilize empty array reference
+  const schedule: LoanScheduleEntry[] = useMemo(() => {
+    const rawSchedule = loanData?.schedule;
+    if (!rawSchedule || rawSchedule.length === 0) return [];
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return rawSchedule.map((entry) => {
+      if (entry.status === 'paid') return entry as LoanScheduleEntry;
+      const dueDate = new Date(entry.due_date);
+      dueDate.setHours(0, 0, 0, 0);
+      if (dueDate < today) {
+        return { ...entry, status: 'overdue' as const } as LoanScheduleEntry;
+      }
+      return entry as LoanScheduleEntry;
+    });
+  }, [loanData?.schedule]);
+
+  // Local state for optimistic updates and UI
   const [optimisticSchedule, setOptimisticSchedule] = useState<LoanScheduleEntry[]>([]);
   const [showPaidInstallments, setShowPaidInstallments] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
     visible: false,
     message: '',
     type: 'success',
   });
 
+  // Track previous schedule signature to avoid unnecessary updates
+  const prevScheduleSignatureRef = useRef<string>('');
+  
+  // Sync optimistic schedule with actual schedule when data changes
+  React.useEffect(() => {
+    // Create a signature based on schedule content (IDs and statuses)
+    const scheduleSignature = schedule
+      .map((entry) => `${entry.id}:${entry.status}`)
+      .join(',');
+    
+    // Only update if signature changed
+    if (scheduleSignature !== prevScheduleSignatureRef.current) {
+      prevScheduleSignatureRef.current = scheduleSignature;
+      setOptimisticSchedule(schedule);
+    }
+  }, [schedule]);
+
+  // Convert query error to string
+  const error = queryError ? (queryError instanceof Error ? queryError.message : 'Nepodarilo sa načítať úver') : null;
+
+  // Notes state
+  const [notes, setNotes] = useState<LoanNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [noteEditorVisible, setNoteEditorVisible] = useState(false);
+  const [editingNote, setEditingNote] = useState<LoanNote | null>(null);
+
+  // Documents state
+  const [documents, setDocuments] = useState<LoanDocument[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const [householdId, setHouseholdId] = useState<string | null>(null);
+
+  // Load household on mount
   useEffect(() => {
-    loadLoan();
+    getCurrentHousehold().then(h => setHouseholdId(h.id)).catch(console.error);
+  }, []);
+
+  // Load notes and documents when id changes
+  useEffect(() => {
+    if (id) {
+      loadNotes();
+      loadDocuments();
+    }
   }, [id]);
 
-  const loadLoan = async () => {
+  // Load notes for the loan
+  const loadNotes = useCallback(async () => {
+    if (!id) return;
+
+    setNotesLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-
-      console.log('📊 Loading loan detail:', id);
-
-      // Fetch loan using API (includes computed fields)
-      const { loan: loanData } = await getLoan(id!);
-
-      console.log('✅ Loan loaded:', {
-        id: loanData.id,
-        lender: loanData.lender,
-        principal: loanData.principal,
-        remaining_balance: loanData.remaining_balance,
-        amount_paid: loanData.amount_paid,
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${env.EXPO_PUBLIC_API_URL}/api/loans/${id}/notes`, {
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
       });
 
-      setLoan(loanData);
+      if (response.ok) {
+        const data = await response.json();
+        setNotes(data.notes || []);
+      }
+    } catch (err) {
+      console.error('Failed to load notes:', err);
+    } finally {
+      setNotesLoading(false);
+    }
+  }, [id]);
 
-      // Fetch schedule from loan_schedules table
-      const { data: scheduleData, error: scheduleError } = await supabase
-        .from('loan_schedules')
-        .select('*')
-        .eq('loan_id', id)
-        .order('installment_no', { ascending: true });
+  // Load documents for the loan
+  const loadDocuments = useCallback(async () => {
+    if (!id) return;
 
-      if (scheduleError) {
-        console.warn('⚠️ Failed to load schedule:', scheduleError);
+    setDocumentsLoading(true);
+    try {
+      const response = await getLoanDocuments(id);
+      setDocuments(response.documents || []);
+    } catch (err) {
+      console.error('Failed to load documents:', err);
+    } finally {
+      setDocumentsLoading(false);
+    }
+  }, [id]);
+
+  // Handle document upload
+  const handleUploadDocument = async (docType: LoanDocumentType) => {
+    if (!householdId || !id) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const file = result.assets[0];
+      setIsUploadingDoc(true);
+
+      // Upload file to storage
+      const formData = new FormData();
+      formData.append('file', {
+        uri: file.uri,
+        type: file.mimeType || 'application/pdf',
+        name: file.name,
+      } as unknown as Blob);
+      formData.append('householdId', householdId);
+      formData.append('folder', 'loans');
+      formData.append('recordId', id);
+
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const uploadResponse = await fetch(`${env.EXPO_PUBLIC_API_URL}/api/files/upload`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload file');
       }
 
-      // Mark overdue entries
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const uploadData = await uploadResponse.json();
 
-      const scheduleWithStatus = (scheduleData || []).map((entry) => {
-        if (entry.status === 'paid') return entry;
-        const dueDate = new Date(entry.due_date);
-        dueDate.setHours(0, 0, 0, 0);
-        if (dueDate < today) {
-          return { ...entry, status: 'overdue' as const };
-        }
-        return entry;
+      // Create loan document record
+      await createLoanDocument(id, {
+        document_type: docType,
+        name: file.name,
+        file_path: uploadData.data.path,
+        file_size: file.size,
+        mime_type: file.mimeType,
       });
 
-      setSchedule(scheduleWithStatus);
-      setOptimisticSchedule(scheduleWithStatus);
-    } catch (err) {
-      console.error('❌ Failed to load loan:', err);
-      setError(err instanceof Error ? err.message : 'Nepodarilo sa načítať úver');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showToast('Dokument bol nahraný', 'success');
+      loadDocuments();
+    } catch (error) {
+      console.error('Upload error:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showToast('Nepodarilo sa nahrať dokument', 'error');
     } finally {
-      setLoading(false);
+      setIsUploadingDoc(false);
     }
   };
 
+  // Handle document delete
+  const handleDeleteDocument = async (docId: string) => {
+    if (!id) return;
+
+    try {
+      await deleteLoanDocument(id, docId);
+      setDocuments((prev) => prev.filter((d) => d.id !== docId));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showToast('Dokument bol zmazaný', 'success');
+    } catch (err) {
+      console.error('Failed to delete document:', err);
+      showToast('Nepodarilo sa zmazať dokument', 'error');
+    }
+  };
+
+  // Handle note save (create or update)
+  const handleSaveNote = async (noteData: {
+    content: string;
+    priority: 'high' | 'normal' | 'low';
+    status: 'pending' | 'completed' | 'info';
+    is_pinned: boolean;
+  }) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const url = editingNote
+        ? `${env.EXPO_PUBLIC_API_URL}/api/loans/${id}/notes/${editingNote.id}`
+        : `${env.EXPO_PUBLIC_API_URL}/api/loans/${id}/notes`;
+
+      const method = editingNote ? 'PATCH' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify(noteData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save note');
+      }
+
+      setNoteEditorVisible(false);
+      setEditingNote(null);
+      await loadNotes();
+
+      showToast(
+        editingNote ? 'Poznamka bola upravena' : 'Poznamka bola pridana',
+        'success'
+      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      console.error('Failed to save note:', err);
+      showToast('Nepodarilo sa ulozit poznamku', 'error');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  };
+
+  // Handle note status toggle
+  const handleToggleNoteStatus = async (noteId: string, newStatus: 'pending' | 'completed') => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const response = await fetch(
+        `${env.EXPO_PUBLIC_API_URL}/api/loans/${id}/notes/${noteId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ status: newStatus }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to update note');
+      }
+
+      // Optimistic update
+      setNotes((prev) =>
+        prev.map((n) => (n.id === noteId ? { ...n, status: newStatus } : n))
+      );
+    } catch (err) {
+      console.error('Failed to toggle note status:', err);
+      showToast('Nepodarilo sa aktualizovat poznamku', 'error');
+    }
+  };
+
+  // Handle note pin toggle
+  const handleToggleNotePin = async (noteId: string, isPinned: boolean) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const response = await fetch(
+        `${env.EXPO_PUBLIC_API_URL}/api/loans/${id}/notes/${noteId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ is_pinned: isPinned }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to update note');
+      }
+
+      await loadNotes(); // Reload to get proper sorting
+    } catch (err) {
+      console.error('Failed to toggle note pin:', err);
+      showToast('Nepodarilo sa aktualizovat poznamku', 'error');
+    }
+  };
+
+  // Handle note delete
+  const handleDeleteNote = async (noteId: string) => {
+    Alert.alert(
+      'Zmazat poznamku',
+      'Naozaj chcete zmazat tuto poznamku?',
+      [
+        { text: 'Zrusit', style: 'cancel' },
+        {
+          text: 'Zmazat',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+
+              const response = await fetch(
+                `${env.EXPO_PUBLIC_API_URL}/api/loans/${id}/notes/${noteId}`,
+                {
+                  method: 'DELETE',
+                  headers: {
+                    Authorization: `Bearer ${session?.access_token}`,
+                  },
+                }
+              );
+
+              if (!response.ok) {
+                throw new Error('Failed to delete note');
+              }
+
+              setNotes((prev) => prev.filter((n) => n.id !== noteId));
+              showToast('Poznamka bola zmazana', 'success');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } catch (err) {
+              console.error('Failed to delete note:', err);
+              showToast('Nepodarilo sa zmazat poznamku', 'error');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Handle edit note
+  const handleEditNote = (note: LoanNote) => {
+    setEditingNote(note);
+    setNoteEditorVisible(true);
+  };
+
+  // Handle add note
+  const handleAddNote = () => {
+    setEditingNote(null);
+    setNoteEditorVisible(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  // Handle marking single installment as paid using mutation hook
   const handleMarkInstallmentPaid = async (installmentId: string) => {
     // Optimistic update
     setOptimisticSchedule((prev) =>
@@ -123,28 +418,32 @@ export default function LoanDetailScreen() {
       )
     );
 
-    try {
-      await markLoanInstallmentPaid(id!, installmentId);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      showToast('Splátka označená ako uhradená', 'success');
-    } catch (error) {
-      // Rollback on error
-      setOptimisticSchedule(schedule);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showToast('Nepodarilo sa označiť splátku', 'error');
-      console.error('Failed to mark installment:', error);
-    } finally {
-      // Refresh data
-      await loadLoan();
-    }
+    markInstallmentPaidMutation.mutate(
+      { loanId: id!, installmentId },
+      {
+        onSuccess: () => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          showToast('Splátka označená ako uhradená', 'success');
+          // Data is automatically refetched via query invalidation
+        },
+        onError: () => {
+          // Rollback on error
+          setOptimisticSchedule(schedule);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          showToast('Nepodarilo sa označiť splátku', 'error');
+        },
+      }
+    );
   };
 
+  // Handle refresh using React Query refetch
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadLoan();
+    await refetch();
     setRefreshing(false);
   };
 
+  // Handle marking all installments until today as paid using mutation hook
   const handleMarkAllUntilToday = async () => {
     const today = new Date().toISOString().split('T')[0];
 
@@ -166,21 +465,21 @@ export default function LoanDetailScreen() {
         { text: 'Zrušiť', style: 'cancel' },
         {
           text: 'Potvrdiť',
-          onPress: async () => {
-            try {
-              await markLoanPaidUntilToday(id!, today);
-              await Haptics.notificationAsync(
-                Haptics.NotificationFeedbackType.Success
-              );
-              showToast(`${pendingCount} ${pendingCount === 1 ? 'splátka označená' : 'splátok označených'}!`, 'success');
-              await loadLoan();
-            } catch (error) {
-              await Haptics.notificationAsync(
-                Haptics.NotificationFeedbackType.Error
-              );
-              showToast('Nepodarilo sa označiť splátky', 'error');
-              console.error('Failed to mark installments:', error);
-            }
+          onPress: () => {
+            markPaidUntilTodayMutation.mutate(
+              { loanId: id!, date: today },
+              {
+                onSuccess: () => {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  showToast(`${pendingCount} ${pendingCount === 1 ? 'splátka označená' : 'splátok označených'}!`, 'success');
+                  // Data is automatically refetched via query invalidation
+                },
+                onError: () => {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                  showToast('Nepodarilo sa označiť splátky', 'error');
+                },
+              }
+            );
           },
         },
       ]
@@ -258,7 +557,40 @@ export default function LoanDetailScreen() {
     return status;
   };
 
+  // Calculate total interest from schedule
+  const calculateTotalInterest = (): number => {
+    if (!schedule || schedule.length === 0) return 0;
+    return schedule.reduce((sum, entry) => {
+      return sum + (parseFloat(entry.interest_due) || 0);
+    }, 0);
+  };
 
+  // Calculate paid interest from paid installments
+  const calculatePaidInterest = (): number => {
+    if (!schedule || schedule.length === 0) return 0;
+    return schedule
+      .filter((entry) => entry.status === 'paid')
+      .reduce((sum, entry) => {
+        return sum + (parseFloat(entry.interest_due) || 0);
+      }, 0);
+  };
+
+  // Calculate end date from schedule or term
+  const calculateEndDate = (): string => {
+    if (loan?.end_date) return loan.end_date;
+    if (!schedule || schedule.length === 0) {
+      // Calculate from start date and term
+      if (loan?.start_date && loan?.term) {
+        const startDate = new Date(loan.start_date);
+        startDate.setMonth(startDate.getMonth() + loan.term);
+        return startDate.toISOString().split('T')[0] || '';
+      }
+      return new Date().toISOString().split('T')[0] || '';
+    }
+    // Get last schedule entry date
+    const lastEntry = schedule[schedule.length - 1];
+    return lastEntry?.due_date || new Date().toISOString().split('T')[0] || '';
+  };
 
   if (loading) {
     return (
@@ -472,6 +804,30 @@ export default function LoanDetailScreen() {
             )}
           </Card>
 
+          {/* Financial Overview */}
+          <LoanFinancialOverview
+            principal={parseFloat(String(loan.principal)) || 0}
+            totalInterest={parseFloat(String(loan.total_interest)) || calculateTotalInterest()}
+            totalFees={parseFloat(String(loan.total_fees || loan.fee_setup || 0)) + 
+                      (parseFloat(String(loan.fee_monthly || 0)) * (loan.term || 0))}
+            paidPrincipal={parseFloat(String(loan.paid_principal || loan.amount_paid)) || 0}
+            paidInterest={calculatePaidInterest()}
+            remainingPrincipal={parseFloat(String(loan.remaining_balance)) || 0}
+            remainingInterest={Math.max(0, (parseFloat(String(loan.total_interest)) || calculateTotalInterest()) - calculatePaidInterest())}
+            monthlyPayment={parseFloat(String(loan.monthly_payment)) || 0}
+          />
+
+          {/* Milestones */}
+          {optimisticSchedule.length > 0 && (
+            <LoanMilestones
+              progress={progress}
+              startDate={loan.start_date}
+              endDate={loan.end_date || calculateEndDate()}
+              schedule={optimisticSchedule}
+              principal={parseFloat(String(loan.principal)) || 0}
+            />
+          )}
+
           {/* Payment Schedule */}
           {optimisticSchedule.length > 0 && (
             <Card>
@@ -485,33 +841,33 @@ export default function LoanDetailScreen() {
               {/* Smart Context Hint */}
               {overdueCount > 0 && (
                 <View style={[styles.contextHint, styles.contextHintDanger]}>
-                  <Text style={styles.contextHintIcon}>⚠️</Text>
+                  <AlertTriangle size={16} color={colors.danger} />
                   <Text style={styles.contextHintText}>
-                    Máte {overdueCount} {overdueCount === 1 ? 'splátku' : 'splátok'} po splatnosti
+                    Mate {overdueCount} {overdueCount === 1 ? 'splatku' : 'splatok'} po splatnosti
                   </Text>
                 </View>
               )}
               {overdueCount === 0 && dueTodayCount > 0 && (
                 <View style={[styles.contextHint, styles.contextHintWarning]}>
-                  <Text style={styles.contextHintIcon}>📅</Text>
+                  <Calendar size={16} color={colors.warning} />
                   <Text style={styles.contextHintText}>
-                    Dnes je splatnosť {dueTodayCount} {dueTodayCount === 1 ? 'splátky' : 'splátok'}
+                    Dnes je splatnost {dueTodayCount} {dueTodayCount === 1 ? 'splatky' : 'splatok'}
                   </Text>
                 </View>
               )}
               {overdueCount === 0 && dueTodayCount === 0 && paidInstallments === totalInstallments && (
                 <View style={[styles.contextHint, styles.contextHintSuccess]}>
-                  <Text style={styles.contextHintIcon}>✅</Text>
+                  <CheckCircle size={16} color={colors.success} />
                   <Text style={styles.contextHintText}>
-                    Všetky splátky uhradené
+                    Vsetky splatky uhradene
                   </Text>
                 </View>
               )}
               {overdueCount === 0 && dueTodayCount === 0 && paidInstallments < totalInstallments && pendingUntilTodayCount === 0 && (
                 <View style={[styles.contextHint, styles.contextHintSuccess]}>
-                  <Text style={styles.contextHintIcon}>✓</Text>
+                  <CheckCircle size={16} color={colors.success} />
                   <Text style={styles.contextHintText}>
-                    Všetky splátky uhradené do dnes
+                    Vsetky splatky uhradene do dnes
                   </Text>
                 </View>
               )}
@@ -524,7 +880,7 @@ export default function LoanDetailScreen() {
                     variant="primary"
                     fullWidth
                   >
-                    {`📅 Označiť ${pendingUntilTodayCount} ${pendingUntilTodayCount === 1 ? 'splátku' : 'splátok'} do dnes`}
+                    {`Oznacit ${pendingUntilTodayCount} ${pendingUntilTodayCount === 1 ? 'splatku' : 'splatok'} do dnes`}
                   </Button>
                 </View>
               )}
@@ -575,8 +931,8 @@ export default function LoanDetailScreen() {
                         throw new Error('Failed to remove payment');
                       }
 
-                      // Reload data
-                      await loadLoan();
+                      // Reload data via React Query refetch
+                      await refetch();
 
                       setToast({
                         visible: true,
@@ -615,38 +971,179 @@ export default function LoanDetailScreen() {
                   style={styles.showHistoryButton}
                   onPress={() => setShowPaidInstallments(false)}
                 >
-                  <Text style={styles.showHistoryText}>Skryť históriu</Text>
+                  <Text style={styles.showHistoryText}>Skryt historiu</Text>
                 </TouchableOpacity>
               )}
             </Card>
           )}
+
+          {/* Documents Section */}
+          <Card style={styles.documentsCard}>
+            <View style={styles.documentsHeader}>
+              <View style={styles.documentsTitleRow}>
+                <FileText size={20} color={colors.primary} />
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  Dokumenty
+                </Text>
+                {documents.length > 0 && (
+                  <View style={[styles.documentsBadge, { backgroundColor: colors.primaryLight }]}>
+                    <Text style={[styles.documentsBadgeText, { color: colors.primary }]}>
+                      {documents.length}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Upload buttons */}
+            <View style={styles.uploadButtonsRow}>
+              <TouchableOpacity
+                style={[styles.uploadDocButton, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}
+                onPress={() => handleUploadDocument('contract')}
+                disabled={isUploadingDoc}
+              >
+                {isUploadingDoc ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <>
+                    <Upload size={16} color={colors.primary} />
+                    <Text style={[styles.uploadDocText, { color: colors.primary }]}>Zmluva</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.uploadDocButton, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}
+                onPress={() => handleUploadDocument('payment_schedule')}
+                disabled={isUploadingDoc}
+              >
+                {isUploadingDoc ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <>
+                    <Upload size={16} color={colors.primary} />
+                    <Text style={[styles.uploadDocText, { color: colors.primary }]}>Kalendár</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {documentsLoading ? (
+              <View style={styles.documentsLoading}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : documents.length === 0 ? (
+              <View style={styles.documentsEmpty}>
+                <FileText size={32} color={colors.textMuted} />
+                <Text style={[styles.documentsEmptyText, { color: colors.textSecondary }]}>
+                  Žiadne dokumenty
+                </Text>
+                <Text style={[styles.documentsEmptyHint, { color: colors.textMuted }]}>
+                  Nahrajte zmluvu alebo splátkový kalendár
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.documentsList}>
+                {documents.map((doc) => (
+                  <DocumentListItem
+                    key={doc.id}
+                    id={doc.id}
+                    name={doc.name}
+                    documentType={doc.documentType}
+                    documentTypeLabel={LOAN_DOCUMENT_TYPE_LABELS[doc.documentType] || doc.documentType}
+                    filePath={doc.filePath}
+                    fileSize={doc.fileSize}
+                    mimeType={doc.mimeType}
+                    createdAt={doc.createdAt}
+                    onDelete={handleDeleteDocument}
+                  />
+                ))}
+              </View>
+            )}
+          </Card>
+
+          {/* Notes Section */}
+          <Card style={styles.notesCard}>
+            <View style={styles.notesHeader}>
+              <View style={styles.notesTitleRow}>
+                <StickyNote size={20} color={colors.primary} />
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  Poznamky
+                </Text>
+                {notes.length > 0 && (
+                  <View style={[styles.notesBadge, { backgroundColor: colors.primaryLight }]}>
+                    <Text style={[styles.notesBadgeText, { color: colors.primary }]}>
+                      {notes.length}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <TouchableOpacity
+                style={[styles.addNoteButton, { backgroundColor: colors.primary }]}
+                onPress={handleAddNote}
+              >
+                <Plus size={18} color={colors.textInverse} />
+                <Text style={[styles.addNoteText, { color: colors.textInverse }]}>
+                  Pridat
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {notesLoading ? (
+              <View style={styles.notesLoading}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : notes.length === 0 ? (
+              <View style={styles.notesEmpty}>
+                <StickyNote size={32} color={colors.textMuted} />
+                <Text style={[styles.notesEmptyText, { color: colors.textSecondary }]}>
+                  Ziadne poznamky
+                </Text>
+                <Text style={[styles.notesEmptyHint, { color: colors.textMuted }]}>
+                  Pridajte poznamku k tomuto uveru
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.notesList}>
+                {notes.map((note) => (
+                  <NoteCard
+                    key={note.id}
+                    note={note}
+                    onToggleStatus={handleToggleNoteStatus}
+                    onTogglePin={handleToggleNotePin}
+                    onEdit={handleEditNote}
+                    onDelete={handleDeleteNote}
+                  />
+                ))}
+              </View>
+            )}
+          </Card>
         </View>
       </ScrollView>
 
       {/* Floating Action Button - smart color indicators */}
       {loan.status === 'active' && overdueCount > 0 && (
         <FloatingActionButton
-          icon="⚠️"
+          icon={<AlertTriangle size={24} color="#ffffff" />}
           label={`${overdueCount} po splatnosti`}
-          backgroundColor="#dc2626"
+          backgroundColor={colors.danger}
           onPress={handleMarkAllUntilToday}
         />
       )}
       
       {loan.status === 'active' && overdueCount === 0 && dueTodayCount > 0 && (
         <FloatingActionButton
-          icon="📅"
-          label={`${dueTodayCount} ${dueTodayCount === 1 ? 'dnes' : 'dnes'}`}
-          backgroundColor="#f59e0b"
+          icon={<Calendar size={24} color="#ffffff" />}
+          label={`${dueTodayCount} dnes`}
+          backgroundColor={colors.warning}
           onPress={handleMarkAllUntilToday}
         />
       )}
 
       {loan.status === 'active' && overdueCount === 0 && dueTodayCount === 0 && pendingUntilTodayCount > 0 && (
         <FloatingActionButton
-          icon="✓"
+          icon={<CheckCircle size={24} color="#ffffff" />}
           label={`${pendingUntilTodayCount}`}
-          backgroundColor="#8b5cf6"
+          backgroundColor={colors.primary}
           onPress={handleMarkAllUntilToday}
         />
       )}
@@ -656,6 +1153,18 @@ export default function LoanDetailScreen() {
         message={toast.message}
         type={toast.type}
         onDismiss={() => setToast({ ...toast, visible: false })}
+      />
+
+      {/* Note Editor Modal */}
+      <NoteEditorModal
+        visible={noteEditorVisible}
+        note={editingNote}
+        onSave={handleSaveNote}
+        onClose={() => {
+          setNoteEditorVisible(false);
+          setEditingNote(null);
+        }}
+        title="Poznamka k uveru"
       />
     </View>
     </GestureHandlerRootView>
@@ -906,6 +1415,129 @@ const styles = StyleSheet.create({
   },
   bulkActionContainer: {
     marginBottom: 16,
+  },
+  // Notes Section Styles
+  // Documents Section Styles
+  documentsCard: {
+    marginTop: 16,
+  },
+  documentsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  documentsTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  documentsBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 4,
+  },
+  documentsBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  uploadButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  uploadDocButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 6,
+  },
+  uploadDocText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  documentsLoading: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  documentsEmpty: {
+    alignItems: 'center',
+    padding: 24,
+    gap: 8,
+  },
+  documentsEmptyText: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  documentsEmptyHint: {
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  documentsList: {
+    gap: 0,
+  },
+  // Notes Section Styles
+  notesCard: {
+    marginTop: 16,
+  },
+  notesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  notesTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  notesBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 4,
+  },
+  notesBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  addNoteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 4,
+  },
+  addNoteText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  notesLoading: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  notesEmpty: {
+    alignItems: 'center',
+    padding: 24,
+    gap: 8,
+  },
+  notesEmptyText: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  notesEmptyHint: {
+    fontSize: 13,
+  },
+  notesList: {
+    gap: 0,
   },
 });
 

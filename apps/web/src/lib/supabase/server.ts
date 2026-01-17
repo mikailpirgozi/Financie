@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { cookies, headers } from 'next/headers';
+import { env } from '@/lib/env';
 
 export async function createClient() {
   const cookieStore = await cookies();
@@ -13,8 +14,8 @@ export async function createClient() {
   // If bearer token is present, create a client with that token
   if (bearerToken) {
     const client = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      env.NEXT_PUBLIC_SUPABASE_URL,
+      env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
         global: {
           headers: {
@@ -28,8 +29,8 @@ export async function createClient() {
 
   // Otherwise use cookie-based authentication
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         get(name: string) {

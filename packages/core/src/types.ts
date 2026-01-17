@@ -1,5 +1,5 @@
 // Loan types
-export type LoanType = 'annuity' | 'fixed_principal' | 'interest_only' | 'auto_loan';
+export type LoanType = 'annuity' | 'fixed_principal' | 'interest_only' | 'auto_loan' | 'graduated_payment';
 export type RateType = 'fixed' | 'variable';
 export type DayCountConvention = '30E/360' | 'ACT/360' | 'ACT/365';
 export type LoanStatus = 'active' | 'paid_off' | 'defaulted';
@@ -8,7 +8,7 @@ export type LoanStatus = 'active' | 'paid_off' | 'defaulted';
 export type CategoryKind = 'income' | 'expense' | 'loan' | 'asset';
 
 // Asset types
-export type AssetKind = 'real_estate' | 'vehicle' | 'business' | 'loan_receivable' | 'other';
+export type AssetKind = 'real_estate' | 'vehicle' | 'business' | 'loan_receivable' | 'bank_account' | 'other';
 export type AssetStatus = 'owned' | 'rented_out' | 'for_sale' | 'sold';
 export type AssetCashFlowType = 
   | 'rental_income' 
@@ -20,6 +20,12 @@ export type AssetCashFlowType =
   | 'tax' 
   | 'insurance' 
   | 'other';
+
+// Vehicle-specific types
+export type VehicleBodyType = 'sedan' | 'suv' | 'hatchback' | 'wagon' | 'coupe' | 'van' | 'pickup' | 'other';
+export type VehicleFuelType = 'petrol' | 'diesel' | 'electric' | 'hybrid' | 'lpg' | 'cng';
+export type VehicleTransmission = 'manual' | 'automatic';
+export type VehicleDriveType = 'fwd' | 'rwd' | 'awd';
 
 // Loan purpose types
 export type LoanPurpose = 
@@ -62,6 +68,12 @@ export interface LoanCalculationInput {
   balloonAmount?: number;
   fixedMonthlyPayment?: number; // For annuity: use this exact payment instead of calculating
   fixedPrincipalPayment?: number; // For fixed_principal: use this exact principal payment instead of calculating
+  // Graduated payment configuration
+  graduatedConfig?: {
+    initialPaymentPct: number; // Starting payment as % of standard annuity (e.g., 70 = 70%)
+    graduationPeriodMonths: number; // Period over which payments increase (e.g., 60 = 5 years)
+    graduationSteps: number; // Number of payment increases (e.g., 5 = increase every year for 5 years)
+  };
 }
 
 // Loan calculation result
@@ -294,5 +306,145 @@ export interface MonthlyLoanCalendar {
   totalInterest: number;
   totalFees: number;
   entries: LoanCalendarEntry[];
+}
+
+// ============================================
+// VEHICLE TYPES
+// ============================================
+
+/** Base asset interface */
+export interface Asset {
+  id: string;
+  householdId: string;
+  kind: AssetKind;
+  name: string;
+  acquisitionValue: number;
+  currentValue: number;
+  acquisitionDate: Date | string;
+  isIncomeGenerating?: boolean;
+  monthlyIncome?: number;
+  monthlyExpenses?: number;
+  assetStatus?: AssetStatus;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
+/** Vehicle-specific asset */
+export interface Vehicle extends Asset {
+  kind: 'vehicle';
+  // Identifikácia
+  licensePlate?: string;
+  vin?: string;
+  // Vlastníctvo
+  registeredCompany?: string;
+  // Technické údaje
+  make?: string;
+  model?: string;
+  year?: number;
+  color?: string;
+  bodyType?: VehicleBodyType;
+  fuelType?: VehicleFuelType;
+  engineCapacity?: number;
+  enginePower?: number;
+  transmission?: VehicleTransmission;
+  driveType?: VehicleDriveType;
+  mileage?: number;
+  seats?: number;
+  doors?: number;
+}
+
+/** Vehicle with all linked data summary */
+export interface VehicleSummary extends Vehicle {
+  // Loan summary
+  loanCount: number;
+  totalLoanPaid: number;
+  totalLoanBalance: number;
+  // Insurance summary
+  insuranceCount: number;
+  activeInsuranceCount: number;
+  totalInsuranceCost: number;
+  nearestInsuranceExpiry?: string;
+  // Document summary (STK, EK, vignettes)
+  documentCount: number;
+  validDocumentCount: number;
+  totalDocumentCost: number;
+  stkExpiry?: string;
+  ekExpiry?: string;
+  // Service summary
+  serviceCount: number;
+  totalServiceCost: number;
+  lastServiceDate?: string;
+  lastServiceKm?: number;
+  // Fines summary
+  fineCount: number;
+  unpaidFineCount: number;
+  totalFineAmount: number;
+  unpaidFineAmount: number;
+  // TCO
+  totalCostOfOwnership: number;
+  // Alerts
+  stkExpiringSoon: boolean;
+  ekExpiringSoon: boolean;
+  insuranceExpiringSoon: boolean;
+}
+
+/** Vehicle list stats */
+export interface VehicleStats {
+  totalCount: number;
+  totalValue: number;
+  totalAcquisitionValue: number;
+  expiringSoonCount: number; // Vehicles with expiring docs/insurance
+  withActiveLoansCount: number;
+  totalLoanBalance: number;
+  totalTco: number;
+}
+
+/** Linked items to a vehicle */
+export interface VehicleLinkedItems {
+  loans: {
+    id: string;
+    name?: string;
+    lender: string;
+    principal: number;
+    currentBalance: number;
+    monthlyPayment: number;
+    status: LoanStatus;
+  }[];
+  insurances: {
+    id: string;
+    type: string;
+    policyNumber: string;
+    company?: string;
+    validTo: string;
+    price: number;
+    isActive: boolean;
+  }[];
+  documents: {
+    id: string;
+    documentType: string;
+    validTo: string;
+    price?: number;
+    isValid: boolean;
+  }[];
+  serviceRecords: {
+    id: string;
+    serviceDate: string;
+    serviceType?: string;
+    price?: number;
+    kmState?: number;
+    description?: string;
+  }[];
+  fines: {
+    id: string;
+    fineDate: string;
+    fineAmount: number;
+    isPaid: boolean;
+    description?: string;
+  }[];
+}
+
+/** Full vehicle detail with all linked items */
+export interface VehicleDetail extends VehicleSummary {
+  linkedItems: VehicleLinkedItems;
 }
 

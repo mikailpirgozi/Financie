@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { Card, CardHeader, CardTitle, CardContent } from '@finapp/ui';
 import { RevaluationDialog } from './RevaluationDialog';
 
-export default async function AssetDetailPage({ params }: { params: { id: string } }): Promise<React.ReactNode> {
+export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }): Promise<React.ReactNode> {
+  const { id } = await params;
   const supabase = await createClient();
   const {
     data: { user },
@@ -16,7 +17,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
   const { data: asset, error: assetError } = await supabase
     .from('assets')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
 
   if (assetError || !asset) {
@@ -27,7 +28,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
   const { data: valuations } = await supabase
     .from('asset_valuations')
     .select('*')
-    .eq('asset_id', params.id)
+    .eq('asset_id', id)
     .order('date', { ascending: false });
 
   const changePercent =

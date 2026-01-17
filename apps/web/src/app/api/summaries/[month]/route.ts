@@ -6,9 +6,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { month: string } }
+  { params }: { params: Promise<{ month: string }> }
 ) {
   try {
+    const { month } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -23,7 +24,7 @@ export async function GET(
       return NextResponse.json({ error: 'householdId is required' }, { status: 400 });
     }
 
-    const summary = await getMonthlySummary(householdId, params.month);
+    const summary = await getMonthlySummary(householdId, month);
 
     return NextResponse.json({ summary });
   } catch (error) {

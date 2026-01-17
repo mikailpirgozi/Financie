@@ -1,13 +1,5 @@
-import React, { useEffect } from 'react';
-import { Text, StyleSheet } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-  runOnJS,
-} from 'react-native-reanimated';
-import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import React, { useEffect, useRef } from 'react';
+import { Text, StyleSheet, Animated, PanResponder, Pressable } from 'react-native';
 
 type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -33,16 +25,24 @@ export function Toast({
   onDismiss,
   duration = 3000,
 }: ToastProps) {
-  const translateY = useSharedValue(-100);
-  const opacity = useSharedValue(0);
+  const translateY = useRef(new Animated.Value(-100)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
-      translateY.value = withSpring(0, {
-        damping: 15,
-        stiffness: 300,
-      });
-      opacity.value = withTiming(1, { duration: 200 });
+      Animated.parallel([
+        Animated.spring(translateY, {
+          toValue: 0,
+          damping: 15,
+          stiffness: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
 
       const timer = setTimeout(() => {
         handleDismiss();
@@ -51,56 +51,73 @@ export function Toast({
       return () => clearTimeout(timer);
     }
     return undefined;
-  }, [visible, duration, translateY, opacity]);
+  }, [visible, duration]);
 
   const handleDismiss = () => {
-    translateY.value = withTiming(-100, { duration: 200 });
-    opacity.value = withTiming(0, { duration: 200 }, () => {
-      runOnJS(onDismiss)();
+    Animated.parallel([
+      Animated.timing(translateY, {
+        toValue: -100,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      onDismiss();
     });
   };
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-    opacity: opacity.value,
-  }));
-
-  const gesture = Gesture.Pan()
-    .onUpdate((event) => {
-      if (event.translationY < 0) {
-        translateY.value = event.translationY;
-      }
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return gestureState.dy < -5;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy < 0) {
+          translateY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy < -50) {
+          handleDismiss();
+        } else {
+          Animated.spring(translateY, {
+            toValue: 0,
+            damping: 15,
+            stiffness: 300,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
     })
-    .onEnd((event) => {
-      if (event.translationY < -50) {
-        handleDismiss();
-      } else {
-        translateY.value = withSpring(0, {
-          damping: 15,
-          stiffness: 300,
-        });
-      }
-    });
+  ).current;
 
   if (!visible) return null;
 
   const config = toastConfig[type];
 
   return (
-    <GestureDetector gesture={gesture}>
-      <Animated.View
-        style={[
-          styles.container,
-          { backgroundColor: config.backgroundColor },
-          animatedStyle,
-        ]}
-      >
+    <Animated.View
+      {...panResponder.panHandlers}
+      style={[
+        styles.container,
+        { backgroundColor: config.backgroundColor },
+        {
+          transform: [{ translateY }],
+          opacity,
+        },
+      ]}
+    >
+      <Pressable onPress={handleDismiss} style={styles.content}>
         <Text style={styles.emoji}>{config.emoji}</Text>
         <Text style={styles.message} numberOfLines={2}>
           {message}
         </Text>
-      </Animated.View>
-    </GestureDetector>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -110,10 +127,6 @@ const styles = StyleSheet.create({
     top: 60,
     left: 16,
     right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -121,6 +134,12 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
     zIndex: 9999,
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   emoji: {
     fontSize: 20,

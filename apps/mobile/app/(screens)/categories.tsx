@@ -4,12 +4,11 @@ import {
   Text,
   StyleSheet,
   SectionList,
-  TouchableOpacity,
   RefreshControl,
   Alert,
+  Pressable,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Swipeable } from 'react-native-gesture-handler';
 import { getCurrentHousehold, getCategories, deleteCategory, type Category } from '../../src/lib/api';
 import { ErrorMessage } from '../../src/components/ErrorMessage';
 import { Badge } from '@/components/ui/Badge';
@@ -166,28 +165,23 @@ export default function CategoriesScreen() {
     return flatten(roots);
   };
 
-  const renderRightActions = (category: Category) => {
-    return (
-      <View style={styles.swipeActions}>
-        <TouchableOpacity
-          style={[styles.swipeAction, styles.editAction]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            router.push(`/(screens)/categories/${category.id}/edit`);
-          }}
-        >
-          <Text style={styles.swipeActionText}>✏️</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.swipeAction, styles.deleteAction]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            handleDelete(category);
-          }}
-        >
-          <Text style={styles.swipeActionText}>🗑️</Text>
-        </TouchableOpacity>
-      </View>
+  const handleCategoryLongPress = (category: Category) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      category.name,
+      'Vyberte akciu',
+      [
+        {
+          text: 'Upraviť',
+          onPress: () => router.push(`/(screens)/categories/${category.id}/edit`),
+        },
+        {
+          text: 'Zmazať',
+          style: 'destructive',
+          onPress: () => handleDelete(category),
+        },
+        { text: 'Zrušiť', style: 'cancel' },
+      ]
     );
   };
 
@@ -196,20 +190,19 @@ export default function CategoriesScreen() {
     const indent = level * 20;
 
     return (
-      <Swipeable renderRightActions={() => renderRightActions(item)}>
-        <TouchableOpacity
-          style={[styles.categoryItem, { paddingLeft: 16 + indent }]}
-          onPress={() => router.push(`/(screens)/categories/${item.id}`)}
-        >
-          <View style={styles.categoryInfo}>
-            {level > 0 && <Text style={styles.indent}>└─</Text>}
-            <Text style={styles.categoryName}>{item.name}</Text>
-          </View>
-          {item.parent_id && (
-            <Badge variant="default" style={styles.childBadge}>Sub</Badge>
-          )}
-        </TouchableOpacity>
-      </Swipeable>
+      <Pressable
+        style={[styles.categoryItem, { paddingLeft: 16 + indent }]}
+        onPress={() => router.push(`/(screens)/categories/${item.id}`)}
+        onLongPress={() => handleCategoryLongPress(item)}
+      >
+        <View style={styles.categoryInfo}>
+          {level > 0 && <Text style={styles.indent}>└─</Text>}
+          <Text style={styles.categoryName}>{item.name}</Text>
+        </View>
+        {item.parent_id && (
+          <Badge variant="default" style={styles.childBadge}>Sub</Badge>
+        )}
+      </Pressable>
     );
   };
 
@@ -335,24 +328,6 @@ const styles = StyleSheet.create({
   },
   childBadge: {
     marginLeft: 8,
-  },
-  swipeActions: {
-    flexDirection: 'row',
-  },
-  swipeAction: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 70,
-    marginLeft: 8,
-  },
-  editAction: {
-    backgroundColor: '#0070f3',
-  },
-  deleteAction: {
-    backgroundColor: '#ef4444',
-  },
-  swipeActionText: {
-    fontSize: 24,
   },
   emptyState: {
     flex: 1,

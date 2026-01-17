@@ -4,6 +4,31 @@ import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
+interface CalendarEntry {
+  loanId: string;
+  loanName: string;
+  lender: string;
+  linkedAssetId: string | null;
+  linkedAssetName: string | null;
+  dueDate: string;
+  installmentNo: number;
+  principalDue: number;
+  interestDue: number;
+  feesDue: number;
+  totalDue: number;
+  status: string;
+  loanType: string;
+}
+
+interface MonthlyCalendarEntry {
+  month: string;
+  totalPayments: number;
+  totalPrincipal: number;
+  totalInterest: number;
+  totalFees: number;
+  entries: CalendarEntry[];
+}
+
 /**
  * GET /api/loans/calendar
  * Získa splátkový kalendár pre všetky úvery (6 mesiacov dopredu)
@@ -106,30 +131,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Zoskup splátky podľa mesiacov
-    interface CalendarEntry {
-      loanId: string;
-      loanName: string;
-      lender: string;
-      linkedAssetId: string | null;
-      linkedAssetName: string | null;
-      dueDate: string;
-      installmentNo: number;
-      principalDue: number;
-      interestDue: number;
-      feesDue: number;
-      totalDue: number;
-      status: string;
-      loanType: string;
-    }
-
-    const monthlyCalendar = new Map<string, {
-      month: string;
-      totalPayments: number;
-      totalPrincipal: number;
-      totalInterest: number;
-      totalFees: number;
-      entries: CalendarEntry[];
-    }>();
+    const monthlyCalendar = new Map<string, MonthlyCalendarEntry>();
 
     schedules?.forEach(schedule => {
       const dueDate = new Date(schedule.due_date);

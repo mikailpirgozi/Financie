@@ -8,11 +8,12 @@ interface LoanCardProps {
 }
 
 export function LoanCard({ loan, onPress }: LoanCardProps) {
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | string) => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat('sk-SK', {
       style: 'currency',
       currency: 'EUR',
-    }).format(amount);
+    }).format(num);
   };
 
   const statusColors = {

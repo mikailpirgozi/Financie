@@ -5,9 +5,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: loanId } = await params;
     const supabase = await createClient();
     const {
       data: { user },
@@ -21,7 +22,7 @@ export async function GET(
     const { data, error } = await supabase
       .from('loan_metrics')
       .select('*')
-      .eq('loan_id', params.id)
+      .eq('loan_id', loanId)
       .single();
 
     if (error) {

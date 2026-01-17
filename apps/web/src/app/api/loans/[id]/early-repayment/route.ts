@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { refreshLoanMetrics } from '@/lib/api/loans';
 import { calculateEarlyRepayment } from '@finapp/core';
 import type { EarlyRepaymentCalculationInput } from '@finapp/core';
 
@@ -7,9 +8,10 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: loanId } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -21,7 +23,7 @@ export async function POST(
     const { data: loan, error: loanError } = await supabase
       .from('loans')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', loanId)
       .single();
 
     if (loanError) throw loanError;
@@ -33,7 +35,7 @@ export async function POST(
     const { data: paidInstallments, error: scheduleError } = await supabase
       .from('loan_schedules')
       .select('installment_no')
-      .eq('loan_id', params.id)
+      .eq('loan_id', loanId)
       .eq('status', 'paid')
       .order('installment_no', { ascending: false })
       .limit(1);
@@ -81,7 +83,7 @@ export async function POST(
       const { error: deleteError } = await supabase
         .from('loan_schedules')
         .delete()
-        .eq('loan_id', params.id)
+        .eq('loan_id', loanId)
         .gt('installment_no', currentInstallment);
 
       if (deleteError) throw deleteError;
@@ -91,13 +93,13 @@ export async function POST(
         const { error: updateError } = await supabase
           .from('loans')
           .update({ status: 'paid_off' })
-          .eq('id', params.id);
+          .eq('id', loanId);
 
         if (updateError) throw updateError;
       } else {
         // Insert new schedule
         const scheduleData = result.newSchedule.map((entry) => ({
-          loan_id: params.id,
+          loan_id: loanId,
           installment_no: entry.installmentNo + currentInstallment,
           due_date: entry.dueDate.toISOString().split('T')[0],
           principal_due: entry.principalDue,
@@ -120,7 +122,7 @@ export async function POST(
         .from('payments')
         .insert({
           household_id: loan.household_id,
-          loan_id: params.id,
+          loan_id: loanId,
           date: new Date().toISOString().split('T')[0],
           amount: repaymentAmount,
           meta: {
@@ -131,6 +133,9 @@ export async function POST(
         });
 
       if (paymentError) throw paymentError;
+
+      // Refresh loan_metrics materialized view to update balances and overdue counts
+      await refreshLoanMetrics();
     }
 
     return NextResponse.json({

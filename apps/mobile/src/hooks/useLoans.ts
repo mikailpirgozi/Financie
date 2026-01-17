@@ -3,6 +3,7 @@ import {
   getLoans, 
   getLoan, 
   createLoan,
+  payLoan,
   markLoanInstallmentPaid,
   markLoanPaidUntilToday,
   type CreateLoanData,
@@ -41,8 +42,13 @@ export function useCreateLoan() {
   
   return useMutation({
     mutationFn: (data: CreateLoanData) => createLoan(data),
-    onSuccess: () => {
-      // Invalidate loans list
+    onSuccess: (_response, variables) => {
+      // Invalidate loans list for this household
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.loans(variables.householdId),
+      });
+      
+      // Invalidate all loans list
       queryClient.invalidateQueries({ 
         queryKey: ['loans'],
       });
@@ -50,6 +56,75 @@ export function useCreateLoan() {
       // Invalidate dashboard (loan balance changed)
       queryClient.invalidateQueries({ 
         queryKey: ['dashboard'],
+      });
+      
+      // Invalidate dashboard full
+      queryClient.invalidateQueries({ 
+        queryKey: ['dashboard-full'],
+      });
+    },
+  });
+}
+
+/**
+ * Hook: zaplatenie splátky úveru s optimistic update
+ */
+export function usePayLoan() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ loanId, installmentId, amount, date }: {
+      loanId: string;
+      installmentId: string;
+      amount: number;
+      date: string;
+    }) => payLoan(loanId, installmentId, amount, date),
+    onMutate: async (variables) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.loan(variables.loanId) });
+      
+      // Snapshot the previous value
+      const previousLoan = queryClient.getQueryData(queryKeys.loan(variables.loanId));
+      
+      // Optimistic update - update remaining balance immediately
+      queryClient.setQueryData(queryKeys.loan(variables.loanId), (old: unknown) => {
+        if (!old || typeof old !== 'object') return old;
+        const oldData = old as { loan?: { remaining_balance?: string } };
+        return {
+          ...oldData,
+          loan: {
+            ...oldData.loan,
+            remaining_balance: String(
+              Math.max(0, parseFloat(String(oldData.loan?.remaining_balance || '0')) - variables.amount)
+            ),
+          },
+        };
+      });
+      
+      return { previousLoan };
+    },
+    onError: (_err, variables, context) => {
+      // Rollback on error
+      if (context?.previousLoan) {
+        queryClient.setQueryData(queryKeys.loan(variables.loanId), context.previousLoan);
+      }
+    },
+    onSuccess: (_response, variables) => {
+      // Invalidate all related queries to refetch fresh data
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.loan(variables.loanId),
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['loans'],
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['dashboard'],
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['overdue'],
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['expenses'],
       });
     },
   });

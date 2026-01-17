@@ -53,7 +53,8 @@
           "color": "#8B5CF6"
         }
       ],
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "@react-native-community/datetimepicker"
     ],
     "scheme": "finapp",
     "extra": {

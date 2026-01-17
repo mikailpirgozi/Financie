@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@finapp/ui';
 import { Input } from '@finapp/ui';
@@ -15,8 +15,10 @@ const ASSET_KINDS = [
   { value: 'other', label: '📦 Iné' },
 ];
 
-export default function EditAssetPage({ params }: { params: { id: string } }): React.JSX.Element {
+export default function EditAssetPage(): React.JSX.Element {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const assetId = params.id;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +32,7 @@ export default function EditAssetPage({ params }: { params: { id: string } }): R
   useEffect(() => {
     async function loadData() {
       try {
-        const assetRes = await fetch(`/api/assets/${params.id}`);
+        const assetRes = await fetch(`/api/assets/${assetId}`);
         if (!assetRes.ok) throw new Error('Nepodarilo sa načítať majetok');
         const { asset } = await assetRes.json();
 
@@ -47,7 +49,7 @@ export default function EditAssetPage({ params }: { params: { id: string } }): R
     }
 
     loadData();
-  }, [params.id]);
+  }, [assetId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +57,7 @@ export default function EditAssetPage({ params }: { params: { id: string } }): R
     setError(null);
 
     try {
-      const response = await fetch(`/api/assets/${params.id}`, {
+      const response = await fetch(`/api/assets/${assetId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

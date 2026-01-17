@@ -7,18 +7,47 @@ import type { PortfolioOverview } from '@finapp/core';
 
 async function getPortfolioData(householdId: string): Promise<PortfolioOverview | null> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/portfolio/overview?householdId=${householdId}`, {
-      cache: 'no-store',
-    });
+    const supabase = await createClient();
+    
+    // Query portfolio overview directly from database
+    const { data: overview, error: overviewError } = await supabase
+      .from('v_portfolio_overview')
+      .select('*')
+      .eq('household_id', householdId)
+      .single();
 
-    if (!response.ok) {
-      console.error('Portfolio API error:', response.statusText);
+    if (overviewError) {
+      console.error('Portfolio overview error:', overviewError);
       return null;
     }
 
-    const data = await response.json();
-    return data.portfolio;
+    // Format response
+    return {
+      householdId: overview.household_id,
+      
+      // Assets
+      totalAssetsValue: Number(overview.total_assets_value || 0),
+      productiveAssetsValue: Number(overview.productive_assets_value || 0),
+      nonProductiveAssetsValue: Number(overview.non_productive_assets_value || 0),
+      totalAssetsCount: Number(overview.total_assets_count || 0),
+      productiveAssetsCount: Number(overview.productive_assets_count || 0),
+      
+      // Cash flow
+      monthlyIncomeFromAssets: Number(overview.monthly_income_from_assets || 0),
+      monthlyExpensesFromAssets: Number(overview.monthly_expenses_from_assets || 0),
+      netCashFlowFromAssets: Number(overview.net_cash_flow_from_assets || 0),
+      
+      // Loans
+      totalLoansCount: Number(overview.total_loans_count || 0),
+      totalOriginalPrincipal: Number(overview.total_original_principal || 0),
+      totalDebt: Number(overview.total_debt || 0),
+      nextMonthLoanPayment: Number(overview.next_month_loan_payment || 0),
+      
+      // Portfolio metrics
+      netWorth: Number(overview.net_worth || 0),
+      debtToAssetRatio: Number(overview.debt_to_asset_ratio || 0),
+      totalMonthlyCashFlow: Number(overview.total_monthly_cash_flow || 0),
+    };
   } catch (error) {
     console.error('Failed to fetch portfolio:', error);
     return null;

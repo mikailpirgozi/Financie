@@ -2,7 +2,8 @@ import { apiFetch } from './api';
 import type { 
   PortfolioOverview, 
   AssetROI,
-  MonthlyLoanCalendar 
+  MonthlyLoanCalendar,
+  AssetCashFlow
 } from '@finapp/core';
 
 /**
@@ -174,7 +175,7 @@ export async function addAssetCashFlow(
     amount: number;
     description?: string;
   }
-): Promise<{ cashFlow: any }> {
+): Promise<{ cashFlow: AssetCashFlow }> {
   return apiFetch(`/api/assets/${assetId}/cash-flow`, {
     method: 'POST',
     body: JSON.stringify(data),

@@ -1,12 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-  interpolate,
-} from 'react-native-reanimated';
+import React, { useEffect, useRef } from 'react';
+import { View, StyleSheet, ViewStyle, Animated } from 'react-native';
 
 interface SkeletonProps {
   width?: number | string;
@@ -21,19 +14,26 @@ export function Skeleton({
   borderRadius = 4,
   style,
 }: SkeletonProps) {
-  const opacity = useSharedValue(0.3);
+  const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
-    opacity.value = withRepeat(
-      withTiming(1, { duration: 1000 }),
-      -1,
-      true
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.7,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.3,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
     );
+    animation.start();
+    return () => animation.stop();
   }, [opacity]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(opacity.value, [0.3, 1], [0.3, 0.7]),
-  }));
 
   const widthValue: number | `${number}%` | 'auto' = typeof width === 'number' 
     ? width 
@@ -51,8 +51,8 @@ export function Skeleton({
           width: widthValue,
           height,
           borderRadius,
+          opacity,
         },
-        animatedStyle,
         style,
       ]}
     />

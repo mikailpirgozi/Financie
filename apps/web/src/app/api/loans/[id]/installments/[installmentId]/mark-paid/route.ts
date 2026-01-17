@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { refreshLoanMetrics } from '@/lib/api/loans';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,9 +9,10 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(
   _request: NextRequest,
-  { params }: { params: { id: string; installmentId: string } }
+  { params }: { params: Promise<{ id: string; installmentId: string }> }
 ) {
   try {
+    const { id: loanId, installmentId } = await params;
     const supabase = await createClient();
     const {
       data: { user },
@@ -19,9 +21,6 @@ export async function POST(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const loanId = params.id;
-    const installmentId = params.installmentId;
 
     // Verify user has access to this loan
     const { data: loan, error: loanError } = await supabase
@@ -83,6 +82,9 @@ export async function POST(
         { status: 500 }
       );
     }
+
+    // Refresh loan_metrics materialized view to update balances and overdue counts
+    await refreshLoanMetrics();
 
     return NextResponse.json({ success: true });
   } catch (error) {

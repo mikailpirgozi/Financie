@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   TextInput,
@@ -8,11 +8,6 @@ import {
   ViewStyle,
   TextInputProps,
 } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  withTiming,
-  useSharedValue,
-} from 'react-native-reanimated';
 
 interface InputProps extends Omit<TextInputProps, 'style'> {
   label?: string;
@@ -39,32 +34,30 @@ export function Input({
   style,
   ...textInputProps
 }: InputProps) {
-  const borderColor = useSharedValue('#e5e7eb');
-
-  const animatedBorderStyle = useAnimatedStyle(() => ({
-    borderColor: borderColor.value,
-  }));
+  const [isFocused, setIsFocused] = useState(false);
 
   const handleFocus = (e: Parameters<NonNullable<TextInputProps['onFocus']>>[0]) => {
-    borderColor.value = withTiming(error ? '#ef4444' : '#0070f3', { duration: 200 });
+    setIsFocused(true);
     onFocus?.(e);
   };
 
   const handleBlur = (e: Parameters<NonNullable<TextInputProps['onBlur']>>[0]) => {
-    borderColor.value = withTiming(error ? '#ef4444' : '#e5e7eb', { duration: 200 });
+    setIsFocused(false);
     onBlur?.(e);
   };
 
   const showClear = showClearButton && value && value.length > 0;
 
+  const borderColor = error ? '#ef4444' : isFocused ? '#0070f3' : '#e5e7eb';
+
   return (
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
       
-      <Animated.View
+      <View
         style={[
           styles.inputContainer,
-          animatedBorderStyle,
+          { borderColor },
           ...(error ? [styles.inputContainerError] : []),
         ]}
       >
@@ -97,7 +90,7 @@ export function Input({
         {rightIcon && !showClear && (
           <View style={styles.rightIcon}>{rightIcon}</View>
         )}
-      </Animated.View>
+      </View>
       
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>

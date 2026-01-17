@@ -1,14 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@finapp/ui';
 import { Input } from '@finapp/ui';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@finapp/ui';
 
-export default function EditLoanPage({ params }: { params: { id: string } }): React.JSX.Element {
+export default function EditLoanPage(): React.JSX.Element {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const loanId = params.id;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +26,7 @@ export default function EditLoanPage({ params }: { params: { id: string } }): Re
   useEffect(() => {
     async function loadLoan() {
       try {
-        const response = await fetch(`/api/loans/${params.id}`);
+        const response = await fetch(`/api/loans/${loanId}`);
         if (!response.ok) throw new Error('Nepodarilo sa načítať úver');
         
         const { loan } = await response.json();
@@ -44,7 +46,7 @@ export default function EditLoanPage({ params }: { params: { id: string } }): Re
     }
 
     loadLoan();
-  }, [params.id]);
+  }, [loanId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +54,7 @@ export default function EditLoanPage({ params }: { params: { id: string } }): Re
     setError(null);
 
     try {
-      const response = await fetch(`/api/loans/${params.id}`, {
+      const response = await fetch(`/api/loans/${loanId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -71,7 +73,7 @@ export default function EditLoanPage({ params }: { params: { id: string } }): Re
         throw new Error(data.error || 'Nepodarilo sa uložiť');
       }
 
-      router.push(`/dashboard/loans/${params.id}`);
+      router.push(`/dashboard/loans/${loanId}`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Chyba pri ukladaní');
@@ -91,7 +93,7 @@ export default function EditLoanPage({ params }: { params: { id: string } }): Re
   return (
     <div className="container max-w-2xl mx-auto p-6">
       <div className="mb-6">
-        <Link href={`/dashboard/loans/${params.id}`}>
+        <Link href={`/dashboard/loans/${loanId}`}>
           <Button variant="ghost" size="sm">
             ← Späť na detail úveru
           </Button>
@@ -220,7 +222,7 @@ export default function EditLoanPage({ params }: { params: { id: string } }): Re
               <Button type="submit" disabled={saving} className="flex-1">
                 {saving ? 'Ukladám...' : 'Uložiť zmeny'}
               </Button>
-              <Link href={`/dashboard/loans/${params.id}`} className="flex-1">
+              <Link href={`/dashboard/loans/${loanId}`} className="flex-1">
                 <Button type="button" variant="outline" className="w-full">
                   Zrušiť
                 </Button>

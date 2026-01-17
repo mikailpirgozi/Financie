@@ -2,40 +2,47 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { Button } from '@finapp/ui';
 import { Card, CardContent } from '@finapp/ui';
-import { unstable_cache } from 'next/cache';
 import { LoansClient } from './LoansClient';
+import { 
+  getLoans as getLoansWithMetrics, 
+  calculateLoansSummary,
+  refreshLoanMetrics,
+  type LoanWithMetrics,
+  type LoansSummary,
+} from '@/lib/api/loans';
 
-// Cache loans data for 5 minutes
-const getLoans = unstable_cache(
-  async (userId: string) => {
-    const supabase = await createClient();
-    
-    // Get user's household
-    const { data: membership } = await supabase
-      .from('household_members')
-      .select('household_id')
-      .eq('user_id', userId)
-      .single();
+async function getLoansData(userId: string): Promise<{
+  householdId: string;
+  loans: LoanWithMetrics[];
+  summary: LoansSummary;
+} | null> {
+  const supabase = await createClient();
+  
+  // Get user's household
+  const { data: membership } = await supabase
+    .from('household_members')
+    .select('household_id')
+    .eq('user_id', userId)
+    .single();
 
-    if (!membership) {
-      return null;
-    }
-
-    // Get loans
-    const { data: loans } = await supabase
-      .from('loans')
-      .select('*')
-      .eq('household_id', membership.household_id)
-      .order('created_at', { ascending: false });
-
-    return { membership, loans };
-  },
-  ['loans-list'],
-  { 
-    revalidate: 300, // 5 minutes
-    tags: ['loans-list']
+  if (!membership) {
+    return null;
   }
-);
+
+  // Refresh materialized view (async, non-blocking)
+  // This ensures data is fresh when viewing the page
+  refreshLoanMetrics().catch(() => {
+    // Ignore errors - stale data is acceptable
+  });
+
+  // Get loans with pre-computed metrics (single optimized query)
+  const loans = await getLoansWithMetrics(membership.household_id);
+  
+  // Calculate summary statistics server-side
+  const summary = calculateLoansSummary(loans);
+
+  return { householdId: membership.household_id, loans, summary };
+}
 
 export default async function LoansPage(): Promise<React.ReactNode> {
   const supabase = await createClient();
@@ -45,9 +52,9 @@ export default async function LoansPage(): Promise<React.ReactNode> {
 
   if (!user) return null;
 
-  const loansData = await getLoans(user.id);
+  const loansData = await getLoansData(user.id);
   
-  if (!loansData || !loansData.membership) {
+  if (!loansData) {
     return (
       <div className="space-y-6">
         <div>
@@ -67,7 +74,7 @@ export default async function LoansPage(): Promise<React.ReactNode> {
     );
   }
 
-  const { loans } = loansData;
+  const { loans, summary } = loansData;
 
   return (
     <div className="space-y-6">
@@ -83,7 +90,7 @@ export default async function LoansPage(): Promise<React.ReactNode> {
         </Link>
       </div>
 
-      {!loans || loans.length === 0 ? (
+      {loans.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <div className="text-6xl mb-4">💰</div>
@@ -97,10 +104,9 @@ export default async function LoansPage(): Promise<React.ReactNode> {
           </CardContent>
         </Card>
       ) : (
-        <LoansClient loans={loans} />
+        <LoansClient loans={loans} summary={summary} />
       )}
     </div>
   );
 }
-
 

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -9,14 +9,6 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-  runOnJS,
-} from 'react-native-reanimated';
-import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 
 interface ModalProps {
   visible: boolean;
@@ -27,6 +19,9 @@ interface ModalProps {
   showBackdrop?: boolean;
 }
 
+/**
+ * Simple modal without animations (per user request)
+ */
 export function Modal({
   visible,
   onClose,
@@ -35,55 +30,11 @@ export function Modal({
   dismissable = true,
   showBackdrop = true,
 }: ModalProps) {
-  const translateY = useSharedValue(1000);
-  const backdropOpacity = useSharedValue(0);
-
-  useEffect(() => {
-    if (visible) {
-      translateY.value = withSpring(0, {
-        damping: 20,
-        stiffness: 300,
-      });
-      backdropOpacity.value = withTiming(1, { duration: 200 });
-    } else {
-      translateY.value = withTiming(1000, { duration: 200 });
-      backdropOpacity.value = withTiming(0, { duration: 200 });
-    }
-  }, [visible, translateY, backdropOpacity]);
-
-  const animatedModalStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }));
-
-  const animatedBackdropStyle = useAnimatedStyle(() => ({
-    opacity: backdropOpacity.value,
-  }));
-
   const handleClose = () => {
     if (dismissable) {
       onClose();
     }
   };
-
-  const gesture = Gesture.Pan()
-    .onUpdate((event) => {
-      if (event.translationY > 0) {
-        translateY.value = event.translationY;
-      }
-    })
-    .onEnd((event) => {
-      if (event.translationY > 150 && dismissable) {
-        translateY.value = withTiming(1000, { duration: 200 });
-        backdropOpacity.value = withTiming(0, { duration: 200 }, () => {
-          runOnJS(onClose)();
-        });
-      } else {
-        translateY.value = withSpring(0, {
-          damping: 20,
-          stiffness: 300,
-        });
-      }
-    });
 
   return (
     <RNModal
@@ -102,27 +53,26 @@ export function Modal({
             activeOpacity={1}
             onPress={handleClose}
           >
-            <Animated.View style={[styles.backdrop, animatedBackdropStyle]} />
+            <View style={styles.backdrop} />
           </TouchableOpacity>
         )}
 
-        <GestureDetector gesture={gesture}>
-          <Animated.View style={[styles.modal, animatedModalStyle]}>
-            <View style={styles.handle} />
-            {title && (
-              <View style={styles.titleContainer}>
-                <Text style={styles.title}>{title}</Text>
-              </View>
-            )}
-            <ScrollView
-              bounces={false}
-              showsVerticalScrollIndicator={false}
-              style={styles.content}
-            >
-              {children}
-            </ScrollView>
-          </Animated.View>
-        </GestureDetector>
+        <View style={styles.modal}>
+          <View style={styles.handle} />
+          {title && (
+            <View style={styles.titleContainer}>
+              <Text style={styles.title}>{title}</Text>
+            </View>
+          )}
+          <ScrollView
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+            style={styles.content}
+            keyboardShouldPersistTaps="handled"
+          >
+            {children}
+          </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </RNModal>
   );
@@ -170,4 +120,3 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
 });
-

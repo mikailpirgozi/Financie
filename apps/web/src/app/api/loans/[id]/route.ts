@@ -7,9 +7,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -17,7 +18,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const result = await getLoan(params.id);
+    const result = await getLoan(id);
 
     return NextResponse.json(result);
   } catch (error) {
@@ -31,9 +32,10 @@ export async function GET(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -41,10 +43,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await deleteLoan(params.id);
+    await deleteLoan(id);
 
     // Revalidate loans list cache
-    revalidateTag('loans-list');
+    revalidateTag('loans-list', 'max');
 
     return NextResponse.json({ success: true });
   } catch (error) {

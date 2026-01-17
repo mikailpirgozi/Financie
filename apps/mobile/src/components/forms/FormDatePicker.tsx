@@ -36,7 +36,11 @@ export function FormDatePicker<T extends FieldValues>({
         <DatePicker
           label={label}
           value={field.value ? new Date(field.value) : new Date()}
-          onChange={(date) => field.onChange(date.toISOString() as T[typeof name])}
+          onChange={(date) => {
+            // Store as YYYY-MM-DD string format
+            const dateStr = date.toISOString().split('T')[0] ?? '';
+            field.onChange(dateStr as T[typeof name]);
+          }}
           mode={mode}
           minimumDate={minimumDate}
           maximumDate={maximumDate}

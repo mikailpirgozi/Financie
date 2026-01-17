@@ -5,17 +5,19 @@ import {
   StyleSheet,
   ViewStyle,
   GestureResponderEvent,
+  View,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 interface FloatingActionButtonProps {
   onPress: (event: GestureResponderEvent) => void;
   onLongPress?: (event: GestureResponderEvent) => void;
-  icon: string;
+  icon: string | React.ReactNode;
   label?: string;
   style?: ViewStyle;
   disabled?: boolean;
   backgroundColor?: string;
+  textColor?: string;
 }
 
 export function FloatingActionButton({
@@ -26,6 +28,7 @@ export function FloatingActionButton({
   style,
   disabled = false,
   backgroundColor,
+  textColor = '#ffffff',
 }: FloatingActionButtonProps) {
   const handlePress = (event: GestureResponderEvent) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -37,6 +40,13 @@ export function FloatingActionButton({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       onLongPress(event);
     }
+  };
+
+  const renderIcon = () => {
+    if (typeof icon === 'string') {
+      return <Text style={styles.iconText}>{icon}</Text>;
+    }
+    return <View style={styles.iconContainer}>{icon}</View>;
   };
 
   return (
@@ -52,8 +62,8 @@ export function FloatingActionButton({
       disabled={disabled}
       activeOpacity={0.8}
     >
-      <Text style={styles.icon}>{icon}</Text>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {renderIcon()}
+      {label && <Text style={[styles.label, { color: textColor }]}>{label}</Text>}
     </TouchableOpacity>
   );
 }
@@ -83,13 +93,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#9ca3af',
     opacity: 0.6,
   },
-  icon: {
+  iconText: {
     fontSize: 24,
   },
+  iconContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   label: {
-    color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
   },
 });
-

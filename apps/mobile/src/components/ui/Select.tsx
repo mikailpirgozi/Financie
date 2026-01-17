@@ -87,7 +87,7 @@ export function Select({
       <Modal
         visible={modalVisible}
         transparent
-        animationType="slide"
+        animationType="none"
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>

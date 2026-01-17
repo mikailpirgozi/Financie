@@ -93,7 +93,7 @@ export function DatePicker({
         <Modal
           visible={show}
           transparent
-          animationType="slide"
+          animationType="none"
           onRequestClose={handleCancel}
         >
           <View style={styles.modalOverlay}>

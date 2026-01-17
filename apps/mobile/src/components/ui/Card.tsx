@@ -1,11 +1,5 @@
-import React from 'react';
-import { View, StyleSheet, ViewStyle, Platform } from 'react-native';
-import { TouchableOpacity } from 'react-native-gesture-handler';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import React, { useRef } from 'react';
+import { View, StyleSheet, ViewStyle, Platform, Pressable, Animated } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 type CardVariant = 'default' | 'outlined' | 'elevated';
@@ -18,8 +12,6 @@ interface CardProps {
   testID?: string;
 }
 
-const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
-
 export function Card({
   children,
   variant = 'default',
@@ -27,28 +19,24 @@ export function Card({
   style,
   testID,
 }: CardProps) {
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const scale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
     if (onPress) {
-      scale.value = withSpring(0.98, {
-        damping: 15,
-        stiffness: 300,
-      });
+      Animated.spring(scale, {
+        toValue: 0.98,
+        useNativeDriver: true,
+      }).start();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
 
   const handlePressOut = () => {
     if (onPress) {
-      scale.value = withSpring(1, {
-        damping: 15,
-        stiffness: 300,
-      });
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: true,
+      }).start();
     }
   };
 
@@ -63,16 +51,16 @@ export function Card({
 
   if (onPress) {
     return (
-      <AnimatedTouchable
-        style={[styles.card, variantStyle, style, animatedStyle]}
+      <Pressable
         onPress={handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        activeOpacity={0.9}
         testID={testID}
       >
-        {children}
-      </AnimatedTouchable>
+        <Animated.View style={[styles.card, variantStyle, style, { transform: [{ scale }] }]}>
+          {children}
+        </Animated.View>
+      </Pressable>
     );
   }
 

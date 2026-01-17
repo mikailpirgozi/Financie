@@ -2,12 +2,14 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@finapp/ui';
 import { getAuditLogs, AuditAction, AuditEntityType } from '@/lib/audit/logger';
+import { AuditFilters } from './AuditFilters';
 
 export default async function AuditPage({
   searchParams,
 }: {
-  searchParams: Record<string, string | string[] | undefined>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<React.ReactNode> {
+  const resolvedSearchParams = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -38,9 +40,9 @@ export default async function AuditPage({
   }
 
   // Get filters from search params
-  const entityType = searchParams.entityType as string | undefined;
-  const action = searchParams.action as string | undefined;
-  const limit = searchParams.limit ? parseInt(searchParams.limit as string) : 50;
+  const entityType = resolvedSearchParams.entityType as string | undefined;
+  const action = resolvedSearchParams.action as string | undefined;
+  const limit = resolvedSearchParams.limit ? parseInt(resolvedSearchParams.limit as string) : 50;
 
   const logs = await getAuditLogs(membership.household_id, {
     entityType: entityType as AuditEntityType | undefined,
@@ -82,58 +84,7 @@ export default async function AuditPage({
       </div>
 
       {/* Filters */}
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="flex gap-4 flex-wrap">
-            <div>
-              <label className="text-sm font-medium">Typ entity:</label>
-              <select
-                className="ml-2 border rounded px-3 py-1"
-                value={entityType || ''}
-                onChange={(e) => {
-                  const url = new URL(window.location.href);
-                  if (e.target.value) {
-                    url.searchParams.set('entityType', e.target.value);
-                  } else {
-                    url.searchParams.delete('entityType');
-                  }
-                  window.location.href = url.toString();
-                }}
-              >
-                <option value="">Všetky</option>
-                <option value="loan">Úvery</option>
-                <option value="expense">Výdavky</option>
-                <option value="income">Príjmy</option>
-                <option value="asset">Majetok</option>
-                <option value="household_member">Členovia</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">Akcia:</label>
-              <select
-                className="ml-2 border rounded px-3 py-1"
-                value={action || ''}
-                onChange={(e) => {
-                  const url = new URL(window.location.href);
-                  if (e.target.value) {
-                    url.searchParams.set('action', e.target.value);
-                  } else {
-                    url.searchParams.delete('action');
-                  }
-                  window.location.href = url.toString();
-                }}
-              >
-                <option value="">Všetky</option>
-                <option value="create">Vytvorené</option>
-                <option value="update">Upravené</option>
-                <option value="delete">Zmazané</option>
-                <option value="payment">Platba</option>
-              </select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <AuditFilters />
 
       {/* Audit Logs Table */}
       <Card>

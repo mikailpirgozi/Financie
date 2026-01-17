@@ -33,7 +33,7 @@ export async function GET(_request: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json(rules || []);
+    return NextResponse.json({ rules: rules || [] });
   } catch (error) {
     console.error('GET /api/rules error:', error);
     return NextResponse.json(
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json(rule);
+    return NextResponse.json({ rule }, { status: 201 });
   } catch (error) {
     console.error('POST /api/rules error:', error);
     return NextResponse.json(

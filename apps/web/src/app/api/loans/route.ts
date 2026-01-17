@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Revalidate loans list cache
-    revalidateTag('loans-list');
+    revalidateTag('loans-list', 'max');
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

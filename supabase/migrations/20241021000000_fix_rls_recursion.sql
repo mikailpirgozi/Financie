@@ -47,8 +47,8 @@ CREATE POLICY "Owners can remove household members"
 -- Also fix the helper functions to use STABLE instead of SECURITY DEFINER
 -- This prevents recursion issues
 
-DROP FUNCTION IF EXISTS is_household_member(UUID);
-DROP FUNCTION IF EXISTS is_household_owner(UUID);
+DROP FUNCTION IF EXISTS is_household_member(UUID) CASCADE;
+DROP FUNCTION IF EXISTS is_household_owner(UUID) CASCADE;
 
 CREATE OR REPLACE FUNCTION is_household_member(p_household_id UUID)
 RETURNS BOOLEAN AS $$

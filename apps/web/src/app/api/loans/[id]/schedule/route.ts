@@ -13,9 +13,10 @@ const querySchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: loanId } = await params;
     const supabase = await createClient();
     const {
       data: { user },
@@ -33,7 +34,7 @@ export async function GET(
     let scheduleQuery = supabase
       .from('loan_schedules')
       .select('*', { count: 'exact' })
-      .eq('loan_id', params.id);
+      .eq('loan_id', loanId);
 
     if (status) {
       scheduleQuery = scheduleQuery.eq('status', status);
@@ -46,7 +47,7 @@ export async function GET(
         .order('installment_no', { ascending: true }),
 
       // Metriky z materialized view (instant)
-      supabase.from('loan_metrics').select('*').eq('loan_id', params.id).single(),
+      supabase.from('loan_metrics').select('*').eq('loan_id', loanId).single(),
     ]);
 
     if (scheduleResult.error) throw scheduleResult.error;

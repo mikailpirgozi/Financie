@@ -6,9 +6,10 @@ export const dynamic = 'force-dynamic';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -18,7 +19,7 @@ export async function PUT(
 
     const body = await request.json();
 
-    const category = await updateCategory(params.id, body);
+    const category = await updateCategory(id, body);
 
     return NextResponse.json({ category });
   } catch (error) {
@@ -32,9 +33,10 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -42,7 +44,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await deleteCategory(params.id);
+    await deleteCategory(id);
 
     return NextResponse.json({ success: true });
   } catch (error) {
