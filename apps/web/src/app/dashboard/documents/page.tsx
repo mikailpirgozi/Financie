@@ -1,10 +1,11 @@
+import type { ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { DocumentsClient } from './DocumentsClient';
 
 export const dynamic = 'force-dynamic';
 
-export default async function DocumentsPage() {
+export default async function DocumentsPage(): Promise<ReactNode> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 

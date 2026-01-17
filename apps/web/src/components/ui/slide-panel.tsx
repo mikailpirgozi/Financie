@@ -35,7 +35,7 @@ export function SlidePanel({
   children,
   footer,
   width = 'lg',
-}: SlidePanelProps) {
+}: SlidePanelProps): React.JSX.Element | null {
   // Close on ESC
   React.useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -137,7 +137,7 @@ export function SlidePanelSection({
   children,
   collapsible = false,
   defaultExpanded = true,
-}: SlidePanelSectionProps) {
+}: SlidePanelSectionProps): React.JSX.Element {
   const [isExpanded, setIsExpanded] = React.useState(defaultExpanded);
 
   return (
@@ -208,7 +208,7 @@ const alertConfig = {
   },
 };
 
-export function SlidePanelAlert({ type, children }: SlidePanelAlertProps) {
+export function SlidePanelAlert({ type, children }: SlidePanelAlertProps): React.JSX.Element {
   const config = alertConfig[type];
   const Icon = config.icon;
 
@@ -232,7 +232,7 @@ interface FormFieldProps {
   children: React.ReactNode;
 }
 
-export function FormField({ label, required, helperText, error, children }: FormFieldProps) {
+export function FormField({ label, required, helperText, error, children }: FormFieldProps): React.JSX.Element {
   return (
     <div className="space-y-1.5">
       <label className="block text-sm font-medium">
@@ -267,7 +267,7 @@ export function SlidePanelButton({
   className,
   disabled,
   ...props
-}: SlidePanelButtonProps) {
+}: SlidePanelButtonProps): React.JSX.Element {
   const variantClasses = {
     primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
     secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',

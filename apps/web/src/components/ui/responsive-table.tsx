@@ -1,13 +1,14 @@
 'use client';
 
+import type { JSX, ReactNode } from 'react';
 import { cn } from '@finapp/ui';
 
 interface ResponsiveTableProps {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }
 
-export function ResponsiveTable({ children, className }: ResponsiveTableProps) {
+export function ResponsiveTable({ children, className }: ResponsiveTableProps): JSX.Element {
   return (
     <div className="w-full overflow-x-auto">
       <div className={cn('min-w-full inline-block align-middle', className)}>
@@ -20,11 +21,11 @@ export function ResponsiveTable({ children, className }: ResponsiveTableProps) {
 }
 
 interface TableProps {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }
 
-export function Table({ children, className }: TableProps) {
+export function Table({ children, className }: TableProps): JSX.Element {
   return (
     <table className={cn('min-w-full divide-y divide-border', className)}>
       {children}
@@ -32,7 +33,7 @@ export function Table({ children, className }: TableProps) {
   );
 }
 
-export function TableHeader({ children, className }: TableProps) {
+export function TableHeader({ children, className }: TableProps): JSX.Element {
   return (
     <thead className={cn('bg-muted', className)}>
       {children}
@@ -40,7 +41,7 @@ export function TableHeader({ children, className }: TableProps) {
   );
 }
 
-export function TableBody({ children, className }: TableProps) {
+export function TableBody({ children, className }: TableProps): JSX.Element {
   return (
     <tbody className={cn('divide-y divide-border bg-card', className)}>
       {children}
@@ -48,7 +49,7 @@ export function TableBody({ children, className }: TableProps) {
   );
 }
 
-export function TableRow({ children, className }: TableProps) {
+export function TableRow({ children, className }: TableProps): JSX.Element {
   return (
     <tr className={cn('hover:bg-muted/50 transition-colors', className)}>
       {children}
@@ -57,12 +58,12 @@ export function TableRow({ children, className }: TableProps) {
 }
 
 interface TableCellProps {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
   isHeader?: boolean;
 }
 
-export function TableCell({ children, className, isHeader }: TableCellProps) {
+export function TableCell({ children, className, isHeader }: TableCellProps): JSX.Element {
   const Component = isHeader ? 'th' : 'td';
   return (
     <Component

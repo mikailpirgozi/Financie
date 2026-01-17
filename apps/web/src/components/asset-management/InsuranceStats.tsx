@@ -1,5 +1,6 @@
 'use client';
 
+import type { JSX } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { InsuranceStats as InsuranceStatsType, DocumentStats } from '@finapp/core';
 
@@ -16,7 +17,7 @@ interface DocumentStatsProps {
 
 type StatsProps = InsuranceStatsProps | DocumentStatsProps;
 
-export function StatsCards(props: StatsProps) {
+export function StatsCards(props: StatsProps): JSX.Element {
   if (props.type === 'document') {
     const { stats, label } = props;
     return (

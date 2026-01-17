@@ -1,5 +1,6 @@
 'use client';
 
+import type { JSX } from 'react';
 import { useState, useEffect } from 'react';
 import { X, Shield, FileCheck, Wind, Ticket, Clipboard, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@finapp/ui';
@@ -75,7 +76,7 @@ export function AddDocumentForm({
   assets,
   onSuccess,
   editData,
-}: AddDocumentFormProps) {
+}: AddDocumentFormProps): JSX.Element | null {
   const isEditMode = !!editData;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

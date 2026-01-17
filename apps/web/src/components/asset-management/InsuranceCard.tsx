@@ -1,5 +1,6 @@
 'use client';
 
+import type { JSX } from 'react';
 import { useState } from 'react';
 import {
   Shield,
@@ -36,7 +37,7 @@ export function InsuranceCard({
   onDelete,
   onExtend,
   onOpenFile,
-}: InsuranceCardProps) {
+}: InsuranceCardProps): JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const status = getExpirationStatus(insurance.validTo);

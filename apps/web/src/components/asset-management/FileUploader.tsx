@@ -1,5 +1,6 @@
 'use client';
 
+import type { JSX } from 'react';
 import { useState, useRef, useCallback } from 'react';
 import { Upload, X, FileText, Image, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -30,7 +31,7 @@ export function FileUploader({
   maxFiles = 5,
   accept = 'application/pdf,image/*',
   className,
-}: FileUploaderProps) {
+}: FileUploaderProps): JSX.Element {
   const [files, setFiles] = useState<UploadedFile[]>(
     existingFiles.map(url => ({
       url,

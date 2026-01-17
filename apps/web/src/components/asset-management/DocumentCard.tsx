@@ -1,5 +1,6 @@
 'use client';
 
+import type { JSX } from 'react';
 import { useState } from 'react';
 import {
   FileCheck,
@@ -51,7 +52,7 @@ export function DocumentCard({
   onDelete,
   onExtend,
   onOpenFile,
-}: DocumentCardProps) {
+}: DocumentCardProps): JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const status = getExpirationStatus(vehicleDoc.validTo);

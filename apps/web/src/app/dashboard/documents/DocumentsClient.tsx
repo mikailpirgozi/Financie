@@ -1,5 +1,6 @@
 'use client';
 
+import type { JSX } from 'react';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Shield,
@@ -55,7 +56,7 @@ const tabs: { id: TabType; label: string; icon: React.ElementType }[] = [
   { id: 'fines', label: 'Pokuty', icon: AlertCircle },
 ];
 
-export function DocumentsClient({ householdId, assets }: DocumentsClientProps) {
+export function DocumentsClient({ householdId, assets }: DocumentsClientProps): JSX.Element {
   const [activeTab, setActiveTab] = useState<TabType>('insurances');
   const [insurances, setInsurances] = useState<Insurance[]>([]);
   const [documents, setDocuments] = useState<VehicleDocument[]>([]);

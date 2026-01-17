@@ -1,9 +1,10 @@
 'use client';
 
+import type { ReactElement } from 'react';
 import { Card, CardContent } from '@finapp/ui';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export function AuditFilters() {
+export function AuditFilters(): ReactElement {
   const router = useRouter();
   const searchParams = useSearchParams();
   const entityType = searchParams.get('entityType') || '';

@@ -1,7 +1,8 @@
+import type { JSX, ReactNode } from 'react';
 import { cn } from '@finapp/ui';
 
 interface ResponsiveGridProps {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
   cols?: {
     default?: number;
@@ -12,7 +13,7 @@ interface ResponsiveGridProps {
   };
 }
 
-export function ResponsiveGrid({ children, className, cols }: ResponsiveGridProps) {
+export function ResponsiveGrid({ children, className, cols }: ResponsiveGridProps): JSX.Element {
   const gridClasses = cn(
     'grid gap-4',
     cols?.default && `grid-cols-${cols.default}`,

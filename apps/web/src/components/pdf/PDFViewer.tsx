@@ -1,5 +1,6 @@
 'use client';
 
+import type { JSX } from 'react';
 import { useState } from 'react';
 import { Loader2, AlertCircle, Download, ExternalLink, ZoomIn, ZoomOut } from 'lucide-react';
 
@@ -8,7 +9,7 @@ interface PDFViewerProps {
   fileName?: string;
 }
 
-export function PDFViewer({ url, fileName }: PDFViewerProps) {
+export function PDFViewer({ url, fileName }: PDFViewerProps): JSX.Element {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   const [scale, setScale] = useState(100);
