@@ -54,7 +54,7 @@ async function getPortfolioData(householdId: string): Promise<PortfolioOverview 
   }
 }
 
-async function PortfolioContent() {
+async function PortfolioContent(): Promise<JSX.Element> {
   const supabase = await createClient();
   
   const { data: { user } } = await supabase.auth.getUser();
@@ -112,7 +112,7 @@ async function PortfolioContent() {
   );
 }
 
-function PortfolioSkeleton() {
+function PortfolioSkeleton(): JSX.Element {
   return (
     <div className="space-y-6">
       <div>
@@ -132,7 +132,7 @@ function PortfolioSkeleton() {
   );
 }
 
-export default function PortfolioPage() {
+export default function PortfolioPage(): JSX.Element {
   return (
     <Suspense fallback={<PortfolioSkeleton />}>
       <PortfolioContent />
