@@ -29,24 +29,27 @@ export function Header({ user, locale, onMenuClick }: HeaderProps): React.JSX.El
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-card px-4 md:px-6">
-      <div className="flex items-center gap-4">
+    <header className="flex h-14 md:h-16 items-center justify-between border-b bg-card px-3 md:px-6">
+      <div className="flex items-center gap-3">
         <button
           onClick={onMenuClick}
-          className="lg:hidden p-2 hover:bg-accent rounded-lg"
+          className="lg:hidden p-2 hover:bg-accent rounded-lg touch-target"
           aria-label="Otvoriť menu"
         >
           <Menu className="h-5 w-5" />
         </button>
-        <h2 className="text-sm md:text-lg font-semibold truncate max-w-[150px] md:max-w-none">
-          Vitajte, {user.user_metadata?.display_name || user.email}
+        <h2 className="text-sm md:text-base font-semibold truncate max-w-[120px] sm:max-w-[180px] md:max-w-none">
+          {user.user_metadata?.display_name || user.email?.split('@')[0]}
         </h2>
       </div>
-      <div className="flex items-center gap-2 md:gap-4">
-        <LanguageSwitcher currentLocale={locale} />
+      <div className="flex items-center gap-1.5 md:gap-3">
+        <div className="hidden sm:block">
+          <LanguageSwitcher currentLocale={locale} />
+        </div>
         <ThemeToggle />
-        <Button variant="outline" onClick={handleLogout} className="text-xs md:text-sm">
-          Odhlásiť sa
+        <Button variant="outline" onClick={handleLogout} className="text-xs px-2 md:px-3 md:text-sm h-8 md:h-9">
+          <span className="hidden sm:inline">Odhlásiť sa</span>
+          <span className="sm:hidden">Odhl.</span>
         </Button>
       </div>
     </header>

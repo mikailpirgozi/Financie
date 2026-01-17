@@ -77,12 +77,14 @@ export function FinancialCharts({
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="income-expenses" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="income-expenses">Príjmy vs Výdaje</TabsTrigger>
-            <TabsTrigger value="net-worth">Čistá hodnota</TabsTrigger>
-            <TabsTrigger value="loans">Úvery</TabsTrigger>
-            <TabsTrigger value="growth">Rast majetku</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-2 px-2 pb-1">
+            <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-4">
+              <TabsTrigger value="income-expenses" className="whitespace-nowrap text-xs md:text-sm">Príjmy vs Výdaje</TabsTrigger>
+              <TabsTrigger value="net-worth" className="whitespace-nowrap text-xs md:text-sm">Čistá hodnota</TabsTrigger>
+              <TabsTrigger value="loans" className="whitespace-nowrap text-xs md:text-sm">Úvery</TabsTrigger>
+              <TabsTrigger value="growth" className="whitespace-nowrap text-xs md:text-sm">Rast majetku</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="income-expenses" className="mt-6">
             <ResponsiveContainer width="100%" height={300}>

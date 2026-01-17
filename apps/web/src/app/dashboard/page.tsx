@@ -2,15 +2,22 @@
 
 import { createClient } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
+import { useDashboardAlerts } from '@/hooks/useDashboardAlerts';
 import { useDashboard } from '@/hooks/useDashboard';
-import { KPICard } from '@/components/dashboard/KPICard';
-import { LoansSummary } from '@/components/dashboard/LoansSummary';
-import { AssetsSummary } from '@/components/dashboard/AssetsSummary';
-import { FinancialCharts } from '@/components/dashboard/FinancialCharts';
-import { MonthlyTable } from '@/components/dashboard/MonthlyTable';
+import {
+  AlertsBanner,
+  LoansQuickStatus,
+  DocumentsQuickStatus,
+  VehiclesQuickStatus,
+  FinanceSummaryCollapsible,
+  FinancialCharts,
+  MonthlyTable,
+  type AlertItem,
+} from '@/components/dashboard';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TrendingUpIcon, TrendingDownIcon, DollarSignIcon, WalletIcon } from 'lucide-react';
+import { FileWarning, ChevronRight, CheckCircle } from 'lucide-react';
+import Link from 'next/link';
 
 export default function DashboardPage(): React.JSX.Element | null {
   const [householdId, setHouseholdId] = useState<string | null>(null);
@@ -35,7 +42,14 @@ export default function DashboardPage(): React.JSX.Element | null {
     fetchHousehold();
   }, [supabase]);
 
-  const { data, isLoading, error } = useDashboard({
+  // Fetch dashboard alerts data
+  const { data: alertsData, isLoading: alertsLoading, error: alertsError } = useDashboardAlerts({
+    householdId: householdId || '',
+    enabled: !!householdId,
+  });
+
+  // Fetch historical data for charts
+  const { data: historyData } = useDashboard({
     householdId: householdId || '',
     monthsCount: 12,
   });
@@ -55,129 +69,178 @@ export default function DashboardPage(): React.JSX.Element | null {
     );
   }
 
-  if (isLoading) {
+  if (alertsLoading) {
     return (
       <div className="space-y-6">
         <div>
           <Skeleton className="h-10 w-64" />
           <Skeleton className="h-5 w-96 mt-2" />
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-32" />
+        {/* Alert skeleton */}
+        <Skeleton className="h-14 rounded-xl" />
+        {/* Quick status cards skeleton */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-48 rounded-2xl" />
           ))}
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
-        </div>
+        {/* Finance summary skeleton */}
+        <Skeleton className="h-20 rounded-2xl" />
       </div>
     );
   }
 
-  if (error) {
+  if (alertsError) {
     return (
       <div className="flex items-center justify-center h-full">
         <Card className="max-w-md">
           <CardHeader>
             <CardTitle>Chyba pri načítaní dát</CardTitle>
-            <CardDescription>{error.message}</CardDescription>
+            <CardDescription>{alertsError.message}</CardDescription>
           </CardHeader>
         </Card>
       </div>
     );
   }
 
-  if (!data) {
+  if (!alertsData) {
     return null;
   }
 
-  const { currentMonth } = data;
+  const { loans, documents, vehicles, finance } = alertsData;
 
-  const formatCurrency = (value: string) => {
-    return new Intl.NumberFormat('sk-SK', {
-      style: 'currency',
-      currency: 'EUR',
-    }).format(parseFloat(value));
-  };
+  // Build alerts array
+  const alerts: AlertItem[] = [
+    {
+      type: 'overdue_loans',
+      count: loans.overdueCount,
+      message: loans.overdueCount === 1 ? 'omeškaná splátka' : 'omeškaných splátok',
+      href: '/dashboard/loans',
+    },
+    {
+      type: 'expired_docs',
+      count: documents.expiredCount,
+      message: documents.expiredCount === 1 ? 'expirovaný dokument!' : 'expirovaných dokumentov!',
+      href: '/dashboard/documents',
+    },
+    {
+      type: 'expiring_docs',
+      count: documents.expiringSoonCount,
+      message: documents.expiringSoonCount === 1 ? 'končiaci dokument' : 'končiacich dokumentov',
+      href: '/dashboard/documents',
+    },
+    {
+      type: 'unpaid_fines',
+      count: documents.unpaidFinesCount,
+      message: documents.unpaidFinesCount === 1 ? 'nezaplatená pokuta' : 'nezaplatených pokút',
+      href: '/dashboard/documents',
+    },
+  ];
 
-  const calculatePercentChange = (current: string, previous: string) => {
-    const curr = parseFloat(current);
-    const prev = parseFloat(previous);
-    if (prev === 0) return null;
-    return ((curr - prev) / prev) * 100;
-  };
-
-  // Get previous month data for comparison
-  const previousMonth = data.history.length > 1 ? data.history[1] : null;
-
-  const incomeChange = previousMonth
-    ? calculatePercentChange(currentMonth.totalIncome, previousMonth.totalIncome)
-    : null;
-
-  const expensesChange = previousMonth
-    ? calculatePercentChange(currentMonth.totalExpenses, previousMonth.totalExpenses)
-    : null;
-
-  const netWorthChange = parseFloat(currentMonth.netWorthChange);
-  const netWorthChangePercent = previousMonth
-    ? calculatePercentChange(currentMonth.netWorth, previousMonth.netWorth)
-    : null;
+  const hasAnyAlerts = alerts.some((a) => a.count > 0);
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold">Prehľad</h1>
+          <p className="text-muted-foreground text-sm md:text-base">
+            {finance.month}
+          </p>
+        </div>
+        {!hasAnyAlerts && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-100 dark:bg-green-950/30">
+            <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <span className="text-sm font-medium text-green-700 dark:text-green-400">
+              Všetko OK
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Priority Alerts */}
+      <AlertsBanner alerts={alerts} />
+
+      {/* Quick Status Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <LoansQuickStatus
+          totalDebt={loans.totalDebt}
+          activeCount={loans.activeCount}
+          overdueCount={loans.overdueCount}
+          nextPayment={loans.nextPayment}
+          totalProgress={loans.totalProgress}
+        />
+        <DocumentsQuickStatus
+          totalCount={documents.totalCount}
+          expiringCount={documents.expiringCount}
+          expiredCount={documents.expiredCount}
+          expiringSoonCount={documents.expiringSoonCount}
+          unpaidFinesCount={documents.unpaidFinesCount}
+          unpaidFinesTotal={documents.unpaidFinesTotal}
+          nearestExpiring={documents.nearestExpiring}
+        />
+        <VehiclesQuickStatus
+          totalCount={vehicles.totalCount}
+          totalValue={vehicles.totalValue}
+          loanBalance={vehicles.loanBalance}
+          expiringDocsCount={vehicles.expiringDocsCount}
+        />
+      </div>
+
+      {/* Finance Summary */}
       <div>
-        <h1 className="text-3xl font-bold">Finančný Dashboard</h1>
-        <p className="text-muted-foreground">
-          Komplexný prehľad vašich financií za {currentMonth.month}
-        </p>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <KPICard
-          title="💰 Príjmy"
-          value={formatCurrency(currentMonth.totalIncome)}
-          change={incomeChange ? `${incomeChange > 0 ? '+' : ''}${incomeChange.toFixed(1)}%` : undefined}
-          trend={incomeChange ? (incomeChange > 0 ? 'up' : 'down') : 'neutral'}
-          icon={<DollarSignIcon />}
-          subtitle="tento mesiac"
-        />
-        <KPICard
-          title="💸 Výdaje"
-          value={formatCurrency(currentMonth.totalExpenses)}
-          change={expensesChange ? `${expensesChange > 0 ? '+' : ''}${expensesChange.toFixed(1)}%` : undefined}
-          trend={expensesChange ? (expensesChange < 0 ? 'up' : 'down') : 'neutral'}
-          icon={<WalletIcon />}
-          subtitle="tento mesiac"
-        />
-        <KPICard
-          title="📊 Bilancia"
-          value={formatCurrency(currentMonth.netCashFlow)}
-          subtitle="príjmy - výdaje"
-          trend={parseFloat(currentMonth.netCashFlow) > 0 ? 'up' : parseFloat(currentMonth.netCashFlow) < 0 ? 'down' : 'neutral'}
-        />
-        <KPICard
-          title="📈 Čistá hodnota"
-          value={formatCurrency(currentMonth.netWorth)}
-          change={netWorthChange !== 0 ? formatCurrency(Math.abs(netWorthChange).toString()) : undefined}
-          changePercent={netWorthChangePercent ? `${netWorthChangePercent > 0 ? '+' : ''}${netWorthChangePercent.toFixed(1)}%` : undefined}
-          trend={netWorthChange > 0 ? 'up' : netWorthChange < 0 ? 'down' : 'neutral'}
-          icon={netWorthChange > 0 ? <TrendingUpIcon /> : <TrendingDownIcon />}
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 px-1">
+          Finančný prehľad
+        </h2>
+        <FinanceSummaryCollapsible
+          netWorth={finance.netWorth}
+          netWorthChange={finance.netWorthChange}
+          totalIncome={finance.totalIncome}
+          totalExpenses={finance.totalExpenses}
+          netCashFlow={finance.netCashFlow}
+          month={finance.month}
         />
       </div>
 
-      {/* Loans & Assets Summary */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <LoansSummary data={currentMonth} />
-        <AssetsSummary data={currentMonth} />
+      {/* Quick Actions */}
+      <div>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 px-1">
+          Rýchle akcie
+        </h2>
+        <Link
+          href="/dashboard/documents"
+          className="flex items-center justify-between p-4 rounded-xl border bg-card hover:bg-muted/50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100 dark:bg-orange-950/30">
+              <FileWarning className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+            </div>
+            <span className="font-medium">Zobraziť končiace dokumenty</span>
+          </div>
+          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        </Link>
       </div>
 
-      {/* Charts */}
-      {data.history.length > 1 && <FinancialCharts data={data.history} />}
+      {/* Historical Charts (if data available) */}
+      {historyData && historyData.history.length > 1 && (
+        <div>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 px-1">
+            Historický vývoj
+          </h2>
+          <FinancialCharts data={historyData.history} />
+        </div>
+      )}
 
-      {/* Monthly Table */}
-      {data.history.length > 0 && <MonthlyTable data={data.history} />}
+      {/* Monthly Table (collapsible on mobile) */}
+      {historyData && historyData.history.length > 0 && (
+        <div className="hidden md:block">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 px-1">
+            Mesačné prehľady
+          </h2>
+          <MonthlyTable data={historyData.history} />
+        </div>
+      )}
     </div>
   );
 }
