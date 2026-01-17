@@ -70,6 +70,7 @@ export default function RegisterPage(): React.JSX.Element {
           data: {
             display_name: displayName,
           },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
