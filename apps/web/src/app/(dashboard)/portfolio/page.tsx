@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, type ReactElement } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { PortfolioOverviewCard } from '@/components/portfolio';
@@ -54,7 +54,7 @@ async function getPortfolioData(householdId: string): Promise<PortfolioOverview 
   }
 }
 
-async function PortfolioContent(): Promise<JSX.Element> {
+async function PortfolioContent(): Promise<ReactElement> {
   const supabase = await createClient();
   
   const { data: { user } } = await supabase.auth.getUser();
@@ -112,7 +112,7 @@ async function PortfolioContent(): Promise<JSX.Element> {
   );
 }
 
-function PortfolioSkeleton(): JSX.Element {
+function PortfolioSkeleton(): ReactElement {
   return (
     <div className="space-y-6">
       <div>
@@ -132,7 +132,7 @@ function PortfolioSkeleton(): JSX.Element {
   );
 }
 
-export default function PortfolioPage(): JSX.Element {
+export default function PortfolioPage(): ReactElement {
   return (
     <Suspense fallback={<PortfolioSkeleton />}>
       <PortfolioContent />
