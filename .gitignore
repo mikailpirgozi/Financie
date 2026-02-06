@@ -45,6 +45,12 @@ next-env.d.ts
 dist/
 web-build/
 
+# Expo CNG (Continuous Native Generation)
+# NOTE: ios/ and android/ are tracked because the project has custom native config
+# If you switch to pure CNG, uncomment these:
+# apps/mobile/ios/
+# apps/mobile/android/
+
 # Supabase
 supabase/.branches
 supabase/.temp
