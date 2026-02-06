@@ -1,14 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClientProvider } from '@tanstack/react-query';
-import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../src/lib/supabase';
 import { envError } from '../src/lib/env';
-import { registerForPushNotifications } from '../src/lib/notifications';
-import { initializeSubscriptions } from '../src/lib/subscriptions';
 import { queryClient } from '../src/lib/queryClient';
 import { ThemeProvider } from '../src/contexts';
 
@@ -77,62 +73,99 @@ const errorStyles = StyleSheet.create({
 export default function RootLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
+  const [initError, setInitError] = useState<string | null>(null);
   const segments = useSegments();
   const router = useRouter();
 
+  // Initialize app - all native module calls happen INSIDE useEffect (after mount)
   useEffect(() => {
-    // Check onboarding status
-    const checkOnboarding = async () => {
+    const init = async () => {
       try {
-        const value = await AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY);
-        setHasSeenOnboarding(value === 'true');
-      } catch (error) {
-        console.error('Failed to check onboarding status:', error);
-        setHasSeenOnboarding(true); // Default to true on error
+        // 1. Configure notification handler (safe, after native modules ready)
+        try {
+          const { configureNotificationHandler } = require('../src/lib/notifications');
+          configureNotificationHandler();
+        } catch (err) {
+          console.warn('Notification handler setup failed:', err);
+        }
+
+        // 2. Check onboarding status
+        try {
+          const value = await AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY);
+          setHasSeenOnboarding(value === 'true');
+        } catch {
+          console.warn('Failed to check onboarding status');
+          setHasSeenOnboarding(true);
+        }
+
+        // 3. Initialize RevenueCat (optional, don't block on failure)
+        try {
+          const { initializeSubscriptions } = require('../src/lib/subscriptions');
+          await initializeSubscriptions();
+        } catch (err) {
+          console.warn('Subscriptions init failed:', err);
+        }
+
+        // 4. Check auth session
+        try {
+          const { supabase } = require('../src/lib/supabase');
+          const { data: { session } } = await supabase.auth.getSession();
+          setIsAuthenticated(!!session);
+
+          // 5. Listen for auth changes
+          const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            (_event: string, session: { user: unknown } | null) => {
+              setIsAuthenticated(!!session);
+
+              if (session) {
+                import('../src/lib/notifications')
+                  .then(({ registerForPushNotifications }) =>
+                    registerForPushNotifications()
+                  )
+                  .catch((err) =>
+                    console.warn('Push notification registration failed:', err)
+                  );
+              }
+            }
+          );
+
+          return () => subscription.unsubscribe();
+        } catch (err) {
+          console.error('Auth init failed:', err);
+          setIsAuthenticated(false);
+          setHasSeenOnboarding(true);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error('App init failed:', msg);
+        setInitError(msg);
+        // Fallback so app doesn't stay on white screen
+        setIsAuthenticated(false);
+        setHasSeenOnboarding(true);
       }
     };
 
-    checkOnboarding();
-
-    // Initialize RevenueCat
-    initializeSubscriptions().catch((err) =>
-      console.error('Failed to initialize subscriptions:', err)
-    );
-
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsAuthenticated(!!session);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session);
-
-      // Register for push notifications when user logs in
-      if (session) {
-        registerForPushNotifications().catch((err) =>
-          console.error('Failed to register for push notifications:', err)
-        );
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    init();
   }, []);
 
-  // Handle notification taps
+  // Handle notification taps (lazy import)
   useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        const data = response.notification.request.content.data;
-        
-        // Navigate to loan detail when notification is tapped
-        if (data.loanId) {
-          router.push(`/(tabs)/loans/${data.loanId as string}`);
+    let sub: { remove: () => void } | null = null;
+    try {
+      const Notifications = require('expo-notifications');
+      sub = Notifications.addNotificationResponseReceivedListener(
+        (response: { notification: { request: { content: { data: Record<string, unknown> } } } }) => {
+          const data = response.notification.request.content.data;
+          if (data.loanId) {
+            router.push(`/(tabs)/loans/${data.loanId as string}`);
+          }
         }
-      }
-    );
+      );
+    } catch (err) {
+      console.warn('Notification listener setup failed:', err);
+    }
 
-    return () => subscription.remove();
+    return () => sub?.remove();
   }, [router]);
 
   // Refresh onboarding status when segments change
@@ -141,7 +174,6 @@ export default function RootLayout() {
       try {
         const value = await AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY);
         const completed = value === 'true';
-        // Only update if changed
         if (completed !== hasSeenOnboarding) {
           setHasSeenOnboarding(completed);
         }
@@ -150,7 +182,6 @@ export default function RootLayout() {
       }
     };
 
-    // Refresh when we're on auth screens
     if (segments[0] === '(auth)') {
       refreshOnboardingStatus();
     }
@@ -162,39 +193,43 @@ export default function RootLayout() {
     const inAuthGroup = segments[0] === '(auth)';
     const currentRoute = segments[segments.length - 1];
 
-    // Skip routing if we're on onboarding screen to prevent loops
     if (currentRoute === 'onboarding') {
       return;
     }
 
-    // First time users - show onboarding (only if not already there)
     if (!hasSeenOnboarding && currentRoute !== 'onboarding') {
       router.replace('/(auth)/onboarding');
       return;
     }
 
-    // Skip routing if user has seen onboarding and is in the expected flow
     if (hasSeenOnboarding) {
-      // Authentication logic
       if (!isAuthenticated && !inAuthGroup) {
-        // Redirect to login if not authenticated
         router.replace('/(auth)/login');
       } else if (isAuthenticated && inAuthGroup) {
-        // Redirect to tabs if authenticated and in auth group
         router.replace('/(tabs)');
       }
-      // Allow (screens) and (tabs) groups when authenticated
     }
   }, [isAuthenticated, hasSeenOnboarding, segments]);
 
-  // Show env error screen instead of blank white screen
-  if (envError) {
+  // Show env or init error screen instead of blank white screen
+  if (envError || initError) {
     return (
       <View style={errorStyles.container}>
-        <Text style={errorStyles.title}>Chyba konfigurácie</Text>
+        <Text style={errorStyles.title}>
+          {envError ? 'Chyba konfigurácie' : 'Chyba pri štarte'}
+        </Text>
         <ScrollView style={errorStyles.scroll}>
-          <Text style={errorStyles.message}>{envError}</Text>
+          <Text style={errorStyles.message}>{envError ?? initError}</Text>
         </ScrollView>
+      </View>
+    );
+  }
+
+  // Show loading while checking auth/onboarding (prevents blank screen)
+  if (isAuthenticated === null || hasSeenOnboarding === null) {
+    return (
+      <View style={errorStyles.container}>
+        <ActivityIndicator size="large" color="#8B5CF6" />
       </View>
     );
   }

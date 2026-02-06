@@ -3,16 +3,29 @@ import * as Device from 'expo-device';
 import { Platform, Alert } from 'react-native';
 import { supabase } from './supabase';
 
-// Configure notification handler
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+let notificationHandlerConfigured = false;
+
+/**
+ * Configure notification handler. Must be called after native modules are ready.
+ * Safe to call multiple times - only configures once.
+ */
+export function configureNotificationHandler(): void {
+  if (notificationHandlerConfigured) return;
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+    notificationHandlerConfigured = true;
+  } catch (error) {
+    console.warn('Failed to configure notification handler:', error);
+  }
+}
 
 interface LoanScheduleEntry {
   id: string;
