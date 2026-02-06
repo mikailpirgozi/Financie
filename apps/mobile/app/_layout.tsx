@@ -1,17 +1,78 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View, Text, ScrollView } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClientProvider } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../src/lib/supabase';
+import { envError } from '../src/lib/env';
 import { registerForPushNotifications } from '../src/lib/notifications';
 import { initializeSubscriptions } from '../src/lib/subscriptions';
 import { queryClient } from '../src/lib/queryClient';
 import { ThemeProvider } from '../src/contexts';
 
 const ONBOARDING_COMPLETED_KEY = '@onboarding_completed';
+
+/** Error boundary to catch crashes during render */
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('[ErrorBoundary]', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={errorStyles.container}>
+          <Text style={errorStyles.title}>Aplikácia spadla</Text>
+          <ScrollView style={errorStyles.scroll}>
+            <Text style={errorStyles.message}>
+              {this.state.error?.message ?? 'Neznáma chyba'}
+            </Text>
+          </ScrollView>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const errorStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: '#fff',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#EF4444',
+    marginBottom: 16,
+  },
+  scroll: {
+    maxHeight: 300,
+    width: '100%',
+  },
+  message: {
+    fontSize: 13,
+    color: '#666',
+    fontFamily: 'monospace',
+  },
+});
 
 export default function RootLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -126,19 +187,33 @@ export default function RootLayout() {
     }
   }, [isAuthenticated, hasSeenOnboarding, segments]);
 
+  // Show env error screen instead of blank white screen
+  if (envError) {
+    return (
+      <View style={errorStyles.container}>
+        <Text style={errorStyles.title}>Chyba konfigurácie</Text>
+        <ScrollView style={errorStyles.scroll}>
+          <Text style={errorStyles.message}>{envError}</Text>
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <GestureHandlerRootView style={styles.container}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="(screens)" />
-            <Stack.Screen name="index" />
-          </Stack>
-        </GestureHandlerRootView>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <GestureHandlerRootView style={styles.container}>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="(screens)" />
+              <Stack.Screen name="index" />
+            </Stack>
+          </GestureHandlerRootView>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
