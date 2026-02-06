@@ -6,11 +6,12 @@ const monorepoRoot = path.resolve(projectRoot, '../..');
 
 const config = getDefaultConfig(projectRoot);
 
-// Watch all files in the monorepo (packages/core etc.)
-config.watchFolders = [monorepoRoot];
+// Extend (not replace) watchFolders with monorepo root
+config.watchFolders = [...(config.watchFolders ?? []), monorepoRoot];
 
-// Resolve packages from both mobile and root node_modules
+// Extend (not replace) nodeModulesPaths with root node_modules
 config.resolver.nodeModulesPaths = [
+  ...(config.resolver.nodeModulesPaths ?? []),
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(monorepoRoot, 'node_modules'),
 ];
