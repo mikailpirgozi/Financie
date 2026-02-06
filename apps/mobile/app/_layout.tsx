@@ -79,73 +79,95 @@ export default function RootLayout() {
 
   // Initialize app - all native module calls happen INSIDE useEffect (after mount)
   useEffect(() => {
+    let cleanupAuth: (() => void) | null = null;
+
+    // Timeout: if init takes > 8s, fallback to unauthenticated state
+    const timeout = setTimeout(() => {
+      console.warn('App init timeout - falling back to unauthenticated state');
+      setIsAuthenticated((prev) => prev ?? false);
+      setHasSeenOnboarding((prev) => prev ?? true);
+    }, 8000);
+
     const init = async () => {
+      // 1. Configure notification handler (safe, after native modules ready)
       try {
-        // 1. Configure notification handler (safe, after native modules ready)
-        try {
-          const { configureNotificationHandler } = require('../src/lib/notifications');
-          configureNotificationHandler();
-        } catch (err) {
-          console.warn('Notification handler setup failed:', err);
-        }
-
-        // 2. Check onboarding status
-        try {
-          const value = await AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY);
-          setHasSeenOnboarding(value === 'true');
-        } catch {
-          console.warn('Failed to check onboarding status');
-          setHasSeenOnboarding(true);
-        }
-
-        // 3. Initialize RevenueCat (optional, don't block on failure)
-        try {
-          const { initializeSubscriptions } = require('../src/lib/subscriptions');
-          await initializeSubscriptions();
-        } catch (err) {
-          console.warn('Subscriptions init failed:', err);
-        }
-
-        // 4. Check auth session
-        try {
-          const { supabase } = require('../src/lib/supabase');
-          const { data: { session } } = await supabase.auth.getSession();
-          setIsAuthenticated(!!session);
-
-          // 5. Listen for auth changes
-          const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (_event: string, session: { user: unknown } | null) => {
-              setIsAuthenticated(!!session);
-
-              if (session) {
-                import('../src/lib/notifications')
-                  .then(({ registerForPushNotifications }) =>
-                    registerForPushNotifications()
-                  )
-                  .catch((err) =>
-                    console.warn('Push notification registration failed:', err)
-                  );
-              }
-            }
-          );
-
-          return () => subscription.unsubscribe();
-        } catch (err) {
-          console.error('Auth init failed:', err);
-          setIsAuthenticated(false);
-          setHasSeenOnboarding(true);
-        }
+        const { configureNotificationHandler } = require('../src/lib/notifications');
+        configureNotificationHandler();
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error('App init failed:', msg);
-        setInitError(msg);
-        // Fallback so app doesn't stay on white screen
-        setIsAuthenticated(false);
+        console.warn('Notification handler setup failed:', err);
+      }
+
+      // 2. Check onboarding status
+      try {
+        const value = await AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY);
+        setHasSeenOnboarding(value === 'true');
+      } catch {
+        console.warn('Failed to check onboarding status');
         setHasSeenOnboarding(true);
       }
+
+      // 3. Initialize RevenueCat (optional, don't block on failure)
+      try {
+        const { initializeSubscriptions } = require('../src/lib/subscriptions');
+        await initializeSubscriptions();
+      } catch (err) {
+        console.warn('Subscriptions init failed:', err);
+      }
+
+      // 4. Check auth session (with own timeout)
+      try {
+        const { supabase } = require('../src/lib/supabase');
+
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+        ]);
+
+        if (sessionResult && sessionResult.data) {
+          setIsAuthenticated(!!sessionResult.data.session);
+        } else {
+          console.warn('getSession timed out');
+          setIsAuthenticated(false);
+        }
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          (_event: string, session: { user: unknown } | null) => {
+            setIsAuthenticated(!!session);
+
+            if (session) {
+              import('../src/lib/notifications')
+                .then(({ registerForPushNotifications }) =>
+                  registerForPushNotifications()
+                )
+                .catch((err) =>
+                  console.warn('Push notification registration failed:', err)
+                );
+            }
+          }
+        );
+
+        cleanupAuth = () => subscription.unsubscribe();
+      } catch (err) {
+        console.error('Auth init failed:', err);
+        setIsAuthenticated(false);
+      }
+
+      clearTimeout(timeout);
     };
 
-    init();
+    init().catch((err) => {
+      console.error('App init failed:', err);
+      setInitError(err instanceof Error ? err.message : String(err));
+      setIsAuthenticated(false);
+      setHasSeenOnboarding(true);
+      clearTimeout(timeout);
+    });
+
+    return () => {
+      clearTimeout(timeout);
+      cleanupAuth?.();
+    };
   }, []);
 
   // Handle notification taps (lazy import)
