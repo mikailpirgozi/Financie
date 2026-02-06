@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { FileText } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { QuickStatusCard } from './QuickStatusCard';
@@ -47,7 +47,7 @@ function getDocumentTypeLabel(type: string): string {
   return labels[type] || type;
 }
 
-export function DocumentsQuickStatus({
+export const DocumentsQuickStatus = memo(function DocumentsQuickStatus({
   expiringCount,
   expiredCount = 0,
   expiringSoonCount = 0,
@@ -120,4 +120,4 @@ export function DocumentsQuickStatus({
       onPress={onPress}
     />
   );
-}
+});

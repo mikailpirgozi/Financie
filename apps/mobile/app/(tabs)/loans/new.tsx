@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -21,7 +21,6 @@ import {
   LOAN_TYPE_OPTIONS,
   RATE_TYPE_OPTIONS,
   LOAN_TERM_PRESETS,
-  loanTypeSchema,
   type LoanType,
 } from '@finapp/core';
 import { SmartSlider } from '@/components/loans/SmartSlider';
@@ -38,11 +37,13 @@ import { getCurrentHousehold, getVehicles, type Vehicle } from '@/lib/api';
 import { linkLoanToAsset } from '@/lib/api-portfolio';
 
 // Form schema - frontend validation
+// Note: Using inline enum instead of importing loanTypeSchema from @finapp/core
+// to avoid potential Zod cross-package issues in Hermes production builds
 const newLoanFormSchema = z.object({
   name: z.string().max(200).optional(),
   vehicleId: z.string().optional(), // Optional vehicle to link
   lender: z.string().min(1, 'Veriteľ je povinný'),
-  loanType: loanTypeSchema,
+  loanType: z.enum(['annuity', 'fixed_principal', 'interest_only', 'auto_loan', 'graduated_payment']),
   principal: z.number().positive('Výška úveru musí byť väčšia ako 0'),
   annualRate: z.number().min(0).max(100).optional(),
   monthlyPayment: z.number().positive().optional(),
@@ -91,7 +92,6 @@ export default function NewLoanScreen() {
   const {
     control,
     handleSubmit,
-    watch,
     setValue,
     formState: { errors, isDirty },
   } = useForm<FormData>({
@@ -115,8 +115,29 @@ export default function NewLoanScreen() {
     },
   });
 
-  // Watch form values for calculations
-  const formValues = watch();
+  // Watch form values for calculations - using useWatch instead of watch()
+  // to avoid Proxy object issues in Hermes production builds
+  // Note: useWatch returns a deep clone, not a Proxy, which is safer for Hermes GC
+  const watchedValues = useWatch({ control });
+  
+  // Provide safe defaults during initialization to prevent crashes
+  const formValues: FormData = useMemo(() => ({
+    name: watchedValues?.name ?? '',
+    vehicleId: watchedValues?.vehicleId ?? '',
+    lender: watchedValues?.lender ?? '',
+    loanType: watchedValues?.loanType ?? 'annuity',
+    principal: watchedValues?.principal ?? 10000,
+    annualRate: watchedValues?.annualRate ?? 5.5,
+    monthlyPayment: watchedValues?.monthlyPayment ?? 250,
+    termMonths: watchedValues?.termMonths ?? 60,
+    startDate: watchedValues?.startDate ?? new Date().toISOString().split('T')[0],
+    rateType: watchedValues?.rateType ?? 'fixed',
+    feeSetup: watchedValues?.feeSetup ?? 0,
+    feeMonthly: watchedValues?.feeMonthly ?? 0,
+    insuranceMonthly: watchedValues?.insuranceMonthly ?? 0,
+    balloonAmount: watchedValues?.balloonAmount ?? 0,
+    calculationMode: watchedValues?.calculationMode ?? 'payment_term',
+  }), [watchedValues]);
 
   // Load household ID on mount
   useEffect(() => {
@@ -147,17 +168,29 @@ export default function NewLoanScreen() {
   const loadInitialData = async () => {
     try {
       const household = await getCurrentHousehold();
+      if (!household?.id) {
+        throw new Error('Household ID is missing');
+      }
       setHouseholdId(household.id);
       
       // Load vehicles for selection
       try {
         const vehiclesResponse = await getVehicles(household.id);
-        setVehicles(vehiclesResponse.data);
-      } catch {
+        // Defensive: ensure we always have an array
+        const vehiclesData = vehiclesResponse?.data;
+        if (Array.isArray(vehiclesData)) {
+          setVehicles(vehiclesData);
+        } else {
+          console.warn('Vehicles response.data is not an array:', typeof vehiclesData);
+          setVehicles([]);
+        }
+      } catch (vehicleError) {
         // Vehicles loading is optional, don't fail the form
-        console.warn('Failed to load vehicles');
+        console.warn('Failed to load vehicles:', vehicleError);
+        setVehicles([]);
       }
-    } catch {
+    } catch (error) {
+      console.error('Failed to load initial data:', error);
       showToast('Nepodarilo sa načítať dáta', 'error');
     } finally {
       setIsInitializing(false);
@@ -171,18 +204,34 @@ export default function NewLoanScreen() {
 
     // Validate startDate before creating Date object
     const startDateStr = formValues.startDate;
-    if (!startDateStr || startDateStr.length < 10) return null;
+    if (!startDateStr || typeof startDateStr !== 'string' || startDateStr.length < 10) return null;
     
     const startDate = new Date(startDateStr);
     if (isNaN(startDate.getTime())) return null;
 
+    // Validate all numeric values
+    const principal = typeof formValues.principal === 'number' && !isNaN(formValues.principal) 
+      ? formValues.principal 
+      : 0;
+    if (principal <= 0) return null;
+
+    const annualRate = typeof formValues.annualRate === 'number' && !isNaN(formValues.annualRate)
+      ? formValues.annualRate
+      : 0;
+    const monthlyPayment = typeof formValues.monthlyPayment === 'number' && !isNaN(formValues.monthlyPayment)
+      ? formValues.monthlyPayment
+      : 0;
+    const termMonths = typeof formValues.termMonths === 'number' && !isNaN(formValues.termMonths)
+      ? formValues.termMonths
+      : 0;
+
     try {
       return quickCalculateLoanData({
         loanType: formValues.loanType,
-        principal: formValues.principal,
-        annualRate: formValues.calculationMode !== 'payment_term' ? formValues.annualRate : undefined,
-        monthlyPayment: formValues.calculationMode !== 'rate_term' ? formValues.monthlyPayment : undefined,
-        termMonths: formValues.calculationMode !== 'rate_payment' ? formValues.termMonths : undefined,
+        principal,
+        annualRate: formValues.calculationMode !== 'payment_term' ? annualRate : undefined,
+        monthlyPayment: formValues.calculationMode !== 'rate_term' ? monthlyPayment : undefined,
+        termMonths: formValues.calculationMode !== 'rate_payment' ? termMonths : undefined,
         startDate,
         feeSetup: formValues.feeSetup ?? 0,
         feeMonthly: formValues.feeMonthly ?? 0,
@@ -190,7 +239,8 @@ export default function NewLoanScreen() {
         balloonAmount: formValues.loanType === 'interest_only' ? formValues.balloonAmount : undefined,
         calculationMode: formValues.calculationMode,
       });
-    } catch {
+    } catch (error) {
+      console.warn('Loan calculation error:', error);
       return null;
     }
   }, [
@@ -335,8 +385,8 @@ export default function NewLoanScreen() {
                 maxLength={200}
               />
 
-              {/* Vehicle selection (optional) */}
-              {vehicles.length > 0 && (
+            {/* Vehicle selection (optional) */}
+            {Array.isArray(vehicles) && vehicles.length > 0 && (
                 <Controller
                   control={control}
                   name="vehicleId"
@@ -354,7 +404,7 @@ export default function NewLoanScreen() {
                         })),
                       ]}
                       disabled={loading}
-                      searchable={vehicles.length > 5}
+                      searchable={Array.isArray(vehicles) && vehicles.length > 5}
                     />
                   )}
                 />

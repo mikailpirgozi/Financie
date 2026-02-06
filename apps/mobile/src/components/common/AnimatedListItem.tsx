@@ -28,14 +28,16 @@ export function AnimatedListItem({
   const handlePressIn = () => {
     Animated.spring(scale, {
       toValue: 0.98,
-      useNativeDriver: true,
+      // Note: useNativeDriver disabled due to Hermes crash in production builds
+      // when animated nodes are cleaned up during navigation
+      useNativeDriver: false,
     }).start();
   };
 
   const handlePressOut = () => {
     Animated.spring(scale, {
       toValue: 1,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 

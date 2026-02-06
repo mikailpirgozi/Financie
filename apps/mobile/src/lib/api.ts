@@ -449,6 +449,68 @@ export async function getDashboardFull(
   );
 }
 
+/**
+ * 🚀 Dashboard Alerts - jeden request namiesto 9
+ * Používa server-side agregáciu pre maximálnu rýchlosť
+ */
+export interface DashboardAlertsResponse {
+  loans: {
+    totalDebt: number;
+    activeCount: number;
+    overdueCount: number;
+    nextPayment: {
+      date: string;
+      amount: number;
+      lender: string;
+      loanName: string | null;
+      daysUntil: number;
+      loanId: string;
+    } | null;
+    totalProgress: number;
+    totalPrincipal: number;
+    totalMonthlyPayment: number;
+    totalInterestPaid: number;
+    totalInterestRemaining: number;
+    paidOffCount: number;
+  };
+  documents: {
+    totalCount: number;
+    expiringCount: number;
+    expiredCount: number;
+    expiringSoonCount: number;
+    unpaidFinesCount: number;
+    unpaidFinesTotal: number;
+    nearestExpiring: {
+      type: string;
+      date: string;
+      daysUntil: number;
+    } | null;
+  };
+  vehicles: {
+    totalCount: number;
+    totalValue: number;
+    loanBalance: number;
+    expiringDocsCount: number;
+  };
+  finance: {
+    netWorth: number;
+    netWorthChange: number;
+    totalIncome: number;
+    totalExpenses: number;
+    netCashFlow: number;
+    month: string;
+  };
+  householdId: string;
+}
+
+export async function getDashboardAlerts(
+  householdId: string
+): Promise<DashboardAlertsResponse> {
+  return apiFetch<DashboardAlertsResponse>(
+    `/api/dashboard-alerts?householdId=${householdId}`
+  );
+}
+
 // ============================================
 // RULES API
 // ============================================

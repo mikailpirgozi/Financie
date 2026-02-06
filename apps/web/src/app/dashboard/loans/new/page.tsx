@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@finapp/ui';
 import { Input } from '@finapp/ui';
@@ -11,6 +11,14 @@ import { SmartSlider } from '@/components/loans/SmartSlider';
 import { LenderSelect } from '@/components/loans/LenderSelect';
 import { LoanModeSelector } from '@/components/loans/LoanModeSelector';
 import { LoanPreviewCard } from '@/components/loans/LoanPreviewCard';
+
+interface VehicleOption {
+  id: string;
+  name: string;
+  licensePlate: string | null;
+  make: string | null;
+  model: string | null;
+}
 
 export default function NewLoanPage(): React.JSX.Element {
   const router = useRouter();
@@ -31,9 +39,42 @@ export default function NewLoanPage(): React.JSX.Element {
     insuranceMonthly: 0,
     balloonAmount: 0,
     calculationMode: 'payment_term' as LoanCalculationMode,
+    vehicleId: '',
   });
 
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [vehicles, setVehicles] = useState<VehicleOption[]>([]);
+
+  const loadVehicles = useCallback(async () => {
+    try {
+      const householdRes = await fetch('/api/households/current');
+      const { householdId } = await householdRes.json();
+      if (!householdId) return;
+
+      const res = await fetch(`/api/vehicles?householdId=${householdId}`);
+      if (!res.ok) return;
+
+      const { data } = await res.json();
+      if (Array.isArray(data)) {
+        setVehicles(
+          data.map((v: Record<string, unknown>) => ({
+            id: v.id as string,
+            name: v.name as string,
+            licensePlate: (v.licensePlate as string | null) ?? null,
+            make: (v.make as string | null) ?? null,
+            model: (v.model as string | null) ?? null,
+          }))
+        );
+      }
+    } catch {
+      // Vehicle loading is optional
+      console.warn('Failed to load vehicles');
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadVehicles();
+  }, [loadVehicles]);
 
   // Calculate loan with memoized calculator
   const calculatedData = useMemo(
@@ -118,6 +159,21 @@ export default function NewLoanPage(): React.JSX.Element {
       }
 
       const { loan } = await response.json();
+
+      // Link to vehicle if selected
+      if (formData.vehicleId && loan?.id) {
+        try {
+          await fetch(`/api/loans/${loan.id}/link-asset`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assetId: formData.vehicleId }),
+          });
+        } catch (linkError) {
+          // Log but don't fail - loan was created successfully
+          console.warn('Failed to link loan to vehicle:', linkError);
+        }
+      }
+
       router.push(`/dashboard/loans/${loan.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Neznáma chyba');
@@ -226,6 +282,35 @@ export default function NewLoanPage(): React.JSX.Element {
                     />
                   </div>
                 </div>
+
+                {/* Vehicle selection (optional) */}
+                {vehicles.length > 0 && (
+                  <div className="space-y-2">
+                    <label htmlFor="vehicleId" className="text-sm font-medium">
+                      Priradiť k vozidlu (voliteľné)
+                    </label>
+                    <select
+                      id="vehicleId"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      value={formData.vehicleId}
+                      onChange={(e) =>
+                        setFormData({ ...formData, vehicleId: e.target.value })
+                      }
+                      disabled={loading}
+                    >
+                      <option value="">— Bez priradenia —</option>
+                      {vehicles.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.name}
+                          {v.licensePlate ? ` (${v.licensePlate})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      Prepojte úver s vozidlom pre lepší prehľad v portfóliu
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

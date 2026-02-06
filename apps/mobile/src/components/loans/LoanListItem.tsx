@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, memo } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import {
   ChevronRight,
@@ -44,7 +44,11 @@ const LOAN_TYPE_CONFIG: Record<
   mortgage: { label: 'Hypotéka', icon: Home, shortLabel: 'Hypo' },
 };
 
-export function LoanListItem({
+/**
+ * LoanListItem - memoized pre lepší výkon pri scrollovaní
+ * Re-renderuje sa len keď sa zmení loan data alebo pinnedNote
+ */
+function LoanListItemComponent({
   loan,
   pinnedNote,
   onPress,
@@ -133,7 +137,7 @@ export function LoanListItem({
   const loanTypeConfig = LOAN_TYPE_CONFIG[loan.loan_type] || {
     label: loan.loan_type,
     shortLabel: loan.loan_type,
-    icon: <CreditCard size={12} />,
+    icon: CreditCard,
   };
 
   // Get annual rate
@@ -142,14 +146,16 @@ export function LoanListItem({
   const handlePressIn = () => {
     Animated.spring(scale, {
       toValue: 0.98,
-      useNativeDriver: true,
+      // Note: useNativeDriver disabled due to Hermes crash in production builds
+      // when animated nodes are cleaned up during navigation
+      useNativeDriver: false,
     }).start();
   };
 
   const handlePressOut = () => {
     Animated.spring(scale, {
       toValue: 1,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -576,3 +582,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
+// Custom comparison function for better memoization
+function areEqual(prevProps: LoanListItemProps, nextProps: LoanListItemProps): boolean {
+  // Compare loan by id and key properties that affect rendering
+  const prevLoan = prevProps.loan;
+  const nextLoan = nextProps.loan;
+  
+  const loanEqual = 
+    prevLoan.id === nextLoan.id &&
+    prevLoan.status === nextLoan.status &&
+    prevLoan.remaining_balance === nextLoan.remaining_balance &&
+    prevLoan.overdue_count === nextLoan.overdue_count &&
+    prevLoan.next_installment?.days_until === nextLoan.next_installment?.days_until &&
+    prevLoan.paid_count === nextLoan.paid_count;
+
+  // Compare pinnedNote
+  const noteEqual = 
+    prevProps.pinnedNote?.id === nextProps.pinnedNote?.id &&
+    prevProps.pinnedNote?.content === nextProps.pinnedNote?.content;
+
+  return loanEqual && noteEqual;
+}
+
+// Export memoized component
+export const LoanListItem = memo(LoanListItemComponent, areEqual);

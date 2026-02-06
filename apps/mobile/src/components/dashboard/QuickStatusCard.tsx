@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -30,7 +30,7 @@ interface QuickStatusCardProps {
   onPress: () => void;
 }
 
-export function QuickStatusCard({
+export const QuickStatusCard = memo(function QuickStatusCard({
   title,
   icon,
   iconBackgroundColor,
@@ -140,7 +140,7 @@ export function QuickStatusCard({
       )}
     </TouchableOpacity>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

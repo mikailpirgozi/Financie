@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Wallet } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -37,7 +37,7 @@ function formatDate(dateStr: string): string {
   });
 }
 
-export function LoansQuickStatus({
+export const LoansQuickStatus = memo(function LoansQuickStatus({
   totalDebt,
   activeCount,
   overdueCount,
@@ -106,7 +106,7 @@ export function LoansQuickStatus({
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   progressContainer: {

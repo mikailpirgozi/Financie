@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Car } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { QuickStatusCard } from './QuickStatusCard';
@@ -20,7 +20,7 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
-export function VehiclesQuickStatus({
+export const VehiclesQuickStatus = memo(function VehiclesQuickStatus({
   totalCount,
   totalValue,
   loanBalance,
@@ -69,4 +69,4 @@ export function VehiclesQuickStatus({
       onPress={onPress}
     />
   );
-}
+});

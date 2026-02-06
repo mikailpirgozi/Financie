@@ -2,6 +2,9 @@ export { useDebounce } from './useDebounce';
 export { useBiometricAuth } from './useBiometricAuth';
 export type { BiometricAuthState, StoredCredentials } from './useBiometricAuth';
 
+// Household hook
+export { useHousehold } from './useHousehold';
+
 // Loan hooks
 export { 
   useLoans, 

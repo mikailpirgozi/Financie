@@ -45,20 +45,35 @@ export const SmartSlider = React.memo(function SmartSlider({
   }, [value, step, minimumValue]);
 
   // Update parent every 200ms while sliding (throttled) + show local state immediately
+  // Note: Extra defensive checks for Hermes production builds
   const handleSliderChange = useCallback((newValue: number) => {
+    // Defensive: ensure newValue is a valid number
+    if (typeof newValue !== 'number' || isNaN(newValue)) return;
+    
     setSliderValue(newValue); // Immediate visual feedback
     
     const now = Date.now();
     if (now - lastUpdateRef.current > 200) {
       lastUpdateRef.current = now;
-      onValueChange(newValue); // Throttled parent update
+      try {
+        onValueChange(newValue); // Throttled parent update
+      } catch (e) {
+        console.warn('SmartSlider onValueChange error:', e);
+      }
     }
   }, [onValueChange]);
 
   // Final update when releasing slider
   const handleSliderComplete = useCallback((newValue: number) => {
+    // Defensive: ensure newValue is a valid number
+    if (typeof newValue !== 'number' || isNaN(newValue)) return;
+    
     setSliderValue(newValue);
-    onValueChange(newValue);
+    try {
+      onValueChange(newValue);
+    } catch (e) {
+      console.warn('SmartSlider onSlidingComplete error:', e);
+    }
     lastUpdateRef.current = Date.now();
   }, [onValueChange]);
 

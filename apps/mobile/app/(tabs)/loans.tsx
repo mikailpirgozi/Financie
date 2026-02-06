@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,12 @@ import {
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Plus } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { useQueryClient } from '@tanstack/react-query';
 
-import { getLoans, getCurrentHousehold, type Loan } from '../../src/lib/api';
+import { type Loan } from '../../src/lib/api';
 import { supabase } from '../../src/lib/supabase';
 import { env } from '../../src/lib/env';
 import { useTheme } from '../../src/contexts';
@@ -30,6 +31,8 @@ import {
   type LoanFilters,
 } from '../../src/components/loans';
 import { NoteEditorModal } from '../../src/components/loans/NoteEditorModal';
+import { useLoans, useHousehold } from '../../src/hooks';
+import { queryKeys } from '../../src/lib/queryClient';
 
 interface LoanNote {
   id: string;
@@ -46,11 +49,23 @@ export default function LoansScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const colors = theme.colors;
+  const queryClient = useQueryClient();
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [loans, setLoans] = useState<Loan[]>([]);
+  // Use React Query hooks for data fetching with caching
+  const { data: household, isLoading: isHouseholdLoading } = useHousehold();
+  const householdId = household?.id ?? '';
+  
+  const { 
+    data: loans = [], 
+    isLoading: isLoansLoading, 
+    isFetching,
+    error: loansError,
+    refetch,
+  } = useLoans(householdId);
+
+  const isLoading = isHouseholdLoading || (isLoansLoading && !loans.length);
+  const error = loansError ? (loansError instanceof Error ? loansError.message : 'Nepodarilo sa nacitat uvery') : null;
+
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [toast, setToast] = useState<{
     visible: boolean;
@@ -74,37 +89,25 @@ export default function LoansScreen() {
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
 
-  // Pinned notes state
+  // Pinned notes state - lazy loaded
   const [pinnedNotes, setPinnedNotes] = useState<Record<string, LoanNote>>({});
+  const [notesLoaded, setNotesLoaded] = useState(false);
 
   // Note editor modal state
   const [noteEditorVisible, setNoteEditorVisible] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadLoans();
-    }, [])
-  );
-
-  const loadLoans = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const household = await getCurrentHousehold();
-      const loansData = await getLoans(household.id);
-      setLoans(loansData);
-
-      // Load pinned notes for all loans
-      await loadPinnedNotes(loansData.map((l) => l.id));
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Nepodarilo sa nacitat uvery'
-      );
-    } finally {
-      setLoading(false);
+  // Load pinned notes lazily after initial render (non-blocking)
+  useEffect(() => {
+    if (loans.length > 0 && !notesLoaded) {
+      // Delay notes loading to not block initial render
+      const timer = setTimeout(() => {
+        loadPinnedNotes(loans.map((l) => l.id));
+        setNotesLoaded(true);
+      }, 500);
+      return () => clearTimeout(timer);
     }
-  };
+    return undefined;
+  }, [loans.length, notesLoaded]);
 
   const loadPinnedNotes = async (loanIds: string[]) => {
     if (loanIds.length === 0) return;
@@ -113,7 +116,7 @@ export default function LoansScreen() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      // Fetch pinned high-priority notes for all loans
+      // Fetch pinned high-priority notes for all loans in parallel
       const notesMap: Record<string, LoanNote> = {};
 
       await Promise.all(
@@ -151,18 +154,17 @@ export default function LoansScreen() {
     }
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadLoans();
-    setRefreshing(false);
-  };
+  const onRefresh = useCallback(async () => {
+    setNotesLoaded(false);
+    await refetch();
+  }, [refetch]);
 
   // Helper to parse amounts
-  const parseAmount = (val: number | string | undefined): number => {
+  const parseAmount = useCallback((val: number | string | undefined): number => {
     if (val === undefined || val === null) return 0;
     const num = typeof val === 'string' ? parseFloat(val) : val;
     return isNaN(num) ? 0 : num;
-  };
+  }, []);
 
   // Calculate stats with new metrics
   const stats = useMemo(() => {
@@ -257,7 +259,7 @@ export default function LoansScreen() {
       totalInterestRemaining: Math.max(0, totalInterestRemaining),
       nextPayment,
     };
-  }, [loans]);
+  }, [loans, parseAmount]);
 
   // Filter loans by status first
   const statusFilteredLoans = useMemo(() => {
@@ -275,78 +277,78 @@ export default function LoansScreen() {
   }, [statusFilteredLoans, advancedFilters]);
 
   // Update filter options with counts
-  const dynamicFilterOptions: SegmentOption<FilterStatus>[] = [
+  const dynamicFilterOptions: SegmentOption<FilterStatus>[] = useMemo(() => [
     { value: 'all', label: 'Všetky', count: loans.length },
     { value: 'active', label: 'Aktívne', count: stats.activeLoans.length },
     { value: 'overdue', label: 'Dlžné', count: stats.overdueLoans.length },
     { value: 'paid_off', label: 'Hotové', count: stats.paidOffLoans.length },
-  ];
+  ], [loans.length, stats.activeLoans.length, stats.overdueLoans.length, stats.paidOffLoans.length]);
 
-  const handleLoanPress = (loanId: string) => {
+  const handleLoanPress = useCallback((loanId: string) => {
     router.push(`/(tabs)/loans/${loanId}`);
-  };
+  }, [router]);
 
-  const handleLoanLongPress = (loan: Loan) => {
+  const handleLoanLongPress = useCallback((loan: Loan) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedLoan(loan);
     setActionSheetVisible(true);
-  };
+  }, []);
 
-  const handleCloseActionSheet = () => {
+  const handleCloseActionSheet = useCallback(() => {
     setActionSheetVisible(false);
     setSelectedLoan(null);
-  };
+  }, []);
 
-  const handleNextPaymentPress = () => {
+  const handleNextPaymentPress = useCallback(() => {
     if (stats.nextPayment) {
       router.push(`/(tabs)/loans/${stats.nextPayment.loanId}`);
     }
-  };
+  }, [router, stats.nextPayment]);
 
-  const handleQuickPayPress = () => {
+  const handleQuickPayPress = useCallback(() => {
     if (stats.nextPayment) {
       router.push(`/(tabs)/loans/${stats.nextPayment.loanId}/pay`);
     }
-  };
+  }, [router, stats.nextPayment]);
 
   // Action sheet handlers
-  const handlePayment = () => {
+  const handlePayment = useCallback(() => {
     if (!selectedLoan) return;
     handleCloseActionSheet();
     router.push(`/(tabs)/loans/${selectedLoan.id}/pay`);
-  };
+  }, [selectedLoan, handleCloseActionSheet, router]);
 
-  const handleAddNote = () => {
+  const handleAddNote = useCallback(() => {
     if (!selectedLoan) return;
     handleCloseActionSheet();
     setNoteEditorVisible(true);
-  };
+  }, [selectedLoan, handleCloseActionSheet]);
 
-  const handleViewStats = () => {
+  const handleViewStats = useCallback(() => {
     if (!selectedLoan) return;
     handleCloseActionSheet();
     router.push(`/(tabs)/loans/${selectedLoan.id}/simulate`);
-  };
+  }, [selectedLoan, handleCloseActionSheet, router]);
 
-  const handleEditLoan = () => {
+  const handleEditLoan = useCallback(() => {
     if (!selectedLoan) return;
     handleCloseActionSheet();
     router.push(`/(tabs)/loans/${selectedLoan.id}/edit`);
-  };
+  }, [selectedLoan, handleCloseActionSheet, router]);
 
-  const handleLinkAsset = () => {
+  const handleLinkAsset = useCallback(() => {
     if (!selectedLoan) return;
     handleCloseActionSheet();
     router.push(`/(tabs)/loans/${selectedLoan.id}/link-asset`);
-  };
+  }, [selectedLoan, handleCloseActionSheet, router]);
 
-  const handleEarlyRepay = () => {
+  const handleEarlyRepay = useCallback(() => {
     if (!selectedLoan) return;
     handleCloseActionSheet();
     router.push(`/(tabs)/loans/${selectedLoan.id}/early-repayment`);
-  };
+  }, [selectedLoan, handleCloseActionSheet, router]);
 
-  const handleDeleteLoan = () => {
+  const handleDeleteLoan = useCallback(() => {
     if (!selectedLoan) return;
     handleCloseActionSheet();
 
@@ -373,7 +375,10 @@ export default function LoansScreen() {
                 type: 'success',
               });
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              await loadLoans();
+              
+              // Invalidate queries to refetch
+              queryClient.invalidateQueries({ queryKey: queryKeys.loans(householdId) });
+              queryClient.invalidateQueries({ queryKey: ['dashboard-alerts'] });
             } catch (err) {
               setToast({
                 visible: true,
@@ -386,9 +391,9 @@ export default function LoansScreen() {
         },
       ]
     );
-  };
+  }, [selectedLoan, handleCloseActionSheet, queryClient, householdId]);
 
-  const handleSaveNote = async (noteData: {
+  const handleSaveNote = useCallback(async (noteData: {
     content: string;
     priority: 'high' | 'normal' | 'low';
     status: 'pending' | 'completed' | 'info';
@@ -434,23 +439,23 @@ export default function LoansScreen() {
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
-  };
+  }, [selectedLoan, loans]);
 
-  const handleAddLoan = () => {
+  const handleAddLoan = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push('/(tabs)/loans/new');
-  };
+  }, [router]);
 
-  const renderLoanItem = ({ item }: { item: Loan }) => (
+  const renderLoanItem = useCallback(({ item }: { item: Loan }) => (
     <LoanListItem
       loan={item}
       pinnedNote={pinnedNotes[item.id] || null}
       onPress={() => handleLoanPress(item.id)}
       onLongPress={() => handleLoanLongPress(item)}
     />
-  );
+  ), [pinnedNotes, handleLoanPress, handleLoanLongPress]);
 
-  const renderHeader = () => (
+  const renderHeader = useCallback(() => (
     <View style={styles.listHeader}>
       {/* Hero Card */}
       {loans.length > 0 && (
@@ -517,9 +522,9 @@ export default function LoansScreen() {
         </View>
       )}
     </View>
-  );
+  ), [loans.length, stats, dynamicFilterOptions, filterStatus, filteredAndSortedLoans.length, advancedFilters, colors, handleNextPaymentPress, handleQuickPayPress]);
 
-  const renderEmpty = () => (
+  const renderEmpty = useCallback(() => (
     <View style={styles.emptyState}>
       <View
         style={[styles.emptyIconContainer, { backgroundColor: colors.primaryLight }]}
@@ -556,9 +561,18 @@ export default function LoansScreen() {
         </TouchableOpacity>
       )}
     </View>
-  );
+  ), [filterStatus, colors, handleAddLoan]);
 
-  if (loading) {
+  const handleCloseNoteEditor = useCallback(() => {
+    setNoteEditorVisible(false);
+    setSelectedLoan(null);
+  }, []);
+
+  const handleDismissToast = useCallback(() => {
+    setToast(prev => ({ ...prev, visible: false }));
+  }, []);
+
+  if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.header, { paddingTop: insets.top + 16, backgroundColor: colors.surface }]}>
@@ -577,7 +591,7 @@ export default function LoansScreen() {
   if (error) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ErrorMessage message={error} onRetry={loadLoans} />
+        <ErrorMessage message={error} onRetry={() => refetch()} />
       </View>
     );
   }
@@ -631,7 +645,7 @@ export default function LoansScreen() {
         }
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
+            refreshing={isFetching}
             onRefresh={onRefresh}
             tintColor={colors.primary}
             colors={[colors.primary]}
@@ -643,13 +657,18 @@ export default function LoansScreen() {
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        // Performance optimizations
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        initialNumToRender={8}
       />
 
       <Toast
         visible={toast.visible}
         message={toast.message}
         type={toast.type}
-        onDismiss={() => setToast({ ...toast, visible: false })}
+        onDismiss={handleDismissToast}
       />
 
       {/* Action Sheet */}
@@ -671,10 +690,7 @@ export default function LoansScreen() {
       <NoteEditorModal
         visible={noteEditorVisible}
         onSave={handleSaveNote}
-        onClose={() => {
-          setNoteEditorVisible(false);
-          setSelectedLoan(null);
-        }}
+        onClose={handleCloseNoteEditor}
         title={`Poznamka k uveru ${selectedLoan?.name || selectedLoan?.lender || ''}`}
       />
     </View>

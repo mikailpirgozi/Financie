@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { TrendingUp, TrendingDown, ChevronDown, ChevronUp, Wallet } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -22,7 +22,7 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
-export function FinanceSummaryCollapsed({
+export const FinanceSummaryCollapsed = memo(function FinanceSummaryCollapsed({
   netWorth,
   netWorthChange,
   totalIncome,
@@ -149,7 +149,7 @@ export function FinanceSummaryCollapsed({
       </Animated.View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

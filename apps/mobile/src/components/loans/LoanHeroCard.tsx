@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import {
   AlertTriangle,
@@ -36,7 +36,11 @@ interface LoanHeroCardProps {
   onQuickPayPress?: () => void;
 }
 
-export function LoanHeroCard({
+/**
+ * LoanHeroCard - memoized pre lepší výkon
+ * Re-renderuje sa len keď sa zmenia relevantné props
+ */
+function LoanHeroCardComponent({
   totalBalance,
   totalPrincipal,
   activeCount,
@@ -503,3 +507,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
+// Export memoized component
+export const LoanHeroCard = memo(LoanHeroCardComponent);
