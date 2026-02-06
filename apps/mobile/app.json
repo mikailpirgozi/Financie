@@ -2,6 +2,7 @@
   "expo": {
     "name": "FinApp",
     "slug": "finapp",
+    "owner": "fin-fine",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -62,7 +63,7 @@
         "origin": false
       },
       "eas": {
-        "projectId": "3d1f59ee-9d99-4754-8ca4-9a56d8c37cbb"
+        "projectId": "b87a1f29-1f7f-4549-ab3c-f77e749d60e1"
       }
     }
   }
