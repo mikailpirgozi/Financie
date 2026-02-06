@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, ScrollView } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -71,106 +71,67 @@ const errorStyles = StyleSheet.create({
 });
 
 export default function RootLayout() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
-  const [initError, setInitError] = useState<string | null>(null);
+  // DEFAULTS: app renders immediately as unauthenticated with onboarding done
+  // Auth check runs in background and updates state if user IS authenticated
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(true);
+  const [isReady, setIsReady] = useState(false);
   const segments = useSegments();
   const router = useRouter();
 
-  // Initialize app - all native module calls happen INSIDE useEffect (after mount)
+  // Initialize app in background
   useEffect(() => {
-    let cleanupAuth: (() => void) | null = null;
+    let authCleanup: (() => void) | null = null;
 
-    // Timeout: if init takes > 8s, fallback to unauthenticated state
-    const timeout = setTimeout(() => {
-      console.warn('App init timeout - falling back to unauthenticated state');
-      setIsAuthenticated((prev) => prev ?? false);
-      setHasSeenOnboarding((prev) => prev ?? true);
-    }, 8000);
-
-    const init = async () => {
-      // 1. Configure notification handler (safe, after native modules ready)
+    (async () => {
+      // 1. Check onboarding
       try {
-        const { configureNotificationHandler } = require('../src/lib/notifications');
-        configureNotificationHandler();
-      } catch (err) {
-        console.warn('Notification handler setup failed:', err);
-      }
-
-      // 2. Check onboarding status
-      try {
-        const value = await AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY);
-        setHasSeenOnboarding(value === 'true');
+        const val = await AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY);
+        if (val !== 'true') setHasSeenOnboarding(false);
       } catch {
-        console.warn('Failed to check onboarding status');
-        setHasSeenOnboarding(true);
+        // keep default (true)
       }
 
-      // 3. Initialize RevenueCat (optional, don't block on failure)
-      try {
-        const { initializeSubscriptions } = require('../src/lib/subscriptions');
-        await initializeSubscriptions();
-      } catch (err) {
-        console.warn('Subscriptions init failed:', err);
-      }
-
-      // 4. Check auth session (with own timeout)
+      // 2. Check auth
       try {
         const { supabase } = require('../src/lib/supabase');
+        const { data } = await supabase.auth.getSession();
+        if (data?.session) setIsAuthenticated(true);
 
-        const sessionResult = await Promise.race([
-          supabase.auth.getSession(),
-          new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
-        ]);
-
-        if (sessionResult && sessionResult.data) {
-          setIsAuthenticated(!!sessionResult.data.session);
-        } else {
-          console.warn('getSession timed out');
-          setIsAuthenticated(false);
-        }
-
-        // Listen for auth changes
+        // Listen for future changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
           (_event: string, session: { user: unknown } | null) => {
             setIsAuthenticated(!!session);
-
-            if (session) {
-              import('../src/lib/notifications')
-                .then(({ registerForPushNotifications }) =>
-                  registerForPushNotifications()
-                )
-                .catch((err) =>
-                  console.warn('Push notification registration failed:', err)
-                );
-            }
           }
         );
-
-        cleanupAuth = () => subscription.unsubscribe();
+        authCleanup = () => subscription.unsubscribe();
       } catch (err) {
-        console.error('Auth init failed:', err);
-        setIsAuthenticated(false);
+        console.warn('Auth check failed:', err);
       }
 
-      clearTimeout(timeout);
-    };
+      // 3. Notifications (fire and forget)
+      try {
+        const { configureNotificationHandler } = require('../src/lib/notifications');
+        configureNotificationHandler();
+      } catch {
+        // optional
+      }
 
-    init().catch((err) => {
-      console.error('App init failed:', err);
-      setInitError(err instanceof Error ? err.message : String(err));
-      setIsAuthenticated(false);
-      setHasSeenOnboarding(true);
-      clearTimeout(timeout);
-    });
+      // 4. RevenueCat (fire and forget)
+      try {
+        const { initializeSubscriptions } = require('../src/lib/subscriptions');
+        initializeSubscriptions().catch(() => {});
+      } catch {
+        // optional
+      }
 
-    return () => {
-      clearTimeout(timeout);
-      cleanupAuth?.();
-    };
+      setIsReady(true);
+    })();
+
+    return () => authCleanup?.();
   }, []);
 
-  // Handle notification taps (lazy import)
+  // Handle notification taps
   useEffect(() => {
     let sub: { remove: () => void } | null = null;
     try {
@@ -183,41 +144,20 @@ export default function RootLayout() {
           }
         }
       );
-    } catch (err) {
-      console.warn('Notification listener setup failed:', err);
+    } catch {
+      // optional
     }
-
     return () => sub?.remove();
   }, [router]);
 
-  // Refresh onboarding status when segments change
+  // Routing: redirect based on auth state (only after init is done)
   useEffect(() => {
-    const refreshOnboardingStatus = async () => {
-      try {
-        const value = await AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY);
-        const completed = value === 'true';
-        if (completed !== hasSeenOnboarding) {
-          setHasSeenOnboarding(completed);
-        }
-      } catch (error) {
-        console.error('Failed to refresh onboarding status:', error);
-      }
-    };
-
-    if (segments[0] === '(auth)') {
-      refreshOnboardingStatus();
-    }
-  }, [segments]);
-
-  useEffect(() => {
-    if (isAuthenticated === null || hasSeenOnboarding === null) return;
+    if (!isReady) return;
 
     const inAuthGroup = segments[0] === '(auth)';
     const currentRoute = segments[segments.length - 1];
 
-    if (currentRoute === 'onboarding') {
-      return;
-    }
+    if (currentRoute === 'onboarding') return;
 
     if (!hasSeenOnboarding && currentRoute !== 'onboarding') {
       router.replace('/(auth)/onboarding');
@@ -231,31 +171,21 @@ export default function RootLayout() {
         router.replace('/(tabs)');
       }
     }
-  }, [isAuthenticated, hasSeenOnboarding, segments]);
+  }, [isAuthenticated, hasSeenOnboarding, isReady, segments]);
 
-  // Show env or init error screen instead of blank white screen
-  if (envError || initError) {
+  // Show env error screen
+  if (envError) {
     return (
       <View style={errorStyles.container}>
-        <Text style={errorStyles.title}>
-          {envError ? 'Chyba konfigurácie' : 'Chyba pri štarte'}
-        </Text>
+        <Text style={errorStyles.title}>Chyba konfigurácie</Text>
         <ScrollView style={errorStyles.scroll}>
-          <Text style={errorStyles.message}>{envError ?? initError}</Text>
+          <Text style={errorStyles.message}>{envError}</Text>
         </ScrollView>
       </View>
     );
   }
 
-  // Show loading while checking auth/onboarding (prevents blank screen)
-  if (isAuthenticated === null || hasSeenOnboarding === null) {
-    return (
-      <View style={errorStyles.container}>
-        <ActivityIndicator size="large" color="#8B5CF6" />
-      </View>
-    );
-  }
-
+  // ALWAYS render the router - no loading screen, no blocking
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
@@ -279,4 +209,3 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-
