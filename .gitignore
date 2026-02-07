@@ -46,10 +46,13 @@ dist/
 web-build/
 
 # Expo CNG (Continuous Native Generation)
-# NOTE: ios/ and android/ are tracked because the project has custom native config
-# If you switch to pure CNG, uncomment these:
-# apps/mobile/ios/
-# apps/mobile/android/
+apps/mobile/ios/
+apps/mobile/android/
+
+# Build artifacts
+*.ipa
+*.apk
+*.aab
 
 # Supabase
 supabase/.branches

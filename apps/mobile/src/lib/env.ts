@@ -1,10 +1,8 @@
 /**
  * Environment variable validation for mobile app.
  *
- * NOTE: Manual validation instead of Zod because Zod v4 crashes in
- * Hermes standalone builds (accesses navigator.userAgent which doesn't
- * exist in React Native runtime). Zod is still used elsewhere in the app
- * where it runs lazily (not at module-load time).
+ * Manual validation — avoids importing Zod at the module-scope
+ * entry-point chain to keep startup lightweight.
  */
 
 interface Env {

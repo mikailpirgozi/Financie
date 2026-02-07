@@ -37,6 +37,9 @@ class ErrorBoundary extends React.Component<
             <Text style={errorStyles.message}>
               {this.state.error?.message ?? 'Neznáma chyba'}
             </Text>
+            <Text style={errorStyles.stack}>
+              {this.state.error?.stack ?? ''}
+            </Text>
           </ScrollView>
         </View>
       );
@@ -68,6 +71,12 @@ const errorStyles = StyleSheet.create({
     color: '#666',
     fontFamily: 'monospace',
   },
+  stack: {
+    fontSize: 10,
+    color: '#999',
+    fontFamily: 'monospace',
+    marginTop: 8,
+  },
 });
 
 export default function RootLayout() {
@@ -76,6 +85,7 @@ export default function RootLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(true);
   const [isReady, setIsReady] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
   const segments = useSegments();
   const router = useRouter();
 
@@ -126,7 +136,11 @@ export default function RootLayout() {
       }
 
       setIsReady(true);
-    })();
+    })().catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message + '\n' + err.stack : String(err);
+      setInitError(msg);
+      setIsReady(true);
+    });
 
     return () => authCleanup?.();
   }, []);
@@ -174,12 +188,14 @@ export default function RootLayout() {
   }, [isAuthenticated, hasSeenOnboarding, isReady, segments]);
 
   // Show env error screen
-  if (envError) {
+  if (envError || initError) {
     return (
       <View style={errorStyles.container}>
-        <Text style={errorStyles.title}>Chyba konfigurácie</Text>
+        <Text style={errorStyles.title}>
+          {envError ? 'Chyba konfigurácie' : 'Chyba inicializácie'}
+        </Text>
         <ScrollView style={errorStyles.scroll}>
-          <Text style={errorStyles.message}>{envError}</Text>
+          <Text style={errorStyles.message}>{envError ?? initError}</Text>
         </ScrollView>
       </View>
     );

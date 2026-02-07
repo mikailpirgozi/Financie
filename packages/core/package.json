@@ -11,12 +11,12 @@
     "test:watch": "vitest",
     "clean": "rm -rf dist node_modules"
   },
-  "dependencies": {
-    "zod": "^4.3.5"
-  },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^5.7.0",
     "vitest": "^4.0.17"
+  },
+  "dependencies": {
+    "zod": "^4.3.5"
   }
 }

@@ -13,7 +13,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '@/lib/form';
 import { createLoanSchema } from '@finapp/core';
 import { FormInput } from '@/components/forms/FormInput';
 import { FormDatePicker } from '@/components/forms/FormDatePicker';

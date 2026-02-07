@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '@/lib/form';
 import { z } from 'zod';
 import { FormDatePicker } from '@/components/forms/FormDatePicker';
 import { CurrencyInput } from '@/components/forms/CurrencyInput';

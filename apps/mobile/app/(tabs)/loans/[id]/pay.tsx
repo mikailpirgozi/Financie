@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '@/lib/form';
 import { z } from 'zod';
 import { Calendar, CreditCard, StickyNote, AlertTriangle, Info } from 'lucide-react-native';
 import { FormDatePicker } from '@/components/forms/FormDatePicker';
