@@ -1,9 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { 
-  getCurrentHousehold, 
-  getDashboardData,
-  getDashboardFull,
-} from '../lib/api';
+import { getCurrentHousehold, getDashboardData, getDashboardFull } from '../lib/api';
 import { queryKeys } from '../lib/queryClient';
 import { supabase } from '../lib/supabase';
 
@@ -37,9 +33,10 @@ export function useOverdueCount(householdId: string) {
   return useQuery({
     queryKey: queryKeys.overdue(householdId),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .rpc('count_overdue_installments', { p_household_id: householdId });
-      
+      const { data, error } = await supabase.rpc('count_overdue_installments', {
+        p_household_id: householdId,
+      });
+
       if (error) throw error;
       return data ?? 0;
     },
@@ -51,7 +48,7 @@ export function useOverdueCount(householdId: string) {
 /**
  * 🚀 OPTIMALIZOVANÁ VERZIA: Hook pre kompletný dashboard
  * Používa nový /api/dashboard-full endpoint = 1 request namiesto 3+
- * 
+ *
  * Výhody:
  * - Rýchlejšie načítavanie (1 HTTP request)
  * - Menej network overhead
@@ -59,27 +56,35 @@ export function useOverdueCount(householdId: string) {
  * - Automatický retry a error handling
  */
 export function useDashboardFull(monthsCount: number = 6, includeRecent: boolean = false) {
+  // Zdielany household query (5 min cache) – garantuje ze householdId
+  // bude v queryKey aj cez switch household / re-login.
+  const householdQuery = useCurrentHousehold();
+  const householdId = householdQuery.data?.id;
+
   const query = useQuery({
-    queryKey: ['dashboard-full', monthsCount, includeRecent],
+    queryKey: householdId
+      ? ['dashboard-full', householdId, monthsCount, includeRecent]
+      : ['dashboard-full', 'no-household', monthsCount, includeRecent],
+    enabled: !!householdId,
     queryFn: () => getDashboardFull(monthsCount, includeRecent),
-    staleTime: 30 * 1000, // 30 seconds
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
-  
+
   return {
-    household: query.data?.household,
+    household: query.data?.household ?? householdQuery.data,
     dashboard: query.data?.dashboard,
     overdueCount: query.data?.overdueCount ?? 0,
     recentTransactions: query.data?.recentTransactions,
-    
-    isLoading: query.isLoading,
-    error: query.error,
-    
+
+    isLoading: householdQuery.isLoading || query.isLoading,
+    error: householdQuery.error ?? query.error,
+
     // Legacy compatibility
-    householdLoading: query.isLoading,
+    householdLoading: householdQuery.isLoading,
     dashboardLoading: query.isLoading,
     overdueLoading: query.isLoading,
-    
+
     refetch: query.refetch,
     refetchDashboard: query.refetch,
   };
@@ -92,24 +97,19 @@ export function useDashboardFull(monthsCount: number = 6, includeRecent: boolean
 export function useDashboardFullLegacy(monthsCount: number = 6) {
   // 1. Načítaj household najskôr (potrebujeme ID)
   const householdQuery = useCurrentHousehold();
-  
+
   // 2. Paralelne načítaj dashboard data a overdue count
-  const dashboardQuery = useDashboard(
-    householdQuery.data?.id ?? '', 
-    monthsCount
-  );
-  
-  const overdueQuery = useOverdueCount(
-    householdQuery.data?.id ?? ''
-  );
-  
+  const dashboardQuery = useDashboard(householdQuery.data?.id ?? '', monthsCount);
+
+  const overdueQuery = useOverdueCount(householdQuery.data?.id ?? '');
+
   // Aggregate loading state
-  const isLoading = householdQuery.isLoading || 
-    (householdQuery.isSuccess && dashboardQuery.isLoading);
-  
+  const isLoading =
+    householdQuery.isLoading || (householdQuery.isSuccess && dashboardQuery.isLoading);
+
   // Aggregate error state
   const error = householdQuery.error || dashboardQuery.error || overdueQuery.error;
-  
+
   // Výsledok
   return {
     household: householdQuery.data,
@@ -117,12 +117,12 @@ export function useDashboardFullLegacy(monthsCount: number = 6) {
     overdueCount: overdueQuery.data ?? 0,
     isLoading,
     error,
-    
+
     // Individual states pre fine-grained control
     householdLoading: householdQuery.isLoading,
     dashboardLoading: dashboardQuery.isLoading,
     overdueLoading: overdueQuery.isLoading,
-    
+
     // Refetch functions
     refetch: () => {
       householdQuery.refetch();
@@ -139,7 +139,7 @@ export function useDashboardFullLegacy(monthsCount: number = 6) {
  */
 export function usePrefetchDashboard() {
   const queryClient = useQueryClient();
-  
+
   return async (householdId: string, monthsCount: number = 6) => {
     await Promise.all([
       queryClient.prefetchQuery({
@@ -149,9 +149,10 @@ export function usePrefetchDashboard() {
       queryClient.prefetchQuery({
         queryKey: queryKeys.overdue(householdId),
         queryFn: async () => {
-          const { data, error } = await supabase
-            .rpc('count_overdue_installments', { p_household_id: householdId });
-          
+          const { data, error } = await supabase.rpc('count_overdue_installments', {
+            p_household_id: householdId,
+          });
+
           if (error) throw error;
           return data ?? 0;
         },
@@ -159,4 +160,3 @@ export function usePrefetchDashboard() {
     ]);
   };
 }
-

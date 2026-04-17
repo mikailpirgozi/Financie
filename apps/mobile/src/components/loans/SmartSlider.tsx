@@ -1,6 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, Keyboard } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import Slider from '@react-native-community/slider';
+import * as Haptics from 'expo-haptics';
+import { clampNumber } from '@finapp/core';
+import { useTheme } from '../../contexts';
+import { NumericInput } from '../forms/NumericInput';
 
 interface SmartSliderProps {
   label: string;
@@ -10,13 +14,28 @@ interface SmartSliderProps {
   maximumValue: number;
   step?: number;
   suffix?: string;
+  currency?: string;
   formatDisplay?: (value: number) => string;
   disabled?: boolean;
+  helperText?: string;
+  /** Number of decimal places shown in the manual input. Defaults based on step. */
+  decimals?: number;
+  /** Optional preset chips rendered above the slider. */
+  presets?: { label: string; value: number }[];
+  /** Accessibility label for the slider handle. */
+  accessibilityLabel?: string;
 }
 
 /**
- * Smart slider with synced manual input for mobile
- * Optimized with throttled slider updates to prevent lag
+ * Smart slider with synced locale-aware manual input.
+ *
+ * Improvements over the legacy implementation:
+ * - Slider updates parent on every tick (no 200ms throttle) — preview updates live
+ * - Manual input emits numeric values on every keystroke (not only blur)
+ * - Haptic feedback on slider release and preset taps
+ * - Theme-aware colours (works in dark mode)
+ * - Accepts sk-SK comma decimals via shared locale-aware parser
+ * - Accessible (adjustable role with value)
  */
 export const SmartSlider = React.memo(function SmartSlider({
   label,
@@ -26,89 +45,121 @@ export const SmartSlider = React.memo(function SmartSlider({
   maximumValue,
   step = 1,
   suffix = '',
+  currency,
   formatDisplay,
   disabled = false,
+  helperText,
+  decimals,
+  presets,
+  accessibilityLabel,
 }: SmartSliderProps) {
-  // Ensure value is a valid number (prevent crash on undefined/NaN)
-  const safeValue = typeof value === 'number' && !isNaN(value) ? value : minimumValue;
-  
-  const [inputValue, setInputValue] = useState(
-    step < 1 ? safeValue.toFixed(2) : safeValue.toString()
-  );
+  const { theme } = useTheme();
+  const colors = theme.colors;
+
+  const safeValue = typeof value === 'number' && Number.isFinite(value) ? value : minimumValue;
+  const effectiveDecimals = decimals ?? (step < 1 ? 2 : 0);
+
   const [sliderValue, setSliderValue] = useState(safeValue);
-  const lastUpdateRef = useRef<number>(Date.now());
+  const lastHapticRef = useRef<number>(0);
 
   useEffect(() => {
-    const safe = typeof value === 'number' && !isNaN(value) ? value : minimumValue;
-    setInputValue(step < 1 ? safe.toFixed(2) : safe.toString());
+    const safe = typeof value === 'number' && Number.isFinite(value) ? value : minimumValue;
     setSliderValue(safe);
-  }, [value, step, minimumValue]);
+  }, [value, minimumValue]);
 
-  // Update parent every 200ms while sliding (throttled) + show local state immediately
-  // Note: Extra defensive checks for Hermes production builds
-  const handleSliderChange = useCallback((newValue: number) => {
-    // Defensive: ensure newValue is a valid number
-    if (typeof newValue !== 'number' || isNaN(newValue)) return;
-    
-    setSliderValue(newValue); // Immediate visual feedback
-    
-    const now = Date.now();
-    if (now - lastUpdateRef.current > 200) {
-      lastUpdateRef.current = now;
+  const handleSliderChange = useCallback(
+    (newValue: number) => {
+      if (typeof newValue !== 'number' || Number.isNaN(newValue)) return;
+      setSliderValue(newValue); // immediate visual feedback
       try {
-        onValueChange(newValue); // Throttled parent update
+        onValueChange(newValue);
       } catch (e) {
         console.warn('SmartSlider onValueChange error:', e);
       }
-    }
-  }, [onValueChange]);
+      // Light haptic every ~10 steps of change
+      const now = Date.now();
+      if (now - lastHapticRef.current > 100) {
+        lastHapticRef.current = now;
+        Haptics.selectionAsync().catch(() => {});
+      }
+    },
+    [onValueChange]
+  );
 
-  // Final update when releasing slider
-  const handleSliderComplete = useCallback((newValue: number) => {
-    // Defensive: ensure newValue is a valid number
-    if (typeof newValue !== 'number' || isNaN(newValue)) return;
-    
-    setSliderValue(newValue);
-    try {
-      onValueChange(newValue);
-    } catch (e) {
-      console.warn('SmartSlider onSlidingComplete error:', e);
-    }
-    lastUpdateRef.current = Date.now();
-  }, [onValueChange]);
+  const handleSliderComplete = useCallback(
+    (newValue: number) => {
+      if (typeof newValue !== 'number' || Number.isNaN(newValue)) return;
+      setSliderValue(newValue);
+      try {
+        onValueChange(newValue);
+      } catch (e) {
+        console.warn('SmartSlider onSlidingComplete error:', e);
+      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    },
+    [onValueChange]
+  );
 
-  const handleInputChange = (text: string) => {
-    setInputValue(text);
-  };
+  const handleManualChange = useCallback(
+    (next: number | null) => {
+      if (next === null) return;
+      const clamped = clampNumber(next, minimumValue, maximumValue) ?? minimumValue;
+      setSliderValue(clamped);
+      onValueChange(clamped);
+    },
+    [minimumValue, maximumValue, onValueChange]
+  );
 
-  const handleInputBlur = () => {
-    const parsed = parseFloat(inputValue);
-    if (!isNaN(parsed)) {
-      const clamped = Math.max(minimumValue, Math.min(maximumValue, parsed));
-      // Always round to 2 decimal places (cent precision) for manual input
-      const rounded = Number(clamped.toFixed(2));
-      onValueChange(rounded);
-      setInputValue(rounded.toString());
-    } else {
-      setInputValue(value.toString());
-    }
-  };
+  const handlePresetPress = useCallback(
+    (presetValue: number) => {
+      const clamped = clampNumber(presetValue, minimumValue, maximumValue) ?? presetValue;
+      setSliderValue(clamped);
+      onValueChange(clamped);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    },
+    [minimumValue, maximumValue, onValueChange]
+  );
 
-  // Show slider value during dragging, otherwise show committed value
   const displayValue = formatDisplay
     ? formatDisplay(sliderValue)
-    : `${sliderValue.toLocaleString('sk-SK')}${suffix}`;
+    : `${sliderValue.toLocaleString('sk-SK', { maximumFractionDigits: effectiveDecimals })}${suffix}`;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      {label ? <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text> : null}
 
-      {/* Display value */}
-      <View style={styles.valueBox}>
-        <Text style={styles.valueText}>{displayValue}</Text>
+      <View
+        style={[styles.valueBox, { backgroundColor: colors.surfaceElevated ?? colors.surface }]}
+      >
+        <Text style={[styles.valueText, { color: colors.text }]}>{displayValue}</Text>
       </View>
 
-      {/* Slider with throttled updates */}
+      {presets && presets.length > 0 ? (
+        <View style={styles.presetRow}>
+          {presets.map((p) => {
+            const active = Math.abs(p.value - sliderValue) < step / 2;
+            return (
+              <Text
+                key={p.value}
+                onPress={disabled ? undefined : () => handlePresetPress(p.value)}
+                style={[
+                  styles.presetChip,
+                  {
+                    backgroundColor: active ? colors.primary : colors.surface,
+                    borderColor: active ? colors.primary : colors.border,
+                    color: active ? colors.textInverse : colors.textSecondary,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`${label} preset ${p.label}`}
+              >
+                {p.label}
+              </Text>
+            );
+          })}
+        </View>
+      ) : null}
+
       <Slider
         style={styles.slider}
         minimumValue={minimumValue}
@@ -117,42 +168,34 @@ export const SmartSlider = React.memo(function SmartSlider({
         value={sliderValue}
         onValueChange={handleSliderChange}
         onSlidingComplete={handleSliderComplete}
-        minimumTrackTintColor="#8b5cf6"
-        maximumTrackTintColor="#e5e7eb"
-        thumbTintColor="#8b5cf6"
+        minimumTrackTintColor={colors.primary}
+        maximumTrackTintColor={colors.border}
+        thumbTintColor={colors.primary}
         disabled={disabled}
+        accessibilityLabel={accessibilityLabel ?? label}
+        accessibilityValue={{ min: minimumValue, max: maximumValue, now: sliderValue }}
       />
 
-      {/* Min/Max labels */}
       <View style={styles.rangeLabels}>
-        <Text style={styles.rangeLabel}>
+        <Text style={[styles.rangeLabel, { color: colors.textMuted }]}>
           {formatDisplay ? formatDisplay(minimumValue) : `${minimumValue}${suffix}`}
         </Text>
-        <Text style={styles.rangeLabel}>
+        <Text style={[styles.rangeLabel, { color: colors.textMuted }]}>
           {formatDisplay ? formatDisplay(maximumValue) : `${maximumValue}${suffix}`}
         </Text>
       </View>
 
-      {/* Manual input */}
-      <View style={styles.manualInput}>
-        <Text style={styles.manualLabel}>alebo manuálne:</Text>
-        <TextInput
-          style={styles.input}
-          value={inputValue}
-          onChangeText={handleInputChange}
-          onBlur={handleInputBlur}
-          keyboardType="decimal-pad"
-          editable={!disabled}
-          placeholder={step < 1 ? '0.00' : '0'}
-          placeholderTextColor="#9ca3af"
-          returnKeyType="done"
-          onSubmitEditing={() => {
-            Keyboard.dismiss();
-            handleInputBlur();
-          }}
-        />
-        {suffix && <Text style={styles.suffix}>{suffix}</Text>}
-      </View>
+      <NumericInput
+        value={sliderValue}
+        onChangeValue={handleManualChange}
+        min={minimumValue}
+        max={maximumValue}
+        decimals={effectiveDecimals}
+        suffix={suffix}
+        currency={currency}
+        helperText={helperText}
+        containerStyle={styles.manualInputContainer}
+      />
     </View>
   );
 });
@@ -164,20 +207,17 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#374151',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   valueBox: {
-    backgroundColor: '#f3f4f6',
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
     alignItems: 'center',
     marginBottom: 12,
   },
   valueText: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#111827',
   },
   slider: {
     width: '100%',
@@ -190,30 +230,24 @@ const styles = StyleSheet.create({
   },
   rangeLabel: {
     fontSize: 11,
-    color: '#6b7280',
   },
-  manualInput: {
+  presetRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
   },
-  manualLabel: {
+  presetChip: {
     fontSize: 12,
-    color: '#6b7280',
-  },
-  input: {
-    flex: 1,
+    fontWeight: '600',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
-    backgroundColor: '#ffffff',
+    overflow: 'hidden',
   },
-  suffix: {
-    fontSize: 12,
-    color: '#6b7280',
+  manualInputContainer: {
+    marginTop: 4,
+    marginBottom: 0,
   },
 });
-

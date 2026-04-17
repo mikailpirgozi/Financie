@@ -1,95 +1,72 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Control, FieldValues, Path, useWatch } from 'react-hook-form';
-import { TextInputProps, ViewStyle, Text } from 'react-native';
-import { Input } from '@/components/ui/Input';
-import { FormField } from './FormField';
+import React from 'react';
+import { Controller, Control, FieldValues, Path } from 'react-hook-form';
+import { ViewStyle } from 'react-native';
+import { NumericInput, NumericInputProps } from './NumericInput';
 
-interface CurrencyInputProps<T extends FieldValues> extends Omit<TextInputProps, 'value' | 'onChangeText'> {
+interface CurrencyInputProps<T extends FieldValues> extends Omit<
+  NumericInputProps,
+  'value' | 'onChangeValue' | 'error' | 'currency' | 'decimals'
+> {
   control: Control<T>;
   name: Path<T>;
   label?: string;
   currency?: string;
   containerStyle?: ViewStyle;
+  /** Whether empty input should be stored as 0 (default) or null. */
+  emptyIsZero?: boolean;
+  decimals?: number;
 }
 
+/**
+ * Currency form input (react-hook-form integrated).
+ *
+ * Backwards-compatible wrapper around the new locale-aware NumericInput.
+ * Accepts both `.` and `,` as decimal separators, formats thousand separators
+ * when blurred, and emits numeric values to the form (not strings).
+ */
 export function CurrencyInput<T extends FieldValues>({
   control,
   name,
   label,
   currency = '€',
   containerStyle,
-  ...textInputProps
+  emptyIsZero = true,
+  decimals = 2,
+  min = 0,
+  ...rest
 }: CurrencyInputProps<T>) {
-  const [displayValue, setDisplayValue] = useState('');
-  const fieldValue = useWatch({ control, name });
-  const isUserInput = useRef(false);
-
-  const formatCurrency = (value: string): string => {
-    // Remove all non-digit characters except decimal point
-    const numericValue = value.replace(/[^\d.]/g, '');
-    
-    // Ensure only one decimal point
-    const parts = numericValue.split('.');
-    if (parts.length > 2) {
-      return displayValue;
-    }
-
-    // Format with thousands separator
-    if (parts[0]) {
-      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-    }
-
-    return parts.join('.');
-  };
-
-  const parseValue = (formattedValue: string): number => {
-    const numericValue = formattedValue.replace(/\s/g, '');
-    return parseFloat(numericValue) || 0;
-  };
-
-  // Initialize display value from field value
-  useEffect(() => {
-    if (!isUserInput.current && fieldValue && !displayValue) {
-      setDisplayValue(formatCurrency(fieldValue.toString()));
-    }
-  }, [fieldValue]);
-
   return (
-    <FormField
+    <Controller
       control={control}
       name={name}
-      containerStyle={containerStyle}
       render={({ field, fieldState }) => {
+        const numericValue =
+          field.value === null || field.value === undefined || field.value === ''
+            ? null
+            : typeof field.value === 'number'
+              ? field.value
+              : Number(field.value);
+
         return (
-          <Input
+          <NumericInput
+            {...rest}
             label={label}
-            value={displayValue}
-            onChangeText={(text) => {
-              isUserInput.current = true;
-              const formatted = formatCurrency(text);
-              setDisplayValue(formatted);
-              const parsed = parseValue(formatted);
-              field.onChange(parsed as T[typeof name]);
-            }}
-            onBlur={() => {
-              field.onBlur();
-              isUserInput.current = false;
-              // Format on blur
-              if (displayValue) {
-                const parsed = parseValue(displayValue);
-                const formatted = formatCurrency(parsed.toFixed(2));
-                setDisplayValue(formatted);
+            containerStyle={containerStyle}
+            currency={currency}
+            decimals={decimals}
+            min={min}
+            value={numericValue}
+            onChangeValue={(next) => {
+              if (next === null) {
+                field.onChange(emptyIsZero ? 0 : null);
+              } else {
+                field.onChange(next);
               }
             }}
             error={fieldState.error?.message}
-            keyboardType="decimal-pad"
-            rightIcon={<Text style={{ fontSize: 16, color: '#6b7280' }}>{currency}</Text>}
-            placeholder="0.00"
-            {...textInputProps}
           />
         );
       }}
     />
   );
 }
-

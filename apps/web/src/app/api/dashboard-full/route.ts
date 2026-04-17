@@ -21,13 +21,13 @@ interface MonthlySummaryData {
 
 /**
  * 🚀 OPTIMALIZOVANÝ ENDPOINT: dashboard-full
- * 
+ *
  * Vráti všetky dashboard data v jednom requeste:
  * - Household info
  * - Dashboard KPI data (current + history)
  * - Overdue installments count
  * - Recent transactions (optional)
- * 
+ *
  * Výhody:
  * - 1 HTTP request namiesto 3-4
  * - Paralelné DB queries
@@ -37,7 +37,9 @@ interface MonthlySummaryData {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -55,10 +57,7 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (membershipError || !membership) {
-      return NextResponse.json(
-        { error: 'No household found for user' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'No household found for user' }, { status: 404 });
     }
 
     // Handle both array and direct object formats
@@ -66,23 +65,20 @@ export async function GET(request: NextRequest) {
     const householdData: HouseholdData = Array.isArray(membership.households)
       ? membership.households[0]
       : (membership.households as HouseholdData);
-    
+
     if (!householdData || !householdData.id) {
-      return NextResponse.json(
-        { error: 'No household found for user' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'No household found for user' }, { status: 404 });
     }
-    
+
     const householdId = householdData.id;
 
     // 2. Paralelne načítaj všetky potrebné dáta
     const [summariesData, overdueResult, recentTransactions] = await Promise.all([
       // 🚀 OPTIMALIZOVANÉ: Dashboard summaries z materialized view (ak existuje)
       supabase
-        .rpc('get_household_dashboard_summary', { 
+        .rpc('get_household_dashboard_summary', {
           p_household_id: householdId,
-          p_months_count: monthsCount 
+          p_months_count: monthsCount,
         })
         .then(({ data, error }) => {
           if (error || !data || data.length === 0) {
@@ -91,12 +87,12 @@ export async function GET(request: NextRequest) {
           }
           return data;
         }),
-      
+
       // Overdue count
       supabase
         .rpc('count_overdue_installments', { p_household_id: householdId })
-        .then(({ data, error }) => (error ? 0 : data ?? 0)),
-      
+        .then(({ data, error }) => (error ? 0 : (data ?? 0))),
+
       // Recent transactions (optional)
       includeRecent
         ? supabase
@@ -171,7 +167,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response, {
       headers: {
-        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+        // User-bound payload – never cache on shared CDN.
+        // Browser may keep a short private copy.
+        'Cache-Control': 'private, max-age=15, must-revalidate',
       },
     });
   } catch (error) {
@@ -193,36 +191,34 @@ async function calculateDashboardDataDynamic(
 ): Promise<MonthlySummaryData[]> {
   const now = new Date();
   const months: string[] = [];
-  
+
   for (let i = 0; i < monthsCount; i++) {
     const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
     months.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
   }
 
-  // Paralelné queries pre všetky potrebné dáta
-  const [incomesResult, expensesResult, metricsResult, assetsResult] =
-    await Promise.all([
-      supabaseClient
-        .from('incomes')
-        .select('date, amount')
-        .eq('household_id', householdId)
-        .gte('date', `${months[months.length - 1]}-01`)
-        .lte('date', `${months[0]}-31`),
-      
-      supabaseClient
-        .from('expenses')
-        .select('date, amount')
-        .eq('household_id', householdId)
-        .gte('date', `${months[months.length - 1]}-01`)
-        .lte('date', `${months[0]}-31`),
-      
-      supabaseClient.from('loan_metrics').select('*'),
-      
-      supabaseClient
-        .from('assets')
-        .select('current_value')
-        .eq('household_id', householdId),
-    ]);
+  // Paralelné queries pre všetky potrebné dáta.
+  // SECURITY: loan_metrics MV nemá RLS, preto filtrujeme cez household_id
+  // (a používame v_loan_metrics security_invoker view ako defense-in-depth).
+  const [incomesResult, expensesResult, metricsResult, assetsResult] = await Promise.all([
+    supabaseClient
+      .from('incomes')
+      .select('date, amount')
+      .eq('household_id', householdId)
+      .gte('date', `${months[months.length - 1]}-01`)
+      .lte('date', `${months[0]}-31`),
+
+    supabaseClient
+      .from('expenses')
+      .select('date, amount')
+      .eq('household_id', householdId)
+      .gte('date', `${months[months.length - 1]}-01`)
+      .lte('date', `${months[0]}-31`),
+
+    supabaseClient.from('v_loan_metrics').select('current_balance').eq('household_id', householdId),
+
+    supabaseClient.from('assets').select('current_value').eq('household_id', householdId),
+  ]);
 
   const incomes = incomesResult.data || [];
   const expenses = expensesResult.data || [];
@@ -233,10 +229,20 @@ async function calculateDashboardDataDynamic(
     const monthStart = `${month}-01`;
     const monthEnd = `${month}-31`;
 
-    interface IncomeRecord { date: string; amount: number }
-    interface ExpenseRecord { date: string; amount: number }
-    interface MetricRecord { current_balance?: number }
-    interface AssetRecord { current_value: number }
+    interface IncomeRecord {
+      date: string;
+      amount: number;
+    }
+    interface ExpenseRecord {
+      date: string;
+      amount: number;
+    }
+    interface MetricRecord {
+      current_balance?: number;
+    }
+    interface AssetRecord {
+      current_value: number;
+    }
 
     const monthIncomes = (incomes as IncomeRecord[]).filter(
       (i: IncomeRecord) => i.date >= monthStart && i.date <= monthEnd
@@ -280,4 +286,3 @@ async function calculateDashboardDataDynamic(
 
   return summaryByMonth;
 }
-

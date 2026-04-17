@@ -21,25 +21,31 @@ export async function createIncome(input: CreateIncomeInput) {
   return data;
 }
 
-export async function getIncomes(householdId: string, filters?: {
-  startDate?: Date;
-  endDate?: Date;
-  categoryId?: string;
-}) {
+const INCOMES_DEFAULT_LIMIT = 200;
+
+export async function getIncomes(
+  householdId: string,
+  filters?: {
+    startDate?: Date;
+    endDate?: Date;
+    categoryId?: string;
+    /** Override default limit (max 1000). */
+    limit?: number;
+    /** 0-based offset pre stránkovanie. */
+    offset?: number;
+  }
+) {
   const supabase = await createClient();
+
+  const limit = Math.min(filters?.limit ?? INCOMES_DEFAULT_LIMIT, 1000);
+  const offset = filters?.offset ?? 0;
 
   let query = supabase
     .from('incomes')
-    .select(`
-      *,
-      categories (
-        id,
-        name,
-        kind
-      )
-    `)
+    .select(`*, categories (id, name, kind)`)
     .eq('household_id', householdId)
-    .order('date', { ascending: false });
+    .order('date', { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (filters?.startDate) {
     query = query.gte('date', filters.startDate.toISOString().split('T')[0]);
@@ -64,14 +70,16 @@ export async function getIncome(incomeId: string) {
 
   const { data, error } = await supabase
     .from('incomes')
-    .select(`
+    .select(
+      `
       *,
       categories (
         id,
         name,
         kind
       )
-    `)
+    `
+    )
     .eq('id', incomeId)
     .single();
 
@@ -79,10 +87,7 @@ export async function getIncome(incomeId: string) {
   return data;
 }
 
-export async function updateIncome(
-  incomeId: string,
-  updates: Partial<CreateIncomeInput>
-) {
+export async function updateIncome(incomeId: string, updates: Partial<CreateIncomeInput>) {
   const supabase = await createClient();
 
   const updateData: Record<string, unknown> = {};
@@ -117,11 +122,7 @@ export async function updateIncome(
 export async function deleteIncome(incomeId: string) {
   const supabase = await createClient();
 
-  const { error } = await supabase
-    .from('incomes')
-    .delete()
-    .eq('id', incomeId);
+  const { error } = await supabase.from('incomes').delete().eq('id', incomeId);
 
   if (error) throw error;
 }
-

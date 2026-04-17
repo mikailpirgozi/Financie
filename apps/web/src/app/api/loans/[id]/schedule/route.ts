@@ -11,10 +11,7 @@ const querySchema = z.object({
   status: z.enum(['paid', 'pending', 'overdue']).optional(),
 });
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: loanId } = await params;
     const supabase = await createClient();
@@ -46,8 +43,8 @@ export async function GET(
         .range((page - 1) * limit, page * limit - 1)
         .order('installment_no', { ascending: true }),
 
-      // Metriky z materialized view (instant)
-      supabase.from('loan_metrics').select('*').eq('loan_id', loanId).single(),
+      // Metriky z security_invoker view (filtruje podľa membership)
+      supabase.from('v_loan_metrics').select('*').eq('loan_id', loanId).single(),
     ]);
 
     if (scheduleResult.error) throw scheduleResult.error;
@@ -63,9 +60,8 @@ export async function GET(
       },
       {
         headers: {
-          // Vercel Edge Cache (CDN layer)
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
-          'CDN-Cache-Control': 'public, s-maxage=60',
+          // SECURITY: per-user dáta – nikdy public na CDN
+          'Cache-Control': 'private, max-age=30, must-revalidate',
         },
       }
     );
@@ -73,8 +69,7 @@ export async function GET(
     console.error('GET /api/loans/[id]/schedule error:', error);
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : 'Internal server error',
+        error: error instanceof Error ? error.message : 'Internal server error',
       },
       { status: 500 }
     );

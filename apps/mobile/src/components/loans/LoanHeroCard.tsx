@@ -75,12 +75,12 @@ function LoanHeroCardComponent({
         useNativeDriver: true,
       }),
     ]).start();
-    
+
     Animated.spring(progressWidth, {
       toValue: totalProgress,
       useNativeDriver: false,
     }).start();
-  }, [totalProgress]);
+  }, [totalProgress, opacity, scale, progressWidth]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('sk-SK', {
@@ -128,31 +128,30 @@ function LoanHeroCardComponent({
       ]}
     >
       {/* Main Balance */}
-      <View style={styles.balanceSection}>
-        <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>
-          Celkovy zostatok
-        </Text>
+      <View
+        style={styles.balanceSection}
+        accessible
+        accessibilityRole="header"
+        accessibilityLabel={`Celkový zostatok ${formatCurrency(totalBalance)} z ${formatCurrency(totalPrincipal)} požičaných`}
+      >
+        <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>Celkový zostatok</Text>
         <Text style={[styles.balanceAmount, { color: colors.text }]}>
           {formatCurrency(totalBalance)}
         </Text>
         <Text style={[styles.originalAmount, { color: colors.textMuted }]}>
-          z {formatCurrency(totalPrincipal)} pozicanych
+          z {formatCurrency(totalPrincipal)} požičaných
         </Text>
       </View>
 
       {/* Progress Bar */}
       <View style={styles.progressSection}>
         <View style={styles.progressLabels}>
-          <Text style={[styles.progressLabel, { color: colors.textMuted }]}>
-            Celkovy pokrok
-          </Text>
+          <Text style={[styles.progressLabel, { color: colors.textMuted }]}>Celkový pokrok</Text>
           <Text style={[styles.progressValue, { color: colors.primary }]}>
             {Math.round(totalProgress)}%
           </Text>
         </View>
-        <View
-          style={[styles.progressTrack, { backgroundColor: colors.borderLight }]}
-        >
+        <View style={[styles.progressTrack, { backgroundColor: colors.borderLight }]}>
           <Animated.View
             style={[
               styles.progressFill,
@@ -178,9 +177,7 @@ function LoanHeroCardComponent({
           ]}
         >
           <Wallet size={14} color={colors.primary} />
-          <Text style={[styles.badgeText, { color: colors.primary }]}>
-            {activeCount} aktivnych
-          </Text>
+          <Text style={[styles.badgeText, { color: colors.primary }]}>{activeCount} aktívnych</Text>
         </View>
 
         {/* Overdue - only show if > 0 */}
@@ -209,7 +206,7 @@ function LoanHeroCardComponent({
           >
             <CheckCircle size={14} color={colors.success} />
             <Text style={[styles.badgeText, { color: colors.success }]}>
-              {paidOffCount} splatenych
+              {paidOffCount} splatených
             </Text>
           </View>
         )}
@@ -223,9 +220,7 @@ function LoanHeroCardComponent({
             <Text style={[styles.statValue, { color: colors.text }]}>
               {formatCurrency(totalMonthlyPayment)}
             </Text>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-              mesacne
-            </Text>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>mesačne</Text>
           </View>
         </View>
 
@@ -237,9 +232,7 @@ function LoanHeroCardComponent({
             <Text style={[styles.statValue, { color: colors.text }]}>
               {formatCurrency(totalInterestPaid)}
             </Text>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-              urok zaplateny
-            </Text>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>úrok zaplatený</Text>
           </View>
         </View>
 
@@ -251,44 +244,50 @@ function LoanHeroCardComponent({
             <Text style={[styles.statValue, { color: colors.text }]}>
               {formatCurrency(totalInterestRemaining)}
             </Text>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-              urok zostava
-            </Text>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>úrok zostáva</Text>
           </View>
         </View>
       </View>
 
       {/* Next Payment Section */}
       {nextPayment && (
-        <TouchableOpacity
+        <View
           style={[
             styles.nextPaymentSection,
             {
-              backgroundColor: nextPayment.daysUntil < 0 
-                ? colors.dangerLight 
-                : nextPayment.daysUntil <= 3 
-                  ? colors.warningLight 
-                  : colors.surfacePressed,
-              borderColor: nextPayment.daysUntil < 0
-                ? colors.danger
-                : nextPayment.daysUntil <= 3
-                  ? colors.warning
-                  : colors.border,
+              backgroundColor:
+                nextPayment.daysUntil < 0
+                  ? colors.dangerLight
+                  : nextPayment.daysUntil <= 3
+                    ? colors.warningLight
+                    : colors.surfacePressed,
+              borderColor:
+                nextPayment.daysUntil < 0
+                  ? colors.danger
+                  : nextPayment.daysUntil <= 3
+                    ? colors.warning
+                    : colors.border,
             },
           ]}
-          onPress={onNextPaymentPress}
-          activeOpacity={0.7}
         >
-          <View style={styles.nextPaymentHeader}>
-            <View style={styles.nextPaymentIcon}>
-              <Calendar
-                size={18}
-                color={getDaysUntilColor(nextPayment.daysUntil)}
-              />
+          <TouchableOpacity
+            style={styles.nextPaymentHeader}
+            onPress={onNextPaymentPress}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`Najbližšia splátka ${formatCurrency(nextPayment.amount)}, ${getDaysUntilLabel(nextPayment.daysUntil)}`}
+          >
+            <View
+              style={[
+                styles.nextPaymentIcon,
+                { backgroundColor: getDaysUntilColor(nextPayment.daysUntil) + '20' },
+              ]}
+            >
+              <Calendar size={18} color={getDaysUntilColor(nextPayment.daysUntil)} />
             </View>
             <View style={styles.nextPaymentInfo}>
               <Text style={[styles.nextPaymentLabel, { color: colors.textSecondary }]}>
-                Najblizsie splatka
+                Najbližšia splátka
               </Text>
               <View style={styles.nextPaymentRow}>
                 <Text style={[styles.nextPaymentAmount, { color: colors.text }]}>
@@ -315,22 +314,24 @@ function LoanHeroCardComponent({
               </Text>
             </View>
             <ChevronRight size={20} color={colors.textMuted} />
-          </View>
+          </TouchableOpacity>
 
-          {/* Quick Pay Button */}
+          {/* Quick Pay Button - sibling, not nested inside parent Touchable */}
           {onQuickPayPress && (
             <TouchableOpacity
               style={[styles.quickPayButton, { backgroundColor: colors.primary }]}
               onPress={onQuickPayPress}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Zaplatiť teraz"
             >
               <CreditCard size={16} color={colors.textInverse} />
               <Text style={[styles.quickPayText, { color: colors.textInverse }]}>
-                Zaplatit teraz
+                Zaplatiť teraz
               </Text>
             </TouchableOpacity>
           )}
-        </TouchableOpacity>
+        </View>
       )}
     </Animated.View>
   );
@@ -456,7 +457,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,

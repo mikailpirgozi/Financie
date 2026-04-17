@@ -13,7 +13,9 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Plus, FileText } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
-import { getIncomes, getCurrentHousehold, deleteIncome, type Income } from '../../src/lib/api';
+import { type Income } from '../../src/lib/api';
+import { useIncomes, useDeleteIncome } from '../../src/hooks/useIncomes';
+import { useHousehold } from '../../src/hooks/useHousehold';
 import { useTheme } from '../../src/contexts';
 import { ErrorMessage } from '../../src/components/ErrorMessage';
 import { Toast } from '@/components/ui/Toast';
@@ -32,10 +34,27 @@ export default function IncomesScreen() {
   const { theme } = useTheme();
   const colors = theme.colors;
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [incomes, setIncomes] = useState<Income[]>([]);
+  // Data fetching cez React Query - cache shared, deduplikovany household
+  const householdQuery = useHousehold();
+  const householdId = householdQuery.data?.id;
+  const incomesQuery = useIncomes(householdId);
+  const deleteIncomeMutation = useDeleteIncome();
+
+  const loading = (householdQuery.isLoading || incomesQuery.isLoading) && !incomesQuery.data;
+  const refreshing = incomesQuery.isFetching && !incomesQuery.isLoading;
+  const error =
+    (householdQuery.error instanceof Error
+      ? householdQuery.error.message
+      : householdQuery.error
+        ? 'Nepodarilo sa nacitat domacnost'
+        : null) ??
+    (incomesQuery.error instanceof Error
+      ? incomesQuery.error.message
+      : incomesQuery.error
+        ? 'Nepodarilo sa nacitat prijmy'
+        : null);
+  const incomes: Income[] = incomesQuery.data ?? [];
+
   const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>('this_month');
   const [sortBy, setSortBy] = useState<SortBy>('date');
   const [toast, setToast] = useState<{
@@ -54,29 +73,12 @@ export default function IncomesScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadIncomes();
-    }, [])
+      void incomesQuery.refetch();
+    }, [incomesQuery])
   );
 
-  const loadIncomes = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const household = await getCurrentHousehold();
-      const incomesData = await getIncomes(household.id);
-      setIncomes(incomesData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Nepodarilo sa nacitat prijmy');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const onRefresh = async () => {
-    setRefreshing(true);
-    await loadIncomes();
-    setRefreshing(false);
+    await Promise.all([householdQuery.refetch(), incomesQuery.refetch()]);
   };
 
   // Filter incomes by period
@@ -241,15 +243,14 @@ export default function IncomesScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteIncome(selectedIncome.id);
-              setIncomes((prev) => prev.filter((i) => i.id !== selectedIncome.id));
+              await deleteIncomeMutation.mutateAsync(selectedIncome.id);
               setToast({
                 visible: true,
                 message: 'Prijem bol zmazany',
                 type: 'success',
               });
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            } catch (err) {
+            } catch {
               setToast({
                 visible: true,
                 message: 'Nepodarilo sa zmazat prijem',
@@ -320,16 +321,13 @@ export default function IncomesScreen() {
       {/* Sort Row */}
       {incomes.length > 0 && (
         <View style={styles.sortRow}>
-          <Text style={[styles.sortLabel, { color: colors.textSecondary }]}>
-            Zoradit:
-          </Text>
+          <Text style={[styles.sortLabel, { color: colors.textSecondary }]}>Zoradit:</Text>
           <View style={styles.sortButtons}>
             <TouchableOpacity
               style={[
                 styles.sortButton,
                 {
-                  backgroundColor:
-                    sortBy === 'date' ? colors.primaryLight : colors.surfacePressed,
+                  backgroundColor: sortBy === 'date' ? colors.primaryLight : colors.surfacePressed,
                   borderColor: sortBy === 'date' ? colors.primary : colors.border,
                 },
               ]}
@@ -398,11 +396,7 @@ export default function IncomesScreen() {
       {incomes.length > 0 && sortedIncomes.length > 0 && (
         <Text style={[styles.resultsCount, { color: colors.textMuted }]}>
           {sortedIncomes.length}{' '}
-          {sortedIncomes.length === 1
-            ? 'prijem'
-            : sortedIncomes.length < 5
-            ? 'prijmy'
-            : 'prijmov'}
+          {sortedIncomes.length === 1 ? 'prijem' : sortedIncomes.length < 5 ? 'prijmy' : 'prijmov'}
         </Text>
       )}
     </View>
@@ -410,17 +404,15 @@ export default function IncomesScreen() {
 
   const renderEmpty = () => (
     <View style={styles.emptyState}>
-      <View
-        style={[styles.emptyIconContainer, { backgroundColor: colors.incomeLight }]}
-      >
+      <View style={[styles.emptyIconContainer, { backgroundColor: colors.incomeLight }]}>
         <Text style={styles.emptyIcon}>💵</Text>
       </View>
       <Text style={[styles.emptyTitle, { color: colors.text }]}>
         {filterPeriod === 'this_month'
           ? 'Ziadne prijmy tento mesiac'
           : filterPeriod === 'last_month'
-          ? 'Ziadne prijmy minuly mesiac'
-          : 'Zatial nemate ziadne prijmy'}
+            ? 'Ziadne prijmy minuly mesiac'
+            : 'Zatial nemate ziadne prijmy'}
       </Text>
       <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
         {filterPeriod !== 'all'
@@ -445,10 +437,7 @@ export default function IncomesScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View
-          style={[
-            styles.header,
-            { paddingTop: insets.top + 16, backgroundColor: colors.surface },
-          ]}
+          style={[styles.header, { paddingTop: insets.top + 16, backgroundColor: colors.surface }]}
         >
           <Text style={[styles.title, { color: colors.text }]}>Prijmy</Text>
         </View>
@@ -465,7 +454,7 @@ export default function IncomesScreen() {
   if (error) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ErrorMessage message={error} onRetry={loadIncomes} />
+        <ErrorMessage message={error} onRetry={() => void onRefresh()} />
       </View>
     );
   }
@@ -486,22 +475,21 @@ export default function IncomesScreen() {
         <Text style={[styles.title, { color: colors.text }]}>Prijmy</Text>
         <View style={styles.headerButtons}>
           <TouchableOpacity
-            style={[styles.templateButton, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
+            style={[
+              styles.templateButton,
+              { backgroundColor: colors.primaryLight, borderColor: colors.primary },
+            ]}
             onPress={handleTemplates}
           >
             <FileText size={18} color={colors.primary} />
-            <Text style={[styles.templateButtonText, { color: colors.primary }]}>
-              Sablony
-            </Text>
+            <Text style={[styles.templateButtonText, { color: colors.primary }]}>Sablony</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.addButton, { backgroundColor: colors.income }]}
             onPress={handleAddIncome}
           >
             <Plus size={20} color={colors.textInverse} />
-            <Text style={[styles.addButtonText, { color: colors.textInverse }]}>
-              Pridat
-            </Text>
+            <Text style={[styles.addButtonText, { color: colors.textInverse }]}>Pridat</Text>
           </TouchableOpacity>
         </View>
       </View>

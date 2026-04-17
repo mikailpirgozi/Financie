@@ -1,9 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import {
-  getCurrentHousehold,
-  getDashboardAlerts,
-  type DashboardAlertsResponse,
-} from '@/lib/api';
+import { getDashboardAlerts, type DashboardAlertsResponse } from '@/lib/api';
+import { queryKeys } from '@/lib/queryClient';
+import { useHousehold } from '@/hooks/useHousehold';
 
 interface NextPayment {
   date: string;
@@ -29,14 +27,18 @@ export interface DashboardAlertsData {
 }
 
 export function useDashboardAlerts() {
-  const query = useQuery({
-    queryKey: ['dashboard-alerts'],
-    queryFn: async (): Promise<DashboardAlertsData> => {
-      const household = await getCurrentHousehold();
-      const householdId = household.id;
+  // Zdielany household query (cachovany na 5 min) - neduplikuje GET household
+  const householdQuery = useHousehold();
+  const householdId = householdQuery.data?.id;
 
+  const query = useQuery({
+    queryKey: householdId
+      ? queryKeys.dashboardAlerts(householdId)
+      : ['dashboard-alerts', 'no-household'],
+    enabled: !!householdId,
+    queryFn: async (): Promise<DashboardAlertsData> => {
       // 🚀 Jeden API request namiesto 9 paralelných volaní
-      const data = await getDashboardAlerts(householdId);
+      const data = await getDashboardAlerts(householdId as string);
 
       return {
         loans: {
@@ -54,19 +56,18 @@ export function useDashboardAlerts() {
         householdId: data.householdId,
       };
     },
-    staleTime: 60 * 1000, // 60 seconds (increased from 30s)
+    staleTime: 60 * 1000, // 60 seconds
     gcTime: 5 * 60 * 1000, // 5 minutes
-    // Removed refetchOnMount: 'always' - now respects staleTime for faster navigation
-    refetchOnMount: true,
-    refetchOnWindowFocus: false, // Mobile: window focus nie je relevantný
+    refetchOnMount: false, // global default - respektuj staleTime
+    refetchOnWindowFocus: false,
     placeholderData: (previousData) => previousData,
   });
 
   return {
     data: query.data,
-    isLoading: query.isLoading,
+    isLoading: householdQuery.isLoading || query.isLoading,
     isFetching: query.isFetching,
-    error: query.error,
+    error: householdQuery.error ?? query.error,
     refetch: query.refetch,
     hasData: !!query.data,
   };

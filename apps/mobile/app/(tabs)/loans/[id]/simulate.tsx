@@ -1,44 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@/lib/form';
 import { z } from 'zod';
 
-import {
-  Loan,
-  simulateLoan,
-  SimulationParams,
-  SimulationResult,
-  getLoan,
-} from '@/lib/api';
+import { Loan, simulateLoan, SimulationParams, SimulationResult, getLoan } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
+import { NumericInput } from '@/components/forms/NumericInput';
 
 const simulationSchema = z.object({
   new_rate: z
-    .string()
-    .optional()
-    .refine((s) => s === undefined || (!isNaN(Number(s)) && Number(s) > 0 && Number(s) < 100), 'Sadzba musí byť medzi 0 a 100%'),
-  new_term: z
-    .string()
-    .optional()
-    .refine((s) => s === undefined || (!isNaN(Number(s)) && Number(s) > 0), 'Počet mesiacov musí byť väčší ako 0'),
+    .number()
+    .min(0, 'Sadzba musí byť väčšia alebo rovná 0')
+    .max(100, 'Sadzba musí byť menšia ako 100%')
+    .nullable()
+    .optional(),
+  new_term: z.number().int().positive('Počet mesiacov musí byť väčší ako 0').nullable().optional(),
   extra_payment_monthly: z
-    .string()
-    .optional()
-    .refine(
-      (s) => s === undefined || (!isNaN(Number(s)) && Number(s) >= 0),
-      'Mesačná nadplatba musí byť väčšia alebo rovná 0'
-    ),
+    .number()
+    .min(0, 'Mesačná nadplatba musí byť väčšia alebo rovná 0')
+    .nullable()
+    .optional(),
 });
 
 type SimulationFormData = z.infer<typeof simulationSchema>;
@@ -58,9 +44,9 @@ export default function SimulateScreen() {
   } = useForm<SimulationFormData>({
     resolver: zodResolver(simulationSchema),
     defaultValues: {
-      new_rate: '',
-      new_term: '',
-      extra_payment_monthly: '',
+      new_rate: null,
+      new_term: null,
+      extra_payment_monthly: null,
     },
   });
 
@@ -73,9 +59,8 @@ export default function SimulateScreen() {
     try {
       const { loan: loanData } = await getLoan(id);
       setLoan(loanData);
-      // Set default values
-      setValue('new_rate', loanData.annual_rate.toString());
-      setValue('new_term', loanData.term_months.toString());
+      setValue('new_rate', Number(loanData.annual_rate));
+      setValue('new_term', Number(loanData.term_months));
     } catch (err) {
       setError('Nepodarilo sa načítať údaje o úvere');
       console.error('Failed to load loan:', err);
@@ -94,10 +79,10 @@ export default function SimulateScreen() {
       const extra_payment_monthly = watch('extra_payment_monthly');
 
       const params: SimulationParams = {};
-      if (new_rate !== undefined && new_rate !== '') params.new_rate = Number(new_rate);
-      if (new_term !== undefined && new_term !== '') params.new_term = Number(new_term);
-      if (extra_payment_monthly !== undefined && extra_payment_monthly !== '')
-        params.extra_payment_monthly = Number(extra_payment_monthly);
+      if (new_rate !== null && new_rate !== undefined) params.new_rate = new_rate;
+      if (new_term !== null && new_term !== undefined) params.new_term = new_term;
+      if (extra_payment_monthly !== null && extra_payment_monthly !== undefined)
+        params.extra_payment_monthly = extra_payment_monthly;
 
       const simulationResult = await simulateLoan(id, params);
       setResult(simulationResult);
@@ -112,130 +97,149 @@ export default function SimulateScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Simulácia scenárov</Text>
-        <Text style={styles.subtitle}>{loan?.lender}</Text>
-      </View>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>Simulácia scenárov</Text>
+          <Text style={styles.subtitle}>{loan?.lender}</Text>
+        </View>
 
-      {error && (
-        <Card style={styles.errorCard}>
-          <Text style={styles.errorText}>{error}</Text>
-        </Card>
-      )}
-
-      <View style={styles.content}>
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>⚙️ Zmeny na simuláciu</Text>
-
-          <Input
-            label="Nová úroková sadzba (%)"
-            placeholder={loan?.annual_rate?.toString()}
-            keyboardType="decimal-pad"
-            value={watch('new_rate') || ''}
-            onChangeText={(value) => setValue('new_rate', value)}
-            error={errors.new_rate?.message}
-          />
-
-          <Input
-            label="Nová doba splácania (mesiace)"
-            placeholder={loan?.term_months?.toString()}
-            keyboardType="number-pad"
-            value={watch('new_term') || ''}
-            onChangeText={(value) => setValue('new_term', value)}
-            error={errors.new_term?.message}
-          />
-
-          <Input
-            label="Mesačná nadplatba (€)"
-            placeholder="0.00"
-            keyboardType="decimal-pad"
-            value={watch('extra_payment_monthly') || ''}
-            onChangeText={(value) => setValue('extra_payment_monthly', value)}
-            error={errors.extra_payment_monthly?.message}
-          />
-
-          <Button
-            onPress={handleSimulate}
-            loading={loading}
-            disabled={loading}
-            fullWidth
-            style={styles.simulateButton}
-          >
-            Spustiť simuláciu
-          </Button>
-        </Card>
-
-        {result && (
-          <>
-            <View style={styles.comparisonHeader}>
-              <Text style={styles.comparisonTitle}>📊 Porovnanie plánov</Text>
-            </View>
-
-            <View style={styles.comparisonRow}>
-              <Card style={[styles.comparisonCard, styles.leftCard]}>
-                <Text style={styles.comparisonCardTitle}>Pôvodný plán</Text>
-
-                <ResultRow
-                  label="Mesačná splátka"
-                  value={formatCurrency(result.original.monthly_payment.toString())}
-                />
-                <ResultRow
-                  label="Celkový úrok"
-                  value={formatCurrency(result.original.total_interest.toString())}
-                />
-                <ResultRow
-                  label="Celková suma"
-                  value={formatCurrency(result.original.total_cost.toString())}
-                />
-              </Card>
-
-              <Card style={[styles.comparisonCard, styles.rightCard]}>
-                <Text style={styles.comparisonCardTitle}>Simulovaný plán</Text>
-
-                <ResultRow
-                  label="Mesačná splátka"
-                  value={formatCurrency(result.simulated.monthly_payment.toString())}
-                />
-                <ResultRow
-                  label="Celkový úrok"
-                  value={formatCurrency(result.simulated.total_interest.toString())}
-                />
-                <ResultRow
-                  label="Celková suma"
-                  value={formatCurrency(result.simulated.total_cost.toString())}
-                />
-              </Card>
-            </View>
-
-            <Card style={styles.savingsCard}>
-              <Text style={styles.savingsTitle}>💰 Vaša úspora</Text>
-
-              <ResultRow
-                label="Ušetrený úrok"
-                value={formatCurrency(result.savings.interest_saved.toString())}
-                highlight={result.savings.interest_saved > 0 ? 'positive' : 'negative'}
-              />
-              <ResultRow
-                label="Skrátenie doby splácania"
-                value={`${Math.abs(result.savings.time_saved_months)} mesiacov`}
-                highlight={result.savings.time_saved_months > 0 ? 'positive' : 'negative'}
-              />
-            </Card>
-
-            <Card style={styles.noteCard}>
-              <Text style={styles.noteTitle}>💡 Poznámka</Text>
-              <Text style={styles.noteText}>
-                Toto je len názorná simulácia. Skutočné výsledky sa môžu líšiť na základe
-                zmien úrokových sadzieb a ďalších faktorov.
-              </Text>
-            </Card>
-          </>
+        {error && (
+          <Card style={styles.errorCard}>
+            <Text style={styles.errorText}>{error}</Text>
+          </Card>
         )}
-      </View>
 
-      <View style={styles.spacing} />
-    </ScrollView>
+        <View style={styles.content}>
+          <Card style={styles.section}>
+            <Text style={styles.sectionTitle}>⚙️ Zmeny na simuláciu</Text>
+
+            <NumericInput
+              label="Nová úroková sadzba (%)"
+              placeholder={loan?.annual_rate?.toString() ?? '0,00'}
+              value={watch('new_rate') ?? null}
+              onChangeValue={(v) => setValue('new_rate', v, { shouldValidate: true })}
+              suffix="%"
+              min={0}
+              max={100}
+              error={errors.new_rate?.message}
+            />
+
+            <NumericInput
+              label="Nová doba splácania (mesiace)"
+              placeholder={loan?.term_months?.toString() ?? '60'}
+              value={watch('new_term') ?? null}
+              onChangeValue={(v) =>
+                setValue('new_term', v === null ? null : Math.round(v), { shouldValidate: true })
+              }
+              suffix="mes."
+              decimals={0}
+              allowDecimal={false}
+              min={1}
+              max={480}
+              error={errors.new_term?.message}
+            />
+
+            <NumericInput
+              label="Mesačná nadplatba (€)"
+              placeholder="0,00"
+              value={watch('extra_payment_monthly') ?? null}
+              onChangeValue={(v) => setValue('extra_payment_monthly', v, { shouldValidate: true })}
+              currency="€"
+              min={0}
+              error={errors.extra_payment_monthly?.message}
+            />
+
+            <Button
+              onPress={handleSimulate}
+              loading={loading}
+              disabled={loading}
+              fullWidth
+              style={styles.simulateButton}
+            >
+              Spustiť simuláciu
+            </Button>
+          </Card>
+
+          {result && (
+            <>
+              <View style={styles.comparisonHeader}>
+                <Text style={styles.comparisonTitle}>📊 Porovnanie plánov</Text>
+              </View>
+
+              <View style={styles.comparisonRow}>
+                <Card style={[styles.comparisonCard, styles.leftCard]}>
+                  <Text style={styles.comparisonCardTitle}>Pôvodný plán</Text>
+
+                  <ResultRow
+                    label="Mesačná splátka"
+                    value={formatCurrency(result.original.monthly_payment)}
+                  />
+                  <ResultRow
+                    label="Celkový úrok"
+                    value={formatCurrency(result.original.total_interest)}
+                  />
+                  <ResultRow
+                    label="Celková suma"
+                    value={formatCurrency(result.original.total_cost)}
+                  />
+                </Card>
+
+                <Card style={[styles.comparisonCard, styles.rightCard]}>
+                  <Text style={styles.comparisonCardTitle}>Simulovaný plán</Text>
+
+                  <ResultRow
+                    label="Mesačná splátka"
+                    value={formatCurrency(result.simulated.monthly_payment)}
+                  />
+                  <ResultRow
+                    label="Celkový úrok"
+                    value={formatCurrency(result.simulated.total_interest)}
+                  />
+                  <ResultRow
+                    label="Celková suma"
+                    value={formatCurrency(result.simulated.total_cost)}
+                  />
+                </Card>
+              </View>
+
+              <Card style={styles.savingsCard}>
+                <Text style={styles.savingsTitle}>💰 Vaša úspora</Text>
+
+                <ResultRow
+                  label="Ušetrený úrok"
+                  value={formatCurrency(result.savings.interest_saved)}
+                  highlight={result.savings.interest_saved > 0 ? 'positive' : 'negative'}
+                />
+                <ResultRow
+                  label="Skrátenie doby splácania"
+                  value={`${Math.abs(result.savings.time_saved_months)} mesiacov`}
+                  highlight={result.savings.time_saved_months > 0 ? 'positive' : 'negative'}
+                />
+              </Card>
+
+              <Card style={styles.noteCard}>
+                <Text style={styles.noteTitle}>💡 Poznámka</Text>
+                <Text style={styles.noteText}>
+                  Toto je len názorná simulácia. Skutočné výsledky sa môžu líšiť na základe zmien
+                  úrokových sadzieb a ďalších faktorov.
+                </Text>
+              </Card>
+            </>
+          )}
+        </View>
+
+        <View style={styles.spacing} />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -269,6 +273,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  scrollView: {
+    flex: 1,
   },
   header: {
     paddingHorizontal: 16,

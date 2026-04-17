@@ -3,4 +3,6 @@ export { FormInput } from './FormInput';
 export { FormDatePicker } from './FormDatePicker';
 export { FormSelect } from './FormSelect';
 export { CurrencyInput } from './CurrencyInput';
-
+export { NumericInput } from './NumericInput';
+export type { NumericInputProps } from './NumericInput';
+export { FormNumericInput } from './FormNumericInput';

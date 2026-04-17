@@ -21,25 +21,32 @@ export async function createExpense(input: CreateExpenseInput) {
   return data;
 }
 
-export async function getExpenses(householdId: string, filters?: {
-  startDate?: Date;
-  endDate?: Date;
-  categoryId?: string;
-}) {
+/** Limit pre default get-all (chrani pred neohranicenymi vystupmi). */
+const EXPENSES_DEFAULT_LIMIT = 200;
+
+export async function getExpenses(
+  householdId: string,
+  filters?: {
+    startDate?: Date;
+    endDate?: Date;
+    categoryId?: string;
+    /** Override default limit (max 1000). */
+    limit?: number;
+    /** 0-based offset pre stránkovanie. */
+    offset?: number;
+  }
+) {
   const supabase = await createClient();
+
+  const limit = Math.min(filters?.limit ?? EXPENSES_DEFAULT_LIMIT, 1000);
+  const offset = filters?.offset ?? 0;
 
   let query = supabase
     .from('expenses')
-    .select(`
-      *,
-      categories (
-        id,
-        name,
-        kind
-      )
-    `)
+    .select(`*, categories (id, name, kind)`)
     .eq('household_id', householdId)
-    .order('date', { ascending: false });
+    .order('date', { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (filters?.startDate) {
     query = query.gte('date', filters.startDate.toISOString().split('T')[0]);
@@ -64,14 +71,16 @@ export async function getExpense(expenseId: string) {
 
   const { data, error } = await supabase
     .from('expenses')
-    .select(`
+    .select(
+      `
       *,
       categories (
         id,
         name,
         kind
       )
-    `)
+    `
+    )
     .eq('id', expenseId)
     .single();
 
@@ -79,10 +88,7 @@ export async function getExpense(expenseId: string) {
   return data;
 }
 
-export async function updateExpense(
-  expenseId: string,
-  updates: Partial<CreateExpenseInput>
-) {
+export async function updateExpense(expenseId: string, updates: Partial<CreateExpenseInput>) {
   const supabase = await createClient();
 
   const updateData: Record<string, unknown> = {};
@@ -117,11 +123,7 @@ export async function updateExpense(
 export async function deleteExpense(expenseId: string) {
   const supabase = await createClient();
 
-  const { error } = await supabase
-    .from('expenses')
-    .delete()
-    .eq('id', expenseId);
+  const { error } = await supabase.from('expenses').delete().eq('id', expenseId);
 
   if (error) throw error;
 }
-

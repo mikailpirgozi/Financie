@@ -14,7 +14,7 @@ export default function TabsLayout() {
   // Fetch household once on mount
   useEffect(() => {
     let isMounted = true;
-    
+
     const fetchHousehold = async () => {
       try {
         const household = await getCurrentHousehold();
@@ -27,7 +27,7 @@ export default function TabsLayout() {
     };
 
     fetchHousehold();
-    
+
     return () => {
       isMounted = false;
     };
@@ -36,12 +36,13 @@ export default function TabsLayout() {
   // Debounced fetch - non-blocking
   const fetchOverdueCount = useCallback(async () => {
     if (!householdId) return;
-    
+
     // Run in background, don't block UI
     setTimeout(async () => {
       try {
-        const { data } = await supabase
-          .rpc('count_overdue_installments', { p_household_id: householdId });
+        const { data } = await supabase.rpc('count_overdue_installments', {
+          p_household_id: householdId,
+        });
 
         if (data !== null) {
           setOverdueCount(data);
@@ -55,27 +56,56 @@ export default function TabsLayout() {
   useEffect(() => {
     if (!householdId) return;
 
+    let cancelled = false;
     fetchOverdueCount();
 
-    // Realtime subscription - throttled
-    let lastUpdate = Date.now();
-    const channel = supabase
-      .channel('overdue-badges')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'loan_schedules' },
-        () => {
-          const now = Date.now();
-          // Throttle updates to max 1 per 3 seconds
-          if (now - lastUpdate > 3000) {
-            lastUpdate = now;
-            fetchOverdueCount();
+    // Realtime: nepocuvaj VSETKY loan_schedules (cudzie domacnosti),
+    // ale len tie s loan_id IN (loans danej domacnosti).
+    // RLS ich aj tak odfiltruje, ale takto saetrime sietove eventy.
+    let cleanup: (() => void) | undefined;
+
+    (async () => {
+      const { data: loans } = await supabase
+        .from('loans')
+        .select('id')
+        .eq('household_id', householdId);
+
+      if (cancelled) return;
+
+      const loanIds = (loans ?? []).map((l) => l.id);
+      if (loanIds.length === 0) return; // ziadny channel
+
+      let lastUpdate = Date.now();
+      const channel = supabase
+        .channel(`overdue-badges-${householdId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'loan_schedules',
+            // Filtrovanie na strane Postgres -> menej eventov k mobilu
+            filter: `loan_id=in.(${loanIds.join(',')})`,
+          },
+          () => {
+            const now = Date.now();
+            // Throttle: max 1 fetch / 3s
+            if (now - lastUpdate > 3000) {
+              lastUpdate = now;
+              fetchOverdueCount();
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+
+      cleanup = () => {
+        supabase.removeChannel(channel);
+      };
+    })();
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      cleanup?.();
     };
   }, [householdId, fetchOverdueCount]);
 
@@ -165,6 +195,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="expenses/[id]/index" options={{ href: null }} />
       <Tabs.Screen name="expenses/[id]/edit" options={{ href: null }} />
       <Tabs.Screen name="expenses/new" options={{ href: null }} />
+      <Tabs.Screen name="expenses/scan" options={{ href: null }} />
       <Tabs.Screen name="incomes/[id]/index" options={{ href: null }} />
       <Tabs.Screen name="incomes/[id]/edit" options={{ href: null }} />
       <Tabs.Screen name="incomes/new" options={{ href: null }} />
@@ -183,5 +214,3 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
-
-

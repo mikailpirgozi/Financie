@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 // expo-file-system v55+ moved string/base64 helpers to the legacy entrypoint.
@@ -77,51 +78,54 @@ export default function ScanReceiptScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Naskenovať bloček</Text>
-      <Text style={styles.help}>
-        Odfoťte bloček alebo vyberte fotku. Aplikácia rozpozná predajcu, dátum a celkovú sumu.
-      </Text>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <Text style={styles.title}>Naskenovať bloček</Text>
+        <Text style={styles.help}>
+          Odfoťte bloček alebo vyberte fotku. Aplikácia rozpozná predajcu, dátum a celkovú sumu.
+        </Text>
 
-      <View style={styles.row}>
-        <Button onPress={() => pickImage('camera')} variant="primary">
-          Odfotiť
-        </Button>
-        <Button onPress={() => pickImage('library')} variant="secondary">
-          Z galérie
-        </Button>
-      </View>
-
-      {imageUri ? (
-        <View style={styles.preview}>
-          <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" />
-          <Button onPress={runOcr} disabled={busy}>
-            Spustiť OCR
+        <View style={styles.row}>
+          <Button onPress={() => pickImage('camera')} variant="primary">
+            Odfotiť
+          </Button>
+          <Button onPress={() => pickImage('library')} variant="secondary">
+            Z galérie
           </Button>
         </View>
-      ) : null}
 
-      {busy ? <ActivityIndicator size="large" style={styles.spinner} /> : null}
+        {imageUri ? (
+          <View style={styles.preview}>
+            <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" />
+            <Button onPress={runOcr} disabled={busy}>
+              Spustiť OCR
+            </Button>
+          </View>
+        ) : null}
 
-      {result ? (
-        <View style={styles.resultCard}>
-          <Text style={styles.resultTitle}>Rozpoznané údaje</Text>
-          <Text style={styles.field}>Predajca: {result.parsed.merchant ?? '—'}</Text>
-          <Text style={styles.field}>Dátum: {result.parsed.date ?? '—'}</Text>
-          <Text style={styles.field}>
-            Suma: {result.parsed.total ? `${result.parsed.total.toFixed(2)} EUR` : '—'}
-          </Text>
-          <Text style={styles.confidence}>
-            Spoľahlivosť: {(result.parsed.confidence * 100).toFixed(0)} %
-          </Text>
-          <Button onPress={applyToNewExpense}>Vytvoriť výdavok z týchto údajov</Button>
-        </View>
-      ) : null}
-    </ScrollView>
+        {busy ? <ActivityIndicator size="large" style={styles.spinner} /> : null}
+
+        {result ? (
+          <View style={styles.resultCard}>
+            <Text style={styles.resultTitle}>Rozpoznané údaje</Text>
+            <Text style={styles.field}>Predajca: {result.parsed.merchant ?? '—'}</Text>
+            <Text style={styles.field}>Dátum: {result.parsed.date ?? '—'}</Text>
+            <Text style={styles.field}>
+              Suma: {result.parsed.total ? `${result.parsed.total.toFixed(2)} EUR` : '—'}
+            </Text>
+            <Text style={styles.confidence}>
+              Spoľahlivosť: {(result.parsed.confidence * 100).toFixed(0)} %
+            </Text>
+            <Button onPress={applyToNewExpense}>Vytvoriť výdavok z týchto údajov</Button>
+          </View>
+        ) : null}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: '#fff' },
   container: { flex: 1, backgroundColor: '#fff' },
   content: { padding: 16, gap: 16 },
   title: { fontSize: 22, fontWeight: '700' },

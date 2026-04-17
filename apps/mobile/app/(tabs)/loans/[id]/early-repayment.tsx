@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Alert,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useForm } from 'react-hook-form';
@@ -16,14 +24,11 @@ import {
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
+import { NumericInput } from '@/components/forms/NumericInput';
 import { DatePicker } from '@/components/ui/DatePicker';
 
 const earlyRepaymentSchema = z.object({
-  amount: z
-    .string()
-    .min(1, 'Zadajte sumu')
-    .refine((s) => !isNaN(Number(s)) && Number(s) > 0, 'Suma musí byť väčšia ako 0'),
+  amount: z.number({ error: 'Zadajte sumu' }).positive('Suma musí byť väčšia ako 0'),
   payment_date: z.date({ error: 'Vyberte dátum' }),
 });
 
@@ -45,7 +50,7 @@ export default function EarlyRepaymentScreen() {
   } = useForm<EarlyRepaymentFormData>({
     resolver: zodResolver(earlyRepaymentSchema),
     defaultValues: {
-      amount: '',
+      amount: 0,
       payment_date: new Date(),
     },
   });
@@ -70,8 +75,7 @@ export default function EarlyRepaymentScreen() {
     const amount = watch('amount');
     const payment_date = watch('payment_date');
 
-    const numAmount = Number(amount);
-    if (!amount || isNaN(numAmount) || numAmount <= 0) {
+    if (!amount || !Number.isFinite(amount) || amount <= 0) {
       setError('Zadajte platnú sumu');
       return;
     }
@@ -81,7 +85,7 @@ export default function EarlyRepaymentScreen() {
       setError(null);
 
       const previewData = await previewEarlyRepayment(id, {
-        amount: numAmount,
+        amount,
         payment_date: payment_date.toISOString(),
         preview: true,
       });
@@ -99,10 +103,11 @@ export default function EarlyRepaymentScreen() {
 
   const handleConfirm = () => {
     if (!preview || !id) return;
+    const amount = watch('amount');
 
     Alert.alert(
       'Potvrdiť predčasné splatenie',
-      `Naozaj chcete splatiť ${formatCurrency(watch('amount').toString())}?`,
+      `Naozaj chcete splatiť ${formatCurrency(amount)}?`,
       [
         { text: 'Zrušiť', style: 'cancel' },
         {
@@ -123,7 +128,7 @@ export default function EarlyRepaymentScreen() {
       const payment_date = watch('payment_date');
 
       await processEarlyRepayment(id, {
-        amount: Number(amount),
+        amount,
         payment_date: payment_date.toISOString(),
       });
 
@@ -140,13 +145,21 @@ export default function EarlyRepaymentScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
       <View style={styles.header}>
         <Text style={styles.title}>Predčasné splatenie</Text>
         <Text style={styles.subtitle}>{loan?.lender}</Text>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {error && (
           <Card style={styles.errorCard}>
             <Text style={styles.errorText}>{error}</Text>
@@ -157,16 +170,17 @@ export default function EarlyRepaymentScreen() {
           <Card style={styles.loanInfo}>
             <Text style={styles.infoLabel}>Zostávajúca istina:</Text>
             <Text style={styles.infoValue}>
-              {loan ? formatCurrency(loan.remaining_balance.toString()) : '—'}
+              {loan ? formatCurrency(loan.remaining_balance) : '—'}
             </Text>
           </Card>
 
-          <Input
+          <NumericInput
             label="Suma na splatenie"
-            placeholder="0.00"
-            keyboardType="decimal-pad"
-            value={watch('amount') || ''}
-            onChangeText={(value) => setValue('amount', value)}
+            value={watch('amount')}
+            onChangeValue={(val) => setValue('amount', val ?? 0, { shouldValidate: true })}
+            currency="€"
+            min={0}
+            max={loan?.remaining_balance != null ? Number(loan.remaining_balance) : undefined}
             error={errors.amount?.message}
           />
 
@@ -195,14 +209,14 @@ export default function EarlyRepaymentScreen() {
               <View style={styles.previewRow}>
                 <Text style={styles.previewLabel}>Nová zostávajúca istina:</Text>
                 <Text style={styles.previewValue}>
-                  {formatCurrency(preview.new_remaining_principal.toString())}
+                  {formatCurrency(preview.new_remaining_principal)}
                 </Text>
               </View>
 
               <View style={styles.previewRow}>
                 <Text style={styles.previewLabel}>Ušetrený úrok:</Text>
                 <Text style={[styles.previewValue, styles.positive]}>
-                  +{formatCurrency(preview.saved_interest.toString())}
+                  +{formatCurrency(preview.saved_interest)}
                 </Text>
               </View>
 
@@ -234,7 +248,7 @@ export default function EarlyRepaymentScreen() {
           Zrušiť
         </Button>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

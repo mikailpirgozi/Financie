@@ -1,23 +1,13 @@
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent } from '@finapp/ui';
 import { IncomesPageClient } from './IncomesPageClient';
+import { getCurrentSession } from '@/lib/auth/session';
 
 export default async function IncomesPage(): Promise<React.ReactNode> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const { user, householdId } = await getCurrentSession();
   if (!user) return null;
 
-  // Get user's household
-  const { data: membership } = await supabase
-    .from('household_members')
-    .select('household_id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!membership) {
+  if (!householdId) {
     return (
       <div className="space-y-6">
         <div>
@@ -29,7 +19,8 @@ export default async function IncomesPage(): Promise<React.ReactNode> {
             <div className="text-6xl mb-4">⚠️</div>
             <h3 className="text-lg font-semibold mb-2">Žiadna domácnosť</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Nemáte priradenú žiadnu domácnosť. Kontaktujte administrátora alebo sa zaregistrujte znova.
+              Nemáte priradenú žiadnu domácnosť. Kontaktujte administrátora alebo sa zaregistrujte
+              znova.
             </p>
           </CardContent>
         </Card>
@@ -37,54 +28,47 @@ export default async function IncomesPage(): Promise<React.ReactNode> {
     );
   }
 
-  // Get incomes
-  const { data: incomes } = await supabase
-    .from('incomes')
-    .select(`
-      *,
-      categories (
-        id,
-        name
-      )
-    `)
-    .eq('household_id', membership.household_id)
-    .order('date', { ascending: false })
-    .limit(50);
+  const supabase = await createClient();
 
-  // Get income templates
-  const { data: templates } = await supabase
-    .from('income_templates')
-    .select(`
-      *,
-      categories (
-        id,
-        name
-      )
-    `)
-    .eq('household_id', membership.household_id)
-    .eq('is_active', true)
-    .order('sort_order', { ascending: true })
-    .order('name', { ascending: true });
+  // Paralelne – 3 nezávislé queries (predtým sériovo, ~3x latency).
+  // POZN.: select('*') ostáva kvôli placeholder database.types; column-targeting
+  // dorobíme v Phase 4 spolu s regeneráciou typov.
+  const [incomesResult, templatesResult, categoriesResult] = await Promise.all([
+    supabase
+      .from('incomes')
+      .select(`*, categories (id, name)`)
+      .eq('household_id', householdId)
+      .order('date', { ascending: false })
+      .limit(50),
 
-  // Get income categories
-  const { data: categories } = await supabase
-    .from('categories')
-    .select('id, name')
-    .eq('household_id', membership.household_id)
-    .eq('kind', 'income')
-    .order('name', { ascending: true });
+    supabase
+      .from('income_templates')
+      .select(`*, categories (id, name)`)
+      .eq('household_id', householdId)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true }),
 
-  const total = incomes?.reduce((sum, inc) => sum + Number(inc.amount), 0) ?? 0;
+    supabase
+      .from('categories')
+      .select('id, name')
+      .eq('household_id', householdId)
+      .eq('kind', 'income')
+      .order('name', { ascending: true }),
+  ]);
+
+  const incomes = incomesResult.data ?? [];
+  const templates = templatesResult.data ?? [];
+  const categories = categoriesResult.data ?? [];
+  const total = incomes.reduce((sum, inc) => sum + Number(inc.amount), 0);
 
   return (
     <IncomesPageClient
-      incomes={incomes ?? []}
-      templates={templates ?? []}
-      categories={categories ?? []}
-      householdId={membership.household_id}
+      incomes={incomes}
+      templates={templates}
+      categories={categories}
+      householdId={householdId}
       total={total}
     />
   );
 }
-
-

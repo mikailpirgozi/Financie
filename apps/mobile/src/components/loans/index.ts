@@ -2,6 +2,7 @@
 export { LoanHeroCard } from './LoanHeroCard';
 export { LoanListItem } from './LoanListItem';
 export { LoanActionSheet } from './LoanActionSheet';
+export { UpcomingPaymentsCalendar } from './UpcomingPaymentsCalendar';
 
 // Loan components - Detail (New redesigned)
 export { CompactHeroCard } from './CompactHeroCard';
@@ -12,6 +13,7 @@ export { CollapsibleSection } from './CollapsibleSection';
 // Loan components - Detail (Legacy/Reused)
 export { LoanFinancialOverview } from './LoanFinancialOverview';
 export { LoanMilestones } from './LoanMilestones';
+export { AmortizationChart } from './AmortizationChart';
 
 // Loan components - Search & Filter
 export { LoanSearchFilter, filterAndSortLoans, type LoanFilters } from './LoanSearchFilter';

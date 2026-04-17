@@ -126,7 +126,9 @@ export async function GET(request: NextRequest) {
         .eq('household_id', householdId),
       supabase
         .from('monthly_summaries')
-        .select('*')
+        .select(
+          'month, total_income, total_expenses, net_cash_flow, total_assets, loan_balance_remaining, net_worth, net_worth_change'
+        )
         .eq('household_id', householdId)
         .order('month', { ascending: false })
         .limit(2),

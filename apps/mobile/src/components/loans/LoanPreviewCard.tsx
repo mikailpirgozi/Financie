@@ -1,94 +1,123 @@
 import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import type { LoanCalculatorResult } from '@finapp/core';
+import { formatLocaleNumber } from '@finapp/core';
+import { useTheme } from '../../contexts';
 
 interface LoanPreviewCardProps {
   result: LoanCalculatorResult | null;
   principal: number;
 }
 
+const euro = (n: number) =>
+  `${formatLocaleNumber(n, { locale: 'sk-SK', minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+
 /**
- * Preview card showing calculated loan details (mobile)
- * Memoized to prevent unnecessary re-renders
+ * Preview card showing calculated loan details (mobile, theme-aware).
  */
-export const LoanPreviewCard = memo(function LoanPreviewCard({ result, principal }: LoanPreviewCardProps) {
+export const LoanPreviewCard = memo(function LoanPreviewCard({
+  result,
+  principal,
+}: LoanPreviewCardProps) {
+  const { theme } = useTheme();
+  const colors = theme.colors;
+
   if (!result) {
     return (
-      <View style={styles.emptyContainer}>
+      <View
+        style={[
+          styles.emptyContainer,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+          },
+        ]}
+      >
         <Text style={styles.emptyIcon}>📊</Text>
-        <Text style={styles.emptyText}>
+        <Text style={[styles.emptyText, { color: colors.textMuted }]}>
           Zadajte parametre úveru{'\n'}pre zobrazenie prepočtu
         </Text>
       </View>
     );
   }
 
-  const { firstPayment, effectiveRate, totalPayment, totalInterest, totalFees, endDate } =
-    result;
+  const { firstPayment, effectiveRate, totalPayment, totalInterest, totalFees, endDate } = result;
   const rateWarning = Math.abs(effectiveRate - (result.calculatedRate ?? effectiveRate)) > 0.5;
-  
-  // Guard against Invalid Date
-  const safeEndDate = endDate instanceof Date && !isNaN(endDate.getTime()) 
-    ? endDate 
-    : new Date();
+
+  const safeEndDate = endDate instanceof Date && !isNaN(endDate.getTime()) ? endDate : new Date();
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>💳 PREHĽAD ÚVERU</Text>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.primary,
+          shadowColor: colors.shadowColor,
+        },
+      ]}
+    >
+      <Text style={[styles.title, { color: colors.textMuted }]}>💳 PREHĽAD ÚVERU</Text>
 
       {/* Main payment */}
       <View style={styles.mainPayment}>
-        <Text style={styles.paymentAmount}>{firstPayment.toFixed(2)} €</Text>
-        <Text style={styles.paymentLabel}>/mesiac</Text>
+        <Text style={[styles.paymentAmount, { color: colors.primary }]}>{euro(firstPayment)}</Text>
+        <Text style={[styles.paymentLabel, { color: colors.textMuted }]}>/mesiac</Text>
       </View>
 
-      <View style={styles.divider} />
+      <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
       {/* Key metrics */}
       <View style={styles.metricsRow}>
         <View style={styles.metric}>
-          <Text style={styles.metricLabel}>
+          <Text style={[styles.metricLabel, { color: colors.textMuted }]}>
             RPMN {rateWarning && '⚠️'}
           </Text>
-          <Text style={styles.metricValueOrange}>{effectiveRate.toFixed(2)}%</Text>
+          <Text style={[styles.metricValueAccent, { color: colors.warning }]}>
+            {effectiveRate.toFixed(2)}%
+          </Text>
         </View>
         <View style={styles.metric}>
-          <Text style={styles.metricLabel}>Koniec</Text>
-          <Text style={styles.metricValue}>
+          <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Koniec</Text>
+          <Text style={[styles.metricValue, { color: colors.text }]}>
             {safeEndDate.toLocaleDateString('sk-SK', { month: 'short', year: 'numeric' })}
           </Text>
         </View>
       </View>
 
-      <View style={styles.divider} />
+      <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
       {/* Totals */}
       <View style={styles.totalsSection}>
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Celkom:</Text>
-          <Text style={styles.totalValue}>{totalPayment.toFixed(2)} €</Text>
+          <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>Celkom:</Text>
+          <Text style={[styles.totalValue, { color: colors.text }]}>{euro(totalPayment)}</Text>
         </View>
         <View style={styles.breakdownRow}>
-          <Text style={styles.breakdownLabel}>Úver:</Text>
-          <Text style={styles.breakdownValue}>{principal.toFixed(2)} €</Text>
+          <Text style={[styles.breakdownLabel, { color: colors.textMuted }]}>Úver:</Text>
+          <Text style={[styles.breakdownValue, { color: colors.textSecondary }]}>
+            {euro(principal)}
+          </Text>
         </View>
         <View style={styles.breakdownRow}>
-          <Text style={styles.breakdownLabel}>Úrok:</Text>
-          <Text style={styles.breakdownValueOrange}>
-            {totalInterest.toFixed(2)} € ({((totalInterest / principal) * 100).toFixed(0)}%)
+          <Text style={[styles.breakdownLabel, { color: colors.textMuted }]}>Úrok:</Text>
+          <Text style={[styles.breakdownValueAccent, { color: colors.warning }]}>
+            {euro(totalInterest)} ({((totalInterest / principal) * 100).toFixed(0)}%)
           </Text>
         </View>
         {totalFees > 0 && (
           <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownLabel}>Poplatky:</Text>
-            <Text style={styles.breakdownValueOrange}>{totalFees.toFixed(2)} €</Text>
+            <Text style={[styles.breakdownLabel, { color: colors.textMuted }]}>Poplatky:</Text>
+            <Text style={[styles.breakdownValueAccent, { color: colors.warning }]}>
+              {euro(totalFees)}
+            </Text>
           </View>
         )}
       </View>
 
       {rateWarning && (
-        <View style={styles.warning}>
-          <Text style={styles.warningText}>
+        <View style={[styles.warning, { backgroundColor: colors.warningLight ?? colors.surface }]}>
+          <Text style={[styles.warningText, { color: colors.warning }]}>
             ⚠️ RPMN je vyššie ako úrok kvôli poplatkom
           </Text>
         </View>
@@ -99,24 +128,19 @@ export const LoanPreviewCard = memo(function LoanPreviewCard({ result, principal
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 20,
     borderWidth: 2,
-    borderColor: '#8b5cf6',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
   emptyContainer: {
-    backgroundColor: '#f9fafb',
     borderRadius: 16,
     padding: 40,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#e5e7eb',
     borderStyle: 'dashed',
   },
   emptyIcon: {
@@ -125,13 +149,11 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#6b7280',
     textAlign: 'center',
   },
   title: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#6b7280',
     letterSpacing: 0.5,
     marginBottom: 16,
   },
@@ -142,16 +164,13 @@ const styles = StyleSheet.create({
   paymentAmount: {
     fontSize: 36,
     fontWeight: '800',
-    color: '#8b5cf6',
   },
   paymentLabel: {
     fontSize: 12,
-    color: '#6b7280',
     marginTop: 4,
   },
   divider: {
     height: 1,
-    backgroundColor: '#e5e7eb',
     marginVertical: 16,
   },
   metricsRow: {
@@ -164,18 +183,15 @@ const styles = StyleSheet.create({
   },
   metricLabel: {
     fontSize: 11,
-    color: '#6b7280',
     marginBottom: 4,
   },
   metricValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
   },
-  metricValueOrange: {
+  metricValueAccent: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#f97316',
   },
   totalsSection: {
     gap: 8,
@@ -188,12 +204,10 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 14,
-    color: '#6b7280',
   },
   totalValue: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#111827',
   },
   breakdownRow: {
     flexDirection: 'row',
@@ -203,25 +217,19 @@ const styles = StyleSheet.create({
   },
   breakdownLabel: {
     fontSize: 12,
-    color: '#9ca3af',
   },
   breakdownValue: {
     fontSize: 13,
-    color: '#6b7280',
   },
-  breakdownValueOrange: {
+  breakdownValueAccent: {
     fontSize: 13,
-    color: '#f97316',
   },
   warning: {
-    backgroundColor: '#fff7ed',
     borderRadius: 8,
     padding: 12,
     marginTop: 16,
   },
   warningText: {
     fontSize: 11,
-    color: '#c2410c',
   },
 });
-

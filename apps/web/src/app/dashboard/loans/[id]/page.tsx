@@ -492,7 +492,11 @@ export default async function LoanDetailPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <LoanDetailClient loanId={id} schedule={scheduleWithStatus} />
+          <LoanDetailClient
+            loanId={id}
+            schedule={scheduleWithStatus}
+            loanName={loan.name ?? loan.lender}
+          />
         </CardContent>
       </Card>
     </div>

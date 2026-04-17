@@ -57,8 +57,7 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-image",
-      "expo-font",
-      "@sentry/react-native"
+      "expo-font"
     ],
     "scheme": "finapp",
     "extra": {
@@ -68,6 +67,9 @@
       "eas": {
         "projectId": "b87a1f29-1f7f-4549-ab3c-f77e749d60e1"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/b87a1f29-1f7f-4549-ab3c-f77e749d60e1"
     }
   }
 }

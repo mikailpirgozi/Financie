@@ -25,8 +25,12 @@ import {
   Car,
   ChevronRight,
   Link2,
+  BarChart3,
+  Download,
 } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import {
   type Loan,
   type LoanSchedule,
@@ -52,6 +56,7 @@ import {
   LoanDetailTabs,
   type LoanDetailTab,
   CollapsibleSection,
+  AmortizationChart,
 } from '@/components/loans';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
 import { OptionsMenu, type MenuItem } from '@/components/ui/OptionsMenu';
@@ -59,7 +64,12 @@ import { DocumentListItem } from '@/components/common';
 import { useTheme } from '../../../../src/contexts';
 import { useLoan, useMarkInstallmentPaid, useMarkPaidUntilToday } from '../../../../src/hooks';
 import { getCurrentHousehold } from '@/lib/api';
-import { LOAN_DOCUMENT_TYPE_LABELS, type LoanDocumentType } from '@finapp/core';
+import {
+  LOAN_DOCUMENT_TYPE_LABELS,
+  type LoanDocumentType,
+  buildLoanScheduleCsv,
+  buildLoanScheduleFilename,
+} from '@finapp/core';
 import * as Haptics from 'expo-haptics';
 
 // Extend LoanSchedule with computed overdue status
@@ -120,6 +130,15 @@ export default function LoanDetailScreen() {
   // Schedule filter state (for Schedule tab) - default to 'unpaid' (overdue + pending)
   const [scheduleFilter, setScheduleFilter] = useState<'unpaid' | 'overdue' | 'all'>('unpaid');
   const [showPaidHistory, setShowPaidHistory] = useState(false);
+
+  // Pagination for Schedule tab
+  const SCHEDULE_PAGE_SIZE = 12;
+  const [visibleUnpaidCount, setVisibleUnpaidCount] = useState(SCHEDULE_PAGE_SIZE);
+  const [visiblePaidCount, setVisiblePaidCount] = useState(SCHEDULE_PAGE_SIZE);
+
+  useEffect(() => {
+    setVisibleUnpaidCount(SCHEDULE_PAGE_SIZE);
+  }, [scheduleFilter]);
 
   // Track previous schedule signature to avoid unnecessary updates
   const prevScheduleSignatureRef = useRef<string>('');
@@ -875,6 +894,15 @@ export default function LoanDetailScreen() {
 
       {optimisticSchedule.length > 0 && (
         <CollapsibleSection
+          title="Amortizácia"
+          icon={<BarChart3 size={18} color={colors.primary} />}
+        >
+          <AmortizationChart schedule={optimisticSchedule} maxBars={36} height={140} />
+        </CollapsibleSection>
+      )}
+
+      {optimisticSchedule.length > 0 && (
+        <CollapsibleSection
           title="Míľniky"
           icon={<Target size={18} color={colors.primary} />}
           badge={`${Math.round(progress)}%`}
@@ -891,6 +919,39 @@ export default function LoanDetailScreen() {
       )}
     </View>
   );
+
+  // Export schedule to CSV and share it
+  const handleExportSchedule = async () => {
+    if (!optimisticSchedule.length) {
+      showToast('Žiadny kalendár na export', 'error');
+      return;
+    }
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const csv = buildLoanScheduleCsv(optimisticSchedule);
+      const filename = buildLoanScheduleFilename(loan?.name || loan?.lender);
+      const file = new File(Paths.cache, filename);
+      if (file.exists) {
+        file.delete();
+      }
+      file.create();
+      file.write(csv);
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(file.uri, {
+          mimeType: 'text/csv',
+          dialogTitle: 'Export splátkového kalendára',
+          UTI: 'public.comma-separated-values-text',
+        });
+      } else {
+        showToast('Export uložený, no zdieľanie nie je dostupné', 'error');
+      }
+    } catch (err) {
+      console.error('CSV export failed:', err);
+      showToast('Nepodarilo sa exportovať kalendár', 'error');
+    }
+  };
 
   // Render Schedule Tab content
   const renderScheduleTab = () => {
@@ -918,6 +979,22 @@ export default function LoanDetailScreen() {
 
     return (
       <View style={styles.tabContent}>
+        {/* Export + filters row */}
+        <View style={styles.scheduleToolbar}>
+          <TouchableOpacity
+            style={[
+              styles.exportButton,
+              { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+            ]}
+            onPress={handleExportSchedule}
+            accessibilityRole="button"
+            accessibilityLabel="Exportovať kalendár splátok ako CSV"
+          >
+            <Download size={14} color={colors.primary} />
+            <Text style={[styles.exportButtonText, { color: colors.primary }]}>Export CSV</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Filter Chips - simplified */}
         <View style={styles.filterChips}>
           {filterChips.map((chip) => {
@@ -1008,7 +1085,7 @@ export default function LoanDetailScreen() {
               </Text>
             </View>
           ) : (
-            filteredSchedule.map((entry) => (
+            filteredSchedule.slice(0, visibleUnpaidCount).map((entry) => (
               <SwipeableInstallmentCard
                 key={entry.id}
                 entry={entry}
@@ -1062,6 +1139,24 @@ export default function LoanDetailScreen() {
               />
             ))
           )}
+
+          {filteredSchedule.length > visibleUnpaidCount && (
+            <TouchableOpacity
+              style={[
+                styles.loadMoreButton,
+                { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setVisibleUnpaidCount((c) => c + SCHEDULE_PAGE_SIZE);
+              }}
+            >
+              <Text style={[styles.loadMoreText, { color: colors.primary }]}>
+                Načítať ďalších{' '}
+                {Math.min(SCHEDULE_PAGE_SIZE, filteredSchedule.length - visibleUnpaidCount)}
+              </Text>
+            </TouchableOpacity>
+          )}
         </Card>
 
         {/* Show Paid History Button */}
@@ -1101,6 +1196,7 @@ export default function LoanDetailScreen() {
             </View>
             {optimisticSchedule
               .filter((i) => i.status === 'paid')
+              .slice(0, visiblePaidCount)
               .map((entry) => (
                 <SwipeableInstallmentCard
                   key={entry.id}
@@ -1151,11 +1247,40 @@ export default function LoanDetailScreen() {
                   formatDate={formatDate}
                 />
               ))}
+
+            {paidInstallmentsCount > visiblePaidCount && (
+              <TouchableOpacity
+                style={[
+                  styles.loadMoreButton,
+                  { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setVisiblePaidCount((c) => c + SCHEDULE_PAGE_SIZE);
+                }}
+              >
+                <Text style={[styles.loadMoreText, { color: colors.primary }]}>
+                  Načítať ďalších{' '}
+                  {Math.min(SCHEDULE_PAGE_SIZE, paidInstallmentsCount - visiblePaidCount)}
+                </Text>
+              </TouchableOpacity>
+            )}
           </Card>
         )}
       </View>
     );
   };
+
+  // Group documents by type for better overview
+  const documentsByType = useMemo(() => {
+    const grouped: Record<string, LoanDocument[]> = {};
+    for (const doc of documents) {
+      const key = doc.documentType || 'other';
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(doc);
+    }
+    return grouped;
+  }, [documents]);
 
   // Render Documents Tab content
   const renderDocumentsTab = () => (
@@ -1230,25 +1355,38 @@ export default function LoanDetailScreen() {
           </View>
         ) : (
           <View style={styles.documentsList}>
-            {documents.map((doc) => (
-              <DocumentListItem
-                key={doc.id}
-                id={doc.id}
-                name={doc.name}
-                documentType={doc.documentType}
-                documentTypeLabel={LOAN_DOCUMENT_TYPE_LABELS[doc.documentType] || doc.documentType}
-                filePath={doc.filePath}
-                fileSize={doc.fileSize}
-                mimeType={doc.mimeType}
-                createdAt={doc.createdAt}
-                onDelete={handleDeleteDocument}
-              />
+            {Object.entries(documentsByType).map(([type, docs]) => (
+              <View key={type} style={styles.documentCategory}>
+                <Text style={[styles.documentCategoryTitle, { color: colors.textMuted }]}>
+                  {LOAN_DOCUMENT_TYPE_LABELS[type as LoanDocumentType] || type} · {docs.length}
+                </Text>
+                {docs.map((doc) => (
+                  <DocumentListItem
+                    key={doc.id}
+                    id={doc.id}
+                    name={doc.name}
+                    documentType={doc.documentType}
+                    documentTypeLabel={
+                      LOAN_DOCUMENT_TYPE_LABELS[doc.documentType] || doc.documentType
+                    }
+                    filePath={doc.filePath}
+                    fileSize={doc.fileSize}
+                    mimeType={doc.mimeType}
+                    createdAt={doc.createdAt}
+                    onDelete={handleDeleteDocument}
+                  />
+                ))}
+              </View>
             ))}
           </View>
         )}
       </Card>
+    </View>
+  );
 
-      {/* Notes Section */}
+  // Render Notes Tab content (separate from Documents)
+  const renderNotesTab = () => (
+    <View style={styles.tabContent}>
       <Card style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
@@ -1336,7 +1474,8 @@ export default function LoanDetailScreen() {
           activeTab={activeTab}
           onTabChange={setActiveTab}
           overdueCount={overdueCount}
-          documentsCount={documents.length + notes.length}
+          documentsCount={documents.length}
+          notesCount={notes.length}
         />
 
         {/* Content */}
@@ -1355,6 +1494,7 @@ export default function LoanDetailScreen() {
           {activeTab === 'overview' && renderOverviewTab()}
           {activeTab === 'schedule' && renderScheduleTab()}
           {activeTab === 'documents' && renderDocumentsTab()}
+          {activeTab === 'notes' && renderNotesTab()}
         </ScrollView>
 
         {/* Floating Action Button */}
@@ -1587,6 +1727,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  loadMoreButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    marginTop: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  loadMoreText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  scheduleToolbar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 10,
+  },
+  exportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 4,
+  },
+  exportButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   paidHistoryCard: {
     marginTop: 16,
   },
@@ -1672,7 +1842,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   documentsList: {
-    gap: 0,
+    gap: 12,
+  },
+  documentCategory: {
+    gap: 4,
+  },
+  documentCategoryTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 2,
+    marginTop: 4,
   },
   notesList: {
     gap: 0,

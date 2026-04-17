@@ -105,6 +105,32 @@ export const createLoanSchema = z.object({
   loanPurpose: loanPurposeSchema.optional(),
 });
 
+/**
+ * Schema for partial loan updates. All fields are optional; server re-generates
+ * the schedule when any of the core parameters change.
+ */
+export const updateLoanSchema = z.object({
+  name: z.string().max(200).nullable().optional(),
+  lender: z.string().min(1).max(200).optional(),
+  loanType: loanTypeSchema.optional(),
+  principal: positiveNumberSchema.optional(),
+  annualRate: percentageSchema.optional(),
+  rateType: rateTypeSchema.optional(),
+  dayCountConvention: dayCountConventionSchema.optional(),
+  startDate: dateSchema.optional(),
+  termMonths: z.number().int().positive().optional(),
+  balloonAmount: nonNegativeNumberSchema.nullable().optional(),
+  feeSetup: nonNegativeNumberSchema.optional(),
+  feeMonthly: nonNegativeNumberSchema.optional(),
+  insuranceMonthly: nonNegativeNumberSchema.optional(),
+  earlyRepaymentPenaltyPct: percentageSchema.optional(),
+  fixedMonthlyPayment: positiveNumberSchema.optional(),
+  fixedPrincipalPayment: positiveNumberSchema.optional(),
+  linkedAssetId: uuidSchema.nullable().optional(),
+  loanPurpose: loanPurposeSchema.optional(),
+  regenerateSchedule: z.boolean().optional(),
+});
+
 export const payLoanSchema = z.object({
   loanId: uuidSchema,
   amount: positiveNumberSchema,
@@ -442,6 +468,7 @@ export const monthlySummarySchema = z.object({
 // Export types from schemas
 export type LoanCalculationInputData = z.infer<typeof loanCalculationInputSchema>;
 export type CreateLoanInput = z.infer<typeof createLoanSchema>;
+export type UpdateLoanInput = z.infer<typeof updateLoanSchema>;
 export type PayLoanInput = z.infer<typeof payLoanSchema>;
 export type EarlyRepaymentInput = z.infer<typeof earlyRepaymentSchema>;
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;

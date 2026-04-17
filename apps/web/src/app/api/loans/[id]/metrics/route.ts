@@ -3,10 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: loanId } = await params;
     const supabase = await createClient();
@@ -18,9 +15,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch metrics from materialized view
+    // Fetch metrics from security_invoker view (filtruje podľa membership)
     const { data, error } = await supabase
-      .from('loan_metrics')
+      .from('v_loan_metrics')
       .select('*')
       .eq('loan_id', loanId)
       .single();
@@ -35,15 +32,15 @@ export async function GET(
 
     return NextResponse.json(data, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        // SECURITY: per-user dáta – private cache
+        'Cache-Control': 'private, max-age=30, must-revalidate',
       },
     });
   } catch (error) {
     console.error('GET /api/loans/[id]/metrics error:', error);
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : 'Internal server error',
+        error: error instanceof Error ? error.message : 'Internal server error',
       },
       { status: 500 }
     );

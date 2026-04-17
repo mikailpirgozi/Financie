@@ -229,14 +229,11 @@ async function getLoansLegacy(householdId: string): Promise<LoanWithMetrics[]> {
   if (loansError) throw loansError;
   if (!loans || loans.length === 0) return [];
 
-  // Get metrics in a single query
+  // Get metrics cez security_invoker view (defense-in-depth pre MV bez RLS)
   const { data: metrics } = await supabase
-    .from('loan_metrics')
+    .from('v_loan_metrics')
     .select('*')
-    .in(
-      'loan_id',
-      loans.map((l) => l.id)
-    );
+    .eq('household_id', householdId);
 
   const metricsMap = new Map(metrics?.map((m) => [m.loan_id, m]) ?? []);
 
@@ -316,9 +313,9 @@ export async function getLoan(loanId: string) {
 
   if (scheduleError) throw scheduleError;
 
-  // Get metrics for computed fields
+  // Get metrics cez security_invoker view (defense-in-depth pre MV bez RLS)
   const { data: metrics } = await supabase
-    .from('loan_metrics')
+    .from('v_loan_metrics')
     .select('*')
     .eq('loan_id', loanId)
     .single();
@@ -431,6 +428,160 @@ export async function deleteLoan(loanId: string) {
   const { error } = await supabase.from('loans').delete().eq('id', loanId);
 
   if (error) throw error;
+}
+
+export interface UpdateLoanInput {
+  name?: string | null;
+  lender?: string;
+  loanType?: CreateLoanInput['loanType'];
+  principal?: number;
+  annualRate?: number;
+  rateType?: CreateLoanInput['rateType'];
+  startDate?: Date;
+  termMonths?: number;
+  feeSetup?: number;
+  feeMonthly?: number;
+  insuranceMonthly?: number;
+  balloonAmount?: number | null;
+  earlyRepaymentPenaltyPct?: number;
+  dayCountConvention?: CreateLoanInput['dayCountConvention'];
+  fixedMonthlyPayment?: number;
+  fixedPrincipalPayment?: number;
+  /**
+   * If true, regenerate schedule after updating loan parameters.
+   * Required when any of principal/rate/term/fees change.
+   */
+  regenerateSchedule?: boolean;
+}
+
+/**
+ * Update a loan. If any of the core parameters change, the schedule is regenerated.
+ * Pending (not-yet-paid) installments are replaced; paid installments are preserved.
+ */
+export async function updateLoan(loanId: string, input: UpdateLoanInput) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('Unauthorized');
+
+  // Fetch existing loan to merge values and check permissions
+  const { data: existing, error: fetchError } = await supabase
+    .from('loans')
+    .select('*')
+    .eq('id', loanId)
+    .single();
+
+  if (fetchError) throw fetchError;
+  if (!existing) throw new Error('Loan not found');
+
+  // Build update payload using only provided fields
+  const updatePayload: Record<string, unknown> = {};
+  if (input.name !== undefined) updatePayload.name = input.name;
+  if (input.lender !== undefined) updatePayload.lender = input.lender;
+  if (input.loanType !== undefined) updatePayload.loan_type = input.loanType;
+  if (input.principal !== undefined) updatePayload.principal = input.principal;
+  if (input.annualRate !== undefined) updatePayload.annual_rate = input.annualRate;
+  if (input.rateType !== undefined) updatePayload.rate_type = input.rateType;
+  if (input.dayCountConvention !== undefined)
+    updatePayload.day_count_convention = input.dayCountConvention;
+  if (input.startDate !== undefined)
+    updatePayload.start_date = input.startDate.toISOString().split('T')[0];
+  if (input.termMonths !== undefined) updatePayload.term_months = input.termMonths;
+  if (input.feeSetup !== undefined) updatePayload.fee_setup = input.feeSetup;
+  if (input.feeMonthly !== undefined) updatePayload.fee_monthly = input.feeMonthly;
+  if (input.insuranceMonthly !== undefined)
+    updatePayload.insurance_monthly = input.insuranceMonthly;
+  if (input.balloonAmount !== undefined) updatePayload.balloon_amount = input.balloonAmount;
+  if (input.earlyRepaymentPenaltyPct !== undefined)
+    updatePayload.early_repayment_penalty_pct = input.earlyRepaymentPenaltyPct;
+
+  if (Object.keys(updatePayload).length === 0 && !input.regenerateSchedule) {
+    return { loan: existing };
+  }
+
+  const { data: updated, error: updateError } = await supabase
+    .from('loans')
+    .update(updatePayload)
+    .eq('id', loanId)
+    .select()
+    .single();
+
+  if (updateError) throw updateError;
+  if (!updated) throw new Error('Failed to update loan');
+
+  // Determine whether we need to regenerate the schedule
+  const affectsSchedule =
+    input.principal !== undefined ||
+    input.annualRate !== undefined ||
+    input.termMonths !== undefined ||
+    input.feeSetup !== undefined ||
+    input.feeMonthly !== undefined ||
+    input.insuranceMonthly !== undefined ||
+    input.balloonAmount !== undefined ||
+    input.loanType !== undefined ||
+    input.startDate !== undefined ||
+    input.fixedMonthlyPayment !== undefined ||
+    input.fixedPrincipalPayment !== undefined;
+
+  if (!affectsSchedule && !input.regenerateSchedule) {
+    return { loan: updated };
+  }
+
+  // Regenerate schedule from scratch, then preserve paid installments
+  // Fetch paid schedules to preserve them
+  const { data: paidSchedules } = await supabase
+    .from('loan_schedules')
+    .select('installment_no')
+    .eq('loan_id', loanId)
+    .eq('status', 'paid');
+
+  const paidInstallmentNumbers = new Set(
+    (paidSchedules ?? []).map((s: { installment_no: number }) => s.installment_no)
+  );
+
+  // Build inputs to recalc
+  const startDateValue = input.startDate ?? new Date(updated.start_date);
+  const schedule = calculateLoan({
+    loanType: updated.loan_type,
+    principal: Number(updated.principal),
+    annualRate: Number(updated.annual_rate),
+    termMonths: Number(updated.term_months),
+    startDate: startDateValue,
+    dayCountConvention: updated.day_count_convention,
+    feeSetup: Number(updated.fee_setup ?? 0),
+    feeMonthly: Number(updated.fee_monthly ?? 0),
+    insuranceMonthly: Number(updated.insurance_monthly ?? 0),
+    balloonAmount: updated.balloon_amount != null ? Number(updated.balloon_amount) : undefined,
+    fixedMonthlyPayment: input.fixedMonthlyPayment,
+    fixedPrincipalPayment: input.fixedPrincipalPayment,
+  });
+
+  // Delete only pending schedules (keep paid history)
+  await supabase.from('loan_schedules').delete().eq('loan_id', loanId).neq('status', 'paid');
+
+  // Insert new schedule entries for NOT-yet-paid installments
+  const scheduleData = schedule.schedule
+    .filter((entry) => !paidInstallmentNumbers.has(entry.installmentNo))
+    .map((entry) => ({
+      loan_id: loanId,
+      installment_no: entry.installmentNo,
+      due_date: entry.dueDate.toISOString().split('T')[0],
+      principal_due: entry.principalDue,
+      interest_due: entry.interestDue,
+      fees_due: entry.feesDue,
+      total_due: entry.totalDue,
+      principal_balance_after: entry.principalBalanceAfter,
+      status: entry.status,
+    }));
+
+  if (scheduleData.length > 0) {
+    const { error: scheduleError } = await supabase.from('loan_schedules').insert(scheduleData);
+    if (scheduleError) throw scheduleError;
+  }
+
+  return { loan: updated, schedule };
 }
 
 /** Summary statistics for all loans */

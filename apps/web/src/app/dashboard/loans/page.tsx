@@ -1,43 +1,32 @@
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
 import { Button } from '@finapp/ui';
 import { Card, CardContent } from '@finapp/ui';
 import { LoansClient } from './LoansClient';
-import { 
-  getLoans as getLoansWithMetrics, 
+import {
+  getLoans as getLoansWithMetrics,
   calculateLoansSummary,
-  refreshLoanMetrics,
   type LoanWithMetrics,
   type LoansSummary,
 } from '@/lib/api/loans';
+import { getCurrentUser, getCurrentUserHousehold } from '@/lib/auth/session';
 
 async function getLoansData(userId: string): Promise<{
   householdId: string;
   loans: LoanWithMetrics[];
   summary: LoansSummary;
 } | null> {
-  const supabase = await createClient();
-  
-  // Get user's household
-  const { data: membership } = await supabase
-    .from('household_members')
-    .select('household_id')
-    .eq('user_id', userId)
-    .single();
-
+  const membership = await getCurrentUserHousehold(userId);
   if (!membership) {
     return null;
   }
 
-  // Refresh materialized view (async, non-blocking)
-  // This ensures data is fresh when viewing the page
-  refreshLoanMetrics().catch(() => {
-    // Ignore errors - stale data is acceptable
-  });
+  // POZN.: refreshLoanMetrics() sa NEVOLA pri kazdej navsteve.
+  // pg_cron job refresh-loan-metrics bezi kazdych 5 minut a po platbe
+  // sa metrika invaliduje cez RPC refresh_loan_metrics_safe v pay route.
 
   // Get loans with pre-computed metrics (single optimized query)
   const loans = await getLoansWithMetrics(membership.household_id);
-  
+
   // Calculate summary statistics server-side
   const summary = calculateLoansSummary(loans);
 
@@ -45,15 +34,11 @@ async function getLoansData(userId: string): Promise<{
 }
 
 export default async function LoansPage(): Promise<React.ReactNode> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const { user } = await getCurrentUser();
   if (!user) return null;
 
   const loansData = await getLoansData(user.id);
-  
+
   if (!loansData) {
     return (
       <div className="space-y-6">
@@ -66,7 +51,8 @@ export default async function LoansPage(): Promise<React.ReactNode> {
             <div className="text-6xl mb-4">⚠️</div>
             <h3 className="text-lg font-semibold mb-2">Žiadna domácnosť</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Nemáte priradenú žiadnu domácnosť. Kontaktujte administrátora alebo sa zaregistrujte znova.
+              Nemáte priradenú žiadnu domácnosť. Kontaktujte administrátora alebo sa zaregistrujte
+              znova.
             </p>
           </CardContent>
         </Card>
@@ -81,9 +67,7 @@ export default async function LoansPage(): Promise<React.ReactNode> {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Úvery</h1>
-          <p className="text-muted-foreground">
-            Správa vašich úverov a splátok
-          </p>
+          <p className="text-muted-foreground">Správa vašich úverov a splátok</p>
         </div>
         <Link href="/dashboard/loans/new">
           <Button>➕ Nový úver</Button>
@@ -109,4 +93,3 @@ export default async function LoansPage(): Promise<React.ReactNode> {
     </div>
   );
 }
-

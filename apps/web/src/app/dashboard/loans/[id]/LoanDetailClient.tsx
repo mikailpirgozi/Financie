@@ -2,7 +2,12 @@
 
 import { useState } from 'react';
 import { Button } from '@finapp/ui';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Download } from 'lucide-react';
+import {
+  buildLoanScheduleCsv,
+  buildLoanScheduleFilename,
+  type LoanScheduleExportEntry,
+} from '@finapp/core';
 import { VirtualizedScheduleTable } from '@/components/loans/VirtualizedScheduleTable';
 import { ScheduleSkeleton } from '@/components/loans/ScheduleSkeleton';
 import {
@@ -27,11 +32,13 @@ interface LoanScheduleEntry {
 interface LoanDetailClientProps {
   loanId: string;
   schedule: LoanScheduleEntry[];
+  loanName?: string | null;
 }
 
 export function LoanDetailClient({
   loanId,
   schedule,
+  loanName,
 }: LoanDetailClientProps): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
 
@@ -51,15 +58,8 @@ export function LoanDetailClient({
   const currentSchedule = data?.schedule ?? schedule;
 
   // Handlers s optimistic updates
-  const handlePayInstallment = async (
-    installmentId: string,
-    amount: number
-  ) => {
-    if (
-      !confirm(
-        `Naozaj chcete uhradiť splátku vo výške ${amount.toFixed(2)} €?`
-      )
-    ) {
+  const handlePayInstallment = async (installmentId: string, amount: number) => {
+    if (!confirm(`Naozaj chcete uhradiť splátku vo výške ${amount.toFixed(2)} €?`)) {
       return;
     }
 
@@ -69,8 +69,7 @@ export function LoanDetailClient({
       await payMutation.mutateAsync({ installmentId, amount });
       alert('Splátka bola úspešne uhradená!');
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Nepodarilo sa uhradiť splátku';
+      const message = err instanceof Error ? err.message : 'Nepodarilo sa uhradiť splátku';
       setError(message);
       alert(message);
     }
@@ -81,8 +80,7 @@ export function LoanDetailClient({
 
     const pendingUntilToday = currentSchedule.filter(
       (entry: LoanScheduleEntry) =>
-        (entry.status === 'pending' || entry.status === 'overdue') &&
-        entry.due_date <= today
+        (entry.status === 'pending' || entry.status === 'overdue') && entry.due_date <= today
     );
 
     if (pendingUntilToday.length === 0) {
@@ -90,11 +88,7 @@ export function LoanDetailClient({
       return;
     }
 
-    if (
-      !confirm(
-        `Naozaj chcete označiť ${pendingUntilToday.length} splátok ako uhradené?`
-      )
-    ) {
+    if (!confirm(`Naozaj chcete označiť ${pendingUntilToday.length} splátok ako uhradené?`)) {
       return;
     }
 
@@ -104,17 +98,14 @@ export function LoanDetailClient({
       await markPaidMutation.mutateAsync(today);
       alert(`${pendingUntilToday.length} splátok bolo úspešne označených!`);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Nepodarilo sa označiť splátky';
+      const message = err instanceof Error ? err.message : 'Nepodarilo sa označiť splátky';
       setError(message);
       alert(message);
     }
   };
 
   const handleRegenerateSchedule = async () => {
-    if (
-      !confirm('Naozaj chcete regenerovať splátkový kalendár?')
-    ) {
+    if (!confirm('Naozaj chcete regenerovať splátkový kalendár?')) {
       return;
     }
 
@@ -124,13 +115,25 @@ export function LoanDetailClient({
       await regenerateMutation.mutateAsync();
       alert('Splátkový kalendár bol úspešne regenerovaný!');
     } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'Nepodarilo sa regenerovať kalendár';
+      const message = err instanceof Error ? err.message : 'Nepodarilo sa regenerovať kalendár';
       setError(message);
       alert(message);
     }
+  };
+
+  const handleExportCsv = () => {
+    if (!currentSchedule.length) return;
+    const csv = buildLoanScheduleCsv(currentSchedule as unknown as LoanScheduleExportEntry[]);
+    const filename = buildLoanScheduleFilename(loanName ?? null);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   if (isLoading && currentSchedule.length === 0) {
@@ -168,7 +171,16 @@ export function LoanDetailClient({
 
       {currentSchedule.length > 0 && (
         <>
-          <div className="flex justify-end mb-4">
+          <div className="flex flex-wrap justify-end gap-2 mb-4">
+            <Button
+              onClick={handleExportCsv}
+              variant="outline"
+              size="sm"
+              aria-label="Exportovať splátkový kalendár do CSV"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Export CSV
+            </Button>
             <Button
               onClick={handleMarkPaidUntilToday}
               disabled={markPaidMutation.isPending}
@@ -196,4 +208,3 @@ export function LoanDetailClient({
     </div>
   );
 }
-

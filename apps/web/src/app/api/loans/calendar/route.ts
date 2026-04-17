@@ -115,10 +115,12 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Získaj všetky splátky v danom období
+    // Získaj všetky splátky v danom období – len potrebné stĺpce
     const { data: schedules, error: schedulesError } = await supabase
       .from('loan_schedules')
-      .select('*')
+      .select(
+        'id, loan_id, installment_no, due_date, principal_due, interest_due, fees_due, total_due, status, paid_at'
+      )
       .in(
         'loan_id',
         loans.map((l) => l.id)

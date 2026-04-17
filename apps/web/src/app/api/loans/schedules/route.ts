@@ -12,7 +12,9 @@ const querySchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -20,17 +22,20 @@ export async function GET(request: NextRequest) {
 
     const searchParams = Object.fromEntries(request.nextUrl.searchParams);
     const { loanIds } = querySchema.parse(searchParams);
-    
+
     const loanIdArray = loanIds.split(',').filter(Boolean);
-    
+
     // IMPORTANT: .in('loan_id', []) returns ALL records, not zero!
     if (loanIdArray.length === 0) {
-      return NextResponse.json({}, {
-        headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
-          'CDN-Cache-Control': 'public, s-maxage=60',
+      return NextResponse.json(
+        {},
+        {
+          headers: {
+            // SECURITY: per-user dáta – private cache
+            'Cache-Control': 'private, max-age=30, must-revalidate',
+          },
         }
-      });
+      );
     }
 
     // Batch fetch all schedules in one query
@@ -54,9 +59,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(schedulesMap, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
-        'CDN-Cache-Control': 'public, s-maxage=60',
-      }
+        // SECURITY: per-user dáta – private cache
+        'Cache-Control': 'private, max-age=30, must-revalidate',
+      },
     });
   } catch (error) {
     console.error('GET /api/loans/schedules error:', error);

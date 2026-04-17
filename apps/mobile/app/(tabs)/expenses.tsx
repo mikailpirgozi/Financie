@@ -13,7 +13,9 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Plus } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
-import { getExpenses, getCurrentHousehold, deleteExpense, type Expense } from '../../src/lib/api';
+import { type Expense } from '../../src/lib/api';
+import { useExpenses, useDeleteExpense } from '../../src/hooks/useExpenses';
+import { useHousehold } from '../../src/hooks/useHousehold';
 import { useTheme } from '../../src/contexts';
 import { ErrorMessage } from '../../src/components/ErrorMessage';
 import { Toast } from '@/components/ui/Toast';
@@ -32,10 +34,27 @@ export default function ExpensesScreen() {
   const { theme } = useTheme();
   const colors = theme.colors;
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  // Data fetching cez React Query - cache shared, deduplikovany household
+  const householdQuery = useHousehold();
+  const householdId = householdQuery.data?.id;
+  const expensesQuery = useExpenses(householdId);
+  const deleteExpenseMutation = useDeleteExpense();
+
+  const loading = (householdQuery.isLoading || expensesQuery.isLoading) && !expensesQuery.data;
+  const refreshing = expensesQuery.isFetching && !expensesQuery.isLoading;
+  const error =
+    (householdQuery.error instanceof Error
+      ? householdQuery.error.message
+      : householdQuery.error
+        ? 'Nepodarilo sa nacitat domacnost'
+        : null) ??
+    (expensesQuery.error instanceof Error
+      ? expensesQuery.error.message
+      : expensesQuery.error
+        ? 'Nepodarilo sa nacitat vydavky'
+        : null);
+  const expenses: Expense[] = expensesQuery.data ?? [];
+
   const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>('this_month');
   const [sortBy, setSortBy] = useState<SortBy>('date');
   const [toast, setToast] = useState<{
@@ -54,29 +73,14 @@ export default function ExpensesScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadExpenses();
-    }, [])
+      // Iba osvieži ak je cache stale (default staleTime 60s).
+      // React Query si poradi - ak su data fresh, nedoslo k fetchu.
+      void expensesQuery.refetch();
+    }, [expensesQuery])
   );
 
-  const loadExpenses = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const household = await getCurrentHousehold();
-      const expensesData = await getExpenses(household.id);
-      setExpenses(expensesData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Nepodarilo sa nacitat vydavky');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const onRefresh = async () => {
-    setRefreshing(true);
-    await loadExpenses();
-    setRefreshing(false);
+    await Promise.all([householdQuery.refetch(), expensesQuery.refetch()]);
   };
 
   // Filter expenses by period
@@ -236,15 +240,14 @@ export default function ExpensesScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteExpense(selectedExpense.id);
-              setExpenses((prev) => prev.filter((e) => e.id !== selectedExpense.id));
+              await deleteExpenseMutation.mutateAsync(selectedExpense.id);
               setToast({
                 visible: true,
                 message: 'Vydavok bol zmazany',
                 type: 'success',
               });
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            } catch (err) {
+            } catch {
               setToast({
                 visible: true,
                 message: 'Nepodarilo sa zmazat vydavok',
@@ -309,16 +312,13 @@ export default function ExpensesScreen() {
       {/* Sort Row */}
       {expenses.length > 0 && (
         <View style={styles.sortRow}>
-          <Text style={[styles.sortLabel, { color: colors.textSecondary }]}>
-            Zoradit:
-          </Text>
+          <Text style={[styles.sortLabel, { color: colors.textSecondary }]}>Zoradit:</Text>
           <View style={styles.sortButtons}>
             <TouchableOpacity
               style={[
                 styles.sortButton,
                 {
-                  backgroundColor:
-                    sortBy === 'date' ? colors.primaryLight : colors.surfacePressed,
+                  backgroundColor: sortBy === 'date' ? colors.primaryLight : colors.surfacePressed,
                   borderColor: sortBy === 'date' ? colors.primary : colors.border,
                 },
               ]}
@@ -390,8 +390,8 @@ export default function ExpensesScreen() {
           {sortedExpenses.length === 1
             ? 'vydavok'
             : sortedExpenses.length < 5
-            ? 'vydavky'
-            : 'vydavkov'}
+              ? 'vydavky'
+              : 'vydavkov'}
         </Text>
       )}
     </View>
@@ -399,17 +399,15 @@ export default function ExpensesScreen() {
 
   const renderEmpty = () => (
     <View style={styles.emptyState}>
-      <View
-        style={[styles.emptyIconContainer, { backgroundColor: colors.expenseLight }]}
-      >
+      <View style={[styles.emptyIconContainer, { backgroundColor: colors.expenseLight }]}>
         <Text style={styles.emptyIcon}>💸</Text>
       </View>
       <Text style={[styles.emptyTitle, { color: colors.text }]}>
         {filterPeriod === 'this_month'
           ? 'Ziadne vydavky tento mesiac'
           : filterPeriod === 'last_month'
-          ? 'Ziadne vydavky minuly mesiac'
-          : 'Zatial nemate ziadne vydavky'}
+            ? 'Ziadne vydavky minuly mesiac'
+            : 'Zatial nemate ziadne vydavky'}
       </Text>
       <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
         {filterPeriod !== 'all'
@@ -434,10 +432,7 @@ export default function ExpensesScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View
-          style={[
-            styles.header,
-            { paddingTop: insets.top + 16, backgroundColor: colors.surface },
-          ]}
+          style={[styles.header, { paddingTop: insets.top + 16, backgroundColor: colors.surface }]}
         >
           <Text style={[styles.title, { color: colors.text }]}>Vydavky</Text>
         </View>
@@ -454,7 +449,7 @@ export default function ExpensesScreen() {
   if (error) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ErrorMessage message={error} onRetry={loadExpenses} />
+        <ErrorMessage message={error} onRetry={() => void onRefresh()} />
       </View>
     );
   }
@@ -478,9 +473,7 @@ export default function ExpensesScreen() {
           onPress={handleAddExpense}
         >
           <Plus size={20} color={colors.textInverse} />
-          <Text style={[styles.addButtonText, { color: colors.textInverse }]}>
-            Pridat
-          </Text>
+          <Text style={[styles.addButtonText, { color: colors.textInverse }]}>Pridat</Text>
         </TouchableOpacity>
       </View>
 

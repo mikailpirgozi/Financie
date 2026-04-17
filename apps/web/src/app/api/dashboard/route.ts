@@ -23,72 +23,63 @@ interface MonthlySummaryData {
  */
 async function calculateDashboardData(householdId: string, monthsCount: number) {
   const supabase = await createClient();
-  
-  // Get current date for month calculations
+
   const now = new Date();
-  
-  // Calculate month range
+
   const months: string[] = [];
   for (let i = 0; i < monthsCount; i++) {
     const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
     months.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
   }
 
-  // Get incomes for all months
-  const { data: incomes } = await supabase
-    .from('incomes')
-    .select('date, amount')
-    .eq('household_id', householdId)
-    .gte('date', `${months[months.length - 1]}-01`)
-    .lte('date', `${months[0]}-31`);
+  const startDate = `${months[months.length - 1]}-01`;
+  const endDate = `${months[0]}-31`;
 
-  // Get expenses for all months
-  const { data: expenses } = await supabase
-    .from('expenses')
-    .select('date, amount')
-    .eq('household_id', householdId)
-    .gte('date', `${months[months.length - 1]}-01`)
-    .lte('date', `${months[0]}-31`);
+  // 4 nezávislé queries — paralelne (predtým sériovo, ~4× latencia).
+  const [incomesRes, expensesRes, metricsRes, assetsRes] = await Promise.all([
+    supabase
+      .from('incomes')
+      .select('date, amount')
+      .eq('household_id', householdId)
+      .gte('date', startDate)
+      .lte('date', endDate),
 
-  // Get loans and compute remaining balance
-  const { data: loans } = await supabase
-    .from('loans')
-    .select('id, principal, status')
-    .eq('household_id', householdId);
+    supabase
+      .from('expenses')
+      .select('date, amount')
+      .eq('household_id', householdId)
+      .gte('date', startDate)
+      .lte('date', endDate),
 
-  // Only query loan_metrics if there are loans
-  // IMPORTANT: .in('loan_id', []) in Supabase returns ALL records, not zero!
-  let metrics = null;
-  if (loans && loans.length > 0) {
-    const { data } = await supabase
-      .from('loan_metrics')
-      .select('*')
-      .in('loan_id', loans.map(l => l.id));
-    metrics = data;
-  }
+    // v_loan_metrics už filtruje membership – jediná query nahradí 2 (loans + metrics)
+    supabase.from('v_loan_metrics').select('current_balance').eq('household_id', householdId),
 
-  // Get assets
-  const { data: assets } = await supabase
-    .from('assets')
-    .select('current_value')
-    .eq('household_id', householdId);
+    supabase.from('assets').select('current_value').eq('household_id', householdId),
+  ]);
+
+  const incomes = incomesRes.data ?? null;
+  const expenses = expensesRes.data ?? null;
+  const metrics = metricsRes.data ?? null;
+  const assets = assetsRes.data ?? null;
 
   // Calculate monthly summaries
   const summaryByMonth = new Map<string, MonthlySummaryData>();
-  
-  months.forEach(month => {
+
+  months.forEach((month) => {
     const monthStart = `${month}-01`;
     const monthEnd = `${month}-31`;
-    
-    const monthIncomes = incomes?.filter(i => i.date >= monthStart && i.date <= monthEnd) || [];
-    const monthExpenses = expenses?.filter(e => e.date >= monthStart && e.date <= monthEnd) || [];
-    
+
+    const monthIncomes = incomes?.filter((i) => i.date >= monthStart && i.date <= monthEnd) || [];
+    const monthExpenses = expenses?.filter((e) => e.date >= monthStart && e.date <= monthEnd) || [];
+
     const totalIncome = monthIncomes.reduce((sum, i) => sum + parseFloat(String(i.amount)), 0);
     const totalExpenses = monthExpenses.reduce((sum, e) => sum + parseFloat(String(e.amount)), 0);
-    
-    const loanBalanceRemaining = metrics?.reduce((sum, m) => sum + parseFloat(String(m.current_balance ?? 0)), 0) ?? 0;
-    const totalAssets = assets?.reduce((sum, a) => sum + parseFloat(String(a.current_value)), 0) ?? 0;
-    
+
+    const loanBalanceRemaining =
+      metrics?.reduce((sum, m) => sum + parseFloat(String(m.current_balance ?? 0)), 0) ?? 0;
+    const totalAssets =
+      assets?.reduce((sum, a) => sum + parseFloat(String(a.current_value)), 0) ?? 0;
+
     summaryByMonth.set(month, {
       month,
       total_income: totalIncome,
@@ -105,7 +96,9 @@ async function calculateDashboardData(householdId: string, monthsCount: number) 
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -125,10 +118,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Try to get summaries from monthly_summaries table first
-    let summaries = await getMonthlySummaries(householdId);
-    
+    let summaries: MonthlySummaryData[] =
+      ((await getMonthlySummaries(householdId)) as MonthlySummaryData[] | null) ?? [];
+
     // If no summaries, calculate dynamically
-    if (!summaries || summaries.length === 0) {
+    if (summaries.length === 0) {
       console.log('📊 No monthly_summaries found, calculating dynamically...');
       summaries = await calculateDashboardData(householdId, monthsCount);
     }
@@ -139,7 +133,10 @@ export async function GET(request: NextRequest) {
       month: summary.month,
       totalIncome: summary.total_income?.toString() ?? '0',
       totalExpenses: summary.total_expenses?.toString() ?? '0',
-      netCashFlow: (parseFloat(String(summary.total_income ?? 0)) - parseFloat(String(summary.total_expenses ?? 0))).toString(),
+      netCashFlow: (
+        parseFloat(String(summary.total_income ?? 0)) -
+        parseFloat(String(summary.total_expenses ?? 0))
+      ).toString(),
       loanPaymentsTotal: summary.loan_payments_total?.toString() ?? '0',
       loanPrincipalPaid: summary.loan_principal_paid?.toString() ?? '0',
       loanInterestPaid: summary.loan_interest_paid?.toString() ?? '0',
@@ -177,7 +174,10 @@ export async function GET(request: NextRequest) {
         month: currentMonth.month,
         totalIncome: currentMonth.total_income?.toString() ?? '0',
         totalExpenses: currentMonth.total_expenses?.toString() ?? '0',
-        netCashFlow: (parseFloat(String(currentMonth.total_income ?? 0)) - parseFloat(String(currentMonth.total_expenses ?? 0))).toString(),
+        netCashFlow: (
+          parseFloat(String(currentMonth.total_income ?? 0)) -
+          parseFloat(String(currentMonth.total_expenses ?? 0))
+        ).toString(),
         loanPaymentsTotal: currentMonth.loan_payments_total?.toString() ?? '0',
         loanPrincipalPaid: currentMonth.loan_principal_paid?.toString() ?? '0',
         loanInterestPaid: currentMonth.loan_interest_paid?.toString() ?? '0',
@@ -197,4 +197,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

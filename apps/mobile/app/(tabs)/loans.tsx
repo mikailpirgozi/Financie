@@ -27,6 +27,7 @@ import {
   LoanListItem,
   LoanActionSheet,
   LoanSearchFilter,
+  UpcomingPaymentsCalendar,
   filterAndSortLoans,
   type LoanFilters,
 } from '../../src/components/loans';
@@ -67,7 +68,7 @@ export default function LoansScreen() {
   const error = loansError
     ? loansError instanceof Error
       ? loansError.message
-      : 'Nepodarilo sa nacitat uvery'
+      : 'Nepodarilo sa načítať úvery'
     : null;
 
   // Schedule local push reminders (D-3, D, overdue) when loans change.
@@ -160,33 +161,33 @@ export default function LoansScreen() {
       } = await supabase.auth.getSession();
       if (!session) return;
 
-      // Fetch pinned high-priority notes for all loans in parallel
+      // BATCH: 1 HTTP request namiesto N (predtym Promise.all loanIds.map(fetch))
+      const params = new URLSearchParams({
+        loanIds: loanIds.join(','),
+        pinnedHighOnly: 'true',
+      });
+
+      const response = await fetch(
+        `${env.EXPO_PUBLIC_API_URL}/api/loans/notes?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        console.warn('Batch notes fetch failed:', response.status);
+        return;
+      }
+
+      const data: { notes: Record<string, LoanNote[]> } = await response.json();
       const notesMap: Record<string, LoanNote> = {};
 
-      await Promise.all(
-        loanIds.map(async (loanId) => {
-          try {
-            const response = await fetch(`${env.EXPO_PUBLIC_API_URL}/api/loans/${loanId}/notes`, {
-              headers: {
-                Authorization: `Bearer ${session.access_token}`,
-              },
-            });
-
-            if (response.ok) {
-              const data = await response.json();
-              // Find the first pinned high-priority note
-              const pinnedNote = (data.notes || []).find(
-                (note: LoanNote) => note.is_pinned && note.priority === 'high'
-              );
-              if (pinnedNote) {
-                notesMap[loanId] = pinnedNote;
-              }
-            }
-          } catch (err) {
-            console.warn(`Failed to load notes for loan ${loanId}:`, err);
-          }
-        })
-      );
+      for (const loanId of loanIds) {
+        const first = data.notes[loanId]?.[0];
+        if (first) notesMap[loanId] = first;
+      }
 
       setPinnedNotes(notesMap);
     } catch (err) {
@@ -389,12 +390,12 @@ export default function LoansScreen() {
     handleCloseActionSheet();
 
     Alert.alert(
-      'Zmazat uver',
-      `Naozaj chcete zmazat uver "${selectedLoan.name || selectedLoan.lender}"?`,
+      'Zmazať úver',
+      `Naozaj chcete zmazať úver "${selectedLoan.name || selectedLoan.lender}"?`,
       [
-        { text: 'Zrusit', style: 'cancel' },
+        { text: 'Zrušiť', style: 'cancel' },
         {
-          text: 'Zmazat',
+          text: 'Zmazať',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -407,7 +408,7 @@ export default function LoansScreen() {
 
               setToast({
                 visible: true,
-                message: 'Uver bol zmazany',
+                message: 'Úver bol zmazaný',
                 type: 'success',
               });
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -418,7 +419,7 @@ export default function LoansScreen() {
             } catch (err) {
               setToast({
                 visible: true,
-                message: 'Nepodarilo sa zmazat uver',
+                message: 'Nepodarilo sa zmazať úver',
                 type: 'error',
               });
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -487,6 +488,20 @@ export default function LoansScreen() {
     router.push('/(tabs)/loans/new');
   }, [router]);
 
+  const handleLoanQuickPay = useCallback(
+    (loan: Loan) => {
+      router.push(`/(tabs)/loans/${loan.id}/pay`);
+    },
+    [router]
+  );
+
+  const handleLoanEdit = useCallback(
+    (loan: Loan) => {
+      router.push(`/(tabs)/loans/${loan.id}/edit`);
+    },
+    [router]
+  );
+
   const renderLoanItem = useCallback(
     ({ item }: { item: Loan }) => (
       <LoanListItem
@@ -494,9 +509,11 @@ export default function LoansScreen() {
         pinnedNote={pinnedNotes[item.id] || null}
         onPress={() => handleLoanPress(item.id)}
         onLongPress={() => handleLoanLongPress(item)}
+        onQuickPay={handleLoanQuickPay}
+        onEdit={handleLoanEdit}
       />
     ),
-    [pinnedNotes, handleLoanPress, handleLoanLongPress]
+    [pinnedNotes, handleLoanPress, handleLoanLongPress, handleLoanQuickPay, handleLoanEdit]
   );
 
   const renderHeader = useCallback(
@@ -520,6 +537,15 @@ export default function LoansScreen() {
           />
         )}
 
+        {/* Upcoming payments calendar */}
+        {loans.length > 0 && stats.activeLoans.length > 0 && (
+          <UpcomingPaymentsCalendar
+            loans={stats.activeLoans}
+            onPaymentPress={handleLoanPress}
+            limit={6}
+          />
+        )}
+
         {/* Filter Segment */}
         {loans.length > 0 && (
           <View style={styles.filterSection}>
@@ -537,10 +563,10 @@ export default function LoansScreen() {
           <Text style={[styles.resultsCount, { color: colors.textMuted }]}>
             {filteredAndSortedLoans.length}{' '}
             {filteredAndSortedLoans.length === 1
-              ? 'uver'
+              ? 'úver'
               : filteredAndSortedLoans.length < 5
-                ? 'uvery'
-                : 'uverov'}
+                ? 'úvery'
+                : 'úverov'}
             {advancedFilters.search && ` pre "${advancedFilters.search}"`}
           </Text>
         )}
@@ -551,7 +577,7 @@ export default function LoansScreen() {
           (advancedFilters.search || advancedFilters.lender || advancedFilters.loanType) && (
             <View style={styles.noResults}>
               <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>
-                Ziadne uvery nezodpovedaju filtrom
+                Žiadne úvery nezodpovedajú filtrom
               </Text>
               <TouchableOpacity
                 style={[styles.clearFiltersButton, { borderColor: colors.primary }]}
@@ -565,7 +591,7 @@ export default function LoansScreen() {
                 }
               >
                 <Text style={[styles.clearFiltersText, { color: colors.primary }]}>
-                  Zrusit filtre
+                  Zrušiť filtre
                 </Text>
               </TouchableOpacity>
             </View>
@@ -582,6 +608,7 @@ export default function LoansScreen() {
       colors,
       handleNextPaymentPress,
       handleQuickPayPress,
+      handleLoanPress,
     ]
   );
 
@@ -616,7 +643,7 @@ export default function LoansScreen() {
           >
             <Plus size={20} color={colors.textInverse} />
             <Text style={[styles.emptyButtonText, { color: colors.textInverse }]}>
-              Pridat prvy uver
+              Pridať prvý úver
             </Text>
           </TouchableOpacity>
         )}
@@ -640,7 +667,7 @@ export default function LoansScreen() {
         <View
           style={[styles.header, { paddingTop: insets.top + 16, backgroundColor: colors.surface }]}
         >
-          <Text style={[styles.title, { color: colors.text }]}>Uvery</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Úvery</Text>
         </View>
         <View style={styles.content}>
           <View style={{ padding: 16 }}>
@@ -673,7 +700,7 @@ export default function LoansScreen() {
           },
         ]}
       >
-        <Text style={[styles.title, { color: colors.text }]}>Uvery</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Úvery</Text>
         <TouchableOpacity
           style={[styles.addButton, { backgroundColor: colors.primary }]}
           onPress={handleAddLoan}
@@ -755,7 +782,7 @@ export default function LoansScreen() {
         visible={noteEditorVisible}
         onSave={handleSaveNote}
         onClose={handleCloseNoteEditor}
-        title={`Poznamka k uveru ${selectedLoan?.name || selectedLoan?.lender || ''}`}
+        title={`Poznámka k úveru ${selectedLoan?.name || selectedLoan?.lender || ''}`}
       />
     </View>
   );

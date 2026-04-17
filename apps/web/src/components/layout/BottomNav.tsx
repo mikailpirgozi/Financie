@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { LayoutDashboard, Wallet, Car, FileText, MoreHorizontal } from 'lucide-react';
+import { useDashboardAlerts } from '@/hooks/useDashboardAlerts';
 
 interface NavItem {
   name: string;
@@ -13,33 +14,33 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { 
-    name: 'Prehľad', 
-    href: '/dashboard', 
+  {
+    name: 'Prehľad',
+    href: '/dashboard',
     icon: LayoutDashboard,
     matchPaths: ['/dashboard'],
   },
-  { 
-    name: 'Úvery', 
-    href: '/dashboard/loans', 
+  {
+    name: 'Úvery',
+    href: '/dashboard/loans',
     icon: Wallet,
     matchPaths: ['/dashboard/loans'],
   },
-  { 
-    name: 'Vozidlá', 
-    href: '/dashboard/vehicles', 
+  {
+    name: 'Vozidlá',
+    href: '/dashboard/vehicles',
     icon: Car,
     matchPaths: ['/dashboard/vehicles'],
   },
-  { 
-    name: 'Dokumenty', 
-    href: '/dashboard/documents', 
+  {
+    name: 'Dokumenty',
+    href: '/dashboard/documents',
     icon: FileText,
     matchPaths: ['/dashboard/documents'],
   },
-  { 
-    name: 'Viac', 
-    href: '/dashboard/expenses', 
+  {
+    name: 'Viac',
+    href: '/dashboard/expenses',
     icon: MoreHorizontal,
     matchPaths: [
       '/dashboard/expenses',
@@ -56,29 +57,35 @@ const navItems: NavItem[] = [
 ];
 
 interface BottomNavProps {
-  overdueCount?: number;
+  householdId?: string;
 }
 
-export function BottomNav({ overdueCount = 0 }: BottomNavProps): React.JSX.Element {
+export function BottomNav({ householdId }: BottomNavProps): React.JSX.Element {
   const pathname = usePathname();
+
+  // Zdiela cache s dashboard stránkou (rovnaký queryKey).
+  // Žiadny extra request keď je už v cache.
+  const { data: alerts } = useDashboardAlerts({
+    householdId: householdId ?? '',
+    enabled: !!householdId,
+  });
+  const overdueCount = alerts?.loans.overdueCount ?? 0;
 
   const isActive = (item: NavItem) => {
     if (!pathname) return false;
-    
+
     // Exact match for dashboard home
     if (item.href === '/dashboard' && pathname === '/dashboard') {
       return true;
     }
-    
+
     // Check if pathname starts with any of the matchPaths
     if (item.matchPaths) {
-      return item.matchPaths.some(path => 
-        path === '/dashboard' 
-          ? pathname === path 
-          : pathname.startsWith(path)
+      return item.matchPaths.some((path) =>
+        path === '/dashboard' ? pathname === path : pathname.startsWith(path)
       );
     }
-    
+
     return pathname.startsWith(item.href);
   };
 
@@ -97,30 +104,18 @@ export function BottomNav({ overdueCount = 0 }: BottomNavProps): React.JSX.Eleme
               className={cn(
                 'relative flex flex-col items-center justify-center flex-1 py-2 px-1 rounded-lg transition-colors',
                 'active:scale-95',
-                active
-                  ? 'text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
+                active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
               )}
             >
               <div className="relative">
-                <Icon
-                  className={cn(
-                    'h-5 w-5 mb-1',
-                    active && 'stroke-[2.5]'
-                  )}
-                />
+                <Icon className={cn('h-5 w-5 mb-1', active && 'stroke-[2.5]')} />
                 {showBadge && (
                   <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
                     {overdueCount > 9 ? '9+' : overdueCount}
                   </span>
                 )}
               </div>
-              <span
-                className={cn(
-                  'text-[10px] font-medium',
-                  active && 'font-semibold'
-                )}
-              >
+              <span className={cn('text-[10px] font-medium', active && 'font-semibold')}>
                 {item.name}
               </span>
             </Link>

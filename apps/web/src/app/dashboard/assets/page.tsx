@@ -31,7 +31,8 @@ export default async function AssetsPage(): Promise<React.ReactNode> {
             <div className="text-6xl mb-4">⚠️</div>
             <h3 className="text-lg font-semibold mb-2">Žiadna domácnosť</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Nemáte priradenú žiadnu domácnosť. Kontaktujte administrátora alebo sa zaregistrujte znova.
+              Nemáte priradenú žiadnu domácnosť. Kontaktujte administrátora alebo sa zaregistrujte
+              znova.
             </p>
           </CardContent>
         </Card>
@@ -39,12 +40,15 @@ export default async function AssetsPage(): Promise<React.ReactNode> {
     );
   }
 
-  // Get assets
+  // Get assets – pridany limit (ostatne stlpce vyfiltruje typovany consumer).
+  // POZN.: select('*') ostal kvoli placeholder database.types; po regenerácii v
+  // Phase 4 sa prepise na cieleny zoznam stlpcov.
   const { data: assets } = await supabase
     .from('assets')
     .select('*')
     .eq('household_id', membership.household_id)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(200);
 
   const totalValue = assets?.reduce((sum, asset) => sum + Number(asset.current_value), 0) ?? 0;
 
@@ -97,5 +101,3 @@ export default async function AssetsPage(): Promise<React.ReactNode> {
     </div>
   );
 }
-
-

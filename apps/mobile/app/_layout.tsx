@@ -2,12 +2,22 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, ScrollView } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { envError } from '../src/lib/env';
 import { queryClient } from '../src/lib/queryClient';
 import { ThemeProvider } from '../src/contexts';
 import { initSentry, Sentry } from '../src/lib/sentry';
+
+// Persister cache na AsyncStorage. Po reopen appky uz mame "instant"
+// data k zobrazeniu kym staleTime nedonuti refetch.
+const queryPersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+  key: 'finapp-rq-cache-v1',
+  // throttle aby sme zbytocne necastovali AsyncStorage zapisy
+  throttleTime: 1000,
+});
 
 initSentry();
 
@@ -212,18 +222,40 @@ function RootLayout() {
 
     if (currentRoute === 'onboarding') return;
 
-    if (!hasSeenOnboarding && currentRoute !== 'onboarding') {
-      router.replace('/(auth)/onboarding');
-      return;
-    }
+    // Re-read onboarding flag asynchronously to avoid stale state after the
+    // onboarding screen marks completion via AsyncStorage. This prevents an
+    // infinite redirect loop between (auth)/onboarding and (auth)/login.
+    let cancelled = false;
+    (async () => {
+      let onboardingDone = hasSeenOnboarding;
+      if (!hasSeenOnboarding) {
+        try {
+          const val = await AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY);
+          if (val === 'true') {
+            onboardingDone = true;
+            if (!cancelled) setHasSeenOnboarding(true);
+          }
+        } catch {
+          // keep current state on failure
+        }
+      }
+      if (cancelled) return;
 
-    if (hasSeenOnboarding) {
+      if (!onboardingDone) {
+        router.replace('/(auth)/onboarding');
+        return;
+      }
+
       if (!isAuthenticated && !inAuthGroup) {
         router.replace('/(auth)/login');
       } else if (isAuthenticated && inAuthGroup) {
         router.replace('/(tabs)');
       }
-    }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [isAuthenticated, hasSeenOnboarding, isReady, segments]);
 
   // Show env error screen
@@ -243,7 +275,17 @@ function RootLayout() {
   // ALWAYS render the router - no loading screen, no blocking
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{
+          persister: queryPersister,
+          // 24h TTL — staršie cache sa nepoužije po reopen, zabráni
+          // zobrazeniu nadmerne zastaralych dát.
+          maxAge: 24 * 60 * 60 * 1000,
+          // Verzionovany buster — pri zmene API zhodime cache.
+          buster: 'v1',
+        }}
+      >
         <ThemeProvider>
           <GestureHandlerRootView style={styles.container}>
             <Stack screenOptions={{ headerShown: false }}>
@@ -254,7 +296,7 @@ function RootLayout() {
             </Stack>
           </GestureHandlerRootView>
         </ThemeProvider>
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </ErrorBoundary>
   );
 }

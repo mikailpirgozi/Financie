@@ -27,7 +27,7 @@ import { SmartSlider } from '@/components/loans/SmartSlider';
 import { LenderSelect } from '@/components/loans/LenderSelect';
 import { LoanModeSelector } from '@/components/loans/LoanModeSelector';
 import { LoanPreviewCard } from '@/components/loans/LoanPreviewCard';
-import { FormInput, FormDatePicker } from '@/components/forms';
+import { FormInput, FormDatePicker, FormNumericInput } from '@/components/forms';
 import { Button } from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
 import { Modal } from '@/components/ui/Modal';
@@ -499,9 +499,16 @@ export default function NewLoanScreen() {
                     minimumValue={100}
                     maximumValue={500000}
                     step={100}
-                    suffix=" €"
+                    currency="€"
                     formatDisplay={formatCurrency}
                     disabled={loading}
+                    presets={[
+                      { label: '5k', value: 5000 },
+                      { label: '10k', value: 10000 },
+                      { label: '25k', value: 25000 },
+                      { label: '50k', value: 50000 },
+                      { label: '100k', value: 100000 },
+                    ]}
                   />
                 )}
               />
@@ -532,6 +539,12 @@ export default function NewLoanScreen() {
                       suffix=" %"
                       formatDisplay={formatPercentage}
                       disabled={loading}
+                      presets={[
+                        { label: '3%', value: 3 },
+                        { label: '5%', value: 5 },
+                        { label: '7%', value: 7 },
+                        { label: '9%', value: 9 },
+                      ]}
                     />
                   )}
                 />
@@ -549,7 +562,7 @@ export default function NewLoanScreen() {
                       minimumValue={50}
                       maximumValue={10000}
                       step={10}
-                      suffix=" €"
+                      currency="€"
                       formatDisplay={formatCurrency}
                       disabled={loading}
                     />
@@ -559,33 +572,28 @@ export default function NewLoanScreen() {
 
               {formValues.calculationMode !== 'rate_payment' && (
                 <View style={styles.fieldContainer}>
-                  <Text style={styles.label}>Doba splácania *</Text>
-                  <TouchableOpacity
-                    style={styles.pickerButton}
-                    onPress={() => setShowTermPicker(true)}
-                    disabled={loading}
-                  >
-                    <Text style={styles.pickerButtonText}>
-                      {formatTermMonths(formValues.termMonths)}
-                    </Text>
-                    <Text style={styles.chevron}>▼</Text>
-                  </TouchableOpacity>
-
-                  {/* Term slider for fine-tuning */}
                   <Controller
                     control={control}
                     name="termMonths"
                     render={({ field: { onChange, value } }) => (
                       <SmartSlider
-                        label=""
+                        label="Doba splácania *"
                         value={value}
-                        onValueChange={onChange}
+                        onValueChange={(v) => onChange(Math.round(v))}
                         minimumValue={6}
                         maximumValue={360}
                         step={1}
                         suffix=" mes."
                         formatDisplay={formatTermMonths}
                         disabled={loading}
+                        presets={[
+                          { label: '1 r', value: 12 },
+                          { label: '3 r', value: 36 },
+                          { label: '5 r', value: 60 },
+                          { label: '10 r', value: 120 },
+                          { label: '20 r', value: 240 },
+                          { label: '30 r', value: 360 },
+                        ]}
                       />
                     )}
                   />
@@ -676,77 +684,45 @@ export default function NewLoanScreen() {
                   Poplatky ovplyvňujú RPMN (skutočnú cenu úveru)
                 </Text>
 
-                <Controller
+                <FormNumericInput
                   control={control}
                   name="feeSetup"
-                  render={({ field: { onChange, value } }) => (
-                    <SmartSlider
-                      label="Poplatok za zriadenie"
-                      value={value ?? 0}
-                      onValueChange={onChange}
-                      minimumValue={0}
-                      maximumValue={5000}
-                      step={10}
-                      suffix=" €"
-                      formatDisplay={formatCurrency}
-                      disabled={loading}
-                    />
-                  )}
+                  label="Poplatok za zriadenie"
+                  currency="€"
+                  min={0}
+                  max={50000}
+                  emptyIsZero
                 />
 
-                <Controller
+                <FormNumericInput
                   control={control}
                   name="feeMonthly"
-                  render={({ field: { onChange, value } }) => (
-                    <SmartSlider
-                      label="Mesačný poplatok"
-                      value={value ?? 0}
-                      onValueChange={onChange}
-                      minimumValue={0}
-                      maximumValue={100}
-                      step={0.5}
-                      suffix=" €"
-                      formatDisplay={formatCurrency}
-                      disabled={loading}
-                    />
-                  )}
+                  label="Mesačný poplatok"
+                  currency="€"
+                  min={0}
+                  max={500}
+                  emptyIsZero
                 />
 
-                <Controller
+                <FormNumericInput
                   control={control}
                   name="insuranceMonthly"
-                  render={({ field: { onChange, value } }) => (
-                    <SmartSlider
-                      label="Mesačné poistenie"
-                      value={value ?? 0}
-                      onValueChange={onChange}
-                      minimumValue={0}
-                      maximumValue={200}
-                      step={1}
-                      suffix=" €"
-                      formatDisplay={formatCurrency}
-                      disabled={loading}
-                    />
-                  )}
+                  label="Mesačné poistenie"
+                  currency="€"
+                  min={0}
+                  max={1000}
+                  emptyIsZero
                 />
 
                 {formValues.loanType === 'interest_only' && (
-                  <Controller
+                  <FormNumericInput
                     control={control}
                     name="balloonAmount"
-                    render={({ field: { onChange, value } }) => (
-                      <SmartSlider
-                        label="Balónová splátka (na konci)"
-                        value={value ?? 0}
-                        onValueChange={onChange}
-                        minimumValue={0}
-                        maximumValue={formValues.principal}
-                        step={100}
-                        suffix=" €"
-                        formatDisplay={formatCurrency}
-                        disabled={loading}
-                      />
-                    )}
+                    label="Balónová splátka (na konci)"
+                    currency="€"
+                    min={0}
+                    max={formValues.principal}
+                    emptyIsZero
                   />
                 )}
               </View>

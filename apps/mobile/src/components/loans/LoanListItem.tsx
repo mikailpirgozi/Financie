@@ -1,5 +1,6 @@
 import React, { useRef, memo } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
+import { Swipeable, RectButton } from 'react-native-gesture-handler';
 import {
   ChevronRight,
   AlertTriangle,
@@ -11,6 +12,8 @@ import {
   Car,
   Home,
   CreditCard,
+  CheckCircle,
+  Pencil,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../contexts';
@@ -28,6 +31,8 @@ interface LoanListItemProps {
   pinnedNote?: LoanNote | null;
   onPress: () => void;
   onLongPress?: () => void;
+  onQuickPay?: (loan: Loan) => void;
+  onEdit?: (loan: Loan) => void;
 }
 
 type LoanStatus = 'overdue' | 'due_soon' | 'ok' | 'paid_off';
@@ -48,10 +53,18 @@ const LOAN_TYPE_CONFIG: Record<
  * LoanListItem - memoized pre lepší výkon pri scrollovaní
  * Re-renderuje sa len keď sa zmení loan data alebo pinnedNote
  */
-function LoanListItemComponent({ loan, pinnedNote, onPress, onLongPress }: LoanListItemProps) {
+function LoanListItemComponent({
+  loan,
+  pinnedNote,
+  onPress,
+  onLongPress,
+  onQuickPay,
+  onEdit,
+}: LoanListItemProps) {
   const { theme } = useTheme();
   const colors = theme.colors;
   const scale = useRef(new Animated.Value(1)).current;
+  const swipeableRef = useRef<Swipeable>(null);
 
   // Parse numeric values
   const parseAmount = (val: number | string | undefined): number => {
@@ -166,10 +179,10 @@ function LoanListItemComponent({ loan, pinnedNote, onPress, onLongPress }: LoanL
 
   const formatDaysUntil = (days: number | undefined) => {
     if (days === undefined) return null;
-    if (days < 0) return `${Math.abs(days)}d po`;
+    if (days < 0) return `${Math.abs(days)} d po`;
     if (days === 0) return 'Dnes';
     if (days === 1) return 'Zajtra';
-    return `${days}d`;
+    return `${days} d`;
   };
 
   const getDaysUntilColor = (days: number | undefined) => {
@@ -180,13 +193,60 @@ function LoanListItemComponent({ loan, pinnedNote, onPress, onLongPress }: LoanL
     return colors.success;
   };
 
-  return (
-    <Animated.View style={{ transform: [{ scale }] }}>
+  const handleQuickPay = () => {
+    if (!onQuickPay) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    onQuickPay(loan);
+    swipeableRef.current?.close();
+  };
+
+  const handleEdit = () => {
+    if (!onEdit) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onEdit(loan);
+    swipeableRef.current?.close();
+  };
+
+  const renderLeftActions = () => {
+    if (!onQuickPay || status === 'paid_off') return null;
+    return (
+      <RectButton
+        style={[styles.swipeAction, { backgroundColor: colors.success }]}
+        onPress={handleQuickPay}
+        accessibilityLabel="Označiť splátku ako zaplatenú"
+        accessibilityRole="button"
+      >
+        <CheckCircle size={22} color={colors.textInverse} />
+        <Text style={[styles.swipeActionText, { color: colors.textInverse }]}>Zaplatiť</Text>
+      </RectButton>
+    );
+  };
+
+  const renderRightActions = () => {
+    if (!onEdit) return null;
+    return (
+      <RectButton
+        style={[styles.swipeAction, { backgroundColor: colors.primary }]}
+        onPress={handleEdit}
+        accessibilityLabel="Upraviť úver"
+        accessibilityRole="button"
+      >
+        <Pencil size={22} color={colors.textInverse} />
+        <Text style={[styles.swipeActionText, { color: colors.textInverse }]}>Upraviť</Text>
+      </RectButton>
+    );
+  };
+
+  const pressable = (
+    <Animated.View style={[{ transform: [{ scale }] }]}>
       <Pressable
         onPress={handlePress}
         onLongPress={handleLongPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
+        accessibilityRole="button"
+        accessibilityLabel={`${loan.name || loan.lender}, zostatok ${formatCurrency(loan.remaining_balance)}, pokrok ${Math.round(progress)} percent`}
+        accessibilityHint="Dvakrát ťuknite pre otvorenie detailu. Potiahnite doprava pre rýchle zaplatenie, doľava pre úpravu."
         style={[
           styles.container,
           {
@@ -325,7 +385,7 @@ function LoanListItemComponent({ loan, pinnedNote, onPress, onLongPress }: LoanL
               >
                 <AlertTriangle size={12} color={colors.danger} />
                 <Text style={[styles.alertText, { color: colors.danger }]}>
-                  {loan.overdue_count} {loan.overdue_count === 1 ? 'splatka' : 'splatok'} po
+                  {loan.overdue_count} {loan.overdue_count === 1 ? 'splátka' : 'splátok'} po
                   splatnosti
                 </Text>
               </View>
@@ -343,8 +403,8 @@ function LoanListItemComponent({ loan, pinnedNote, onPress, onLongPress }: LoanL
                 >
                   <Clock size={12} color={colors.warning} />
                   <Text style={[styles.alertText, { color: colors.warning }]}>
-                    Splatnost{' '}
-                    {daysUntil === 0 ? 'dnes' : daysUntil === 1 ? 'zajtra' : `za ${daysUntil} dni`}
+                    Splatnosť{' '}
+                    {daysUntil === 0 ? 'dnes' : daysUntil === 1 ? 'zajtra' : `za ${daysUntil} dní`}
                   </Text>
                 </View>
               )}
@@ -383,6 +443,26 @@ function LoanListItemComponent({ loan, pinnedNote, onPress, onLongPress }: LoanL
       </Pressable>
     </Animated.View>
   );
+
+  if (!onQuickPay && !onEdit) {
+    return <View style={styles.outerWrapper}>{pressable}</View>;
+  }
+
+  return (
+    <Swipeable
+      ref={swipeableRef}
+      renderLeftActions={renderLeftActions}
+      renderRightActions={renderRightActions}
+      overshootLeft={false}
+      overshootRight={false}
+      friction={2}
+      leftThreshold={60}
+      rightThreshold={60}
+      containerStyle={[styles.swipeableContainer, styles.outerWrapper]}
+    >
+      {pressable}
+    </Swipeable>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -390,12 +470,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderRadius: 16,
     borderWidth: 1,
-    marginBottom: 12,
     overflow: 'hidden',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
+  },
+  outerWrapper: {
+    marginBottom: 12,
   },
   statusIndicator: {
     width: 4,
@@ -570,6 +652,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     flex: 1,
+  },
+  swipeableContainer: {
+    borderRadius: 16,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  swipeAction: {
+    width: 96,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+  },
+  swipeActionText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
 
