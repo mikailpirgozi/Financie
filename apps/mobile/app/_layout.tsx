@@ -7,25 +7,39 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { envError } from '../src/lib/env';
 import { queryClient } from '../src/lib/queryClient';
 import { ThemeProvider } from '../src/contexts';
+import { initSentry, Sentry } from '../src/lib/sentry';
+
+initSentry();
 
 const ONBOARDING_COMPLETED_KEY = '@onboarding_completed';
 
 /** Error boundary to catch crashes during render */
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
-  { hasError: boolean; error: Error | null }
+  { hasError: boolean; error: Error | null; componentStack: string | null }
 > {
   constructor(props: { children: React.ReactNode }) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, componentStack: null };
   }
 
   static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
+    return { hasError: true, error, componentStack: null };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('[ErrorBoundary]', error, errorInfo);
+    console.error('[ErrorBoundary] ERROR:', error.message);
+    console.error('[ErrorBoundary] STACK:', error.stack);
+    console.error('[ErrorBoundary] COMPONENT STACK:', errorInfo.componentStack);
+    this.setState({ componentStack: errorInfo.componentStack ?? null });
+    try {
+      Sentry.withScope((scope) => {
+        scope.setExtras({ componentStack: errorInfo.componentStack ?? '' });
+        Sentry.captureException(error);
+      });
+    } catch {
+      // Sentry not initialised — ignore.
+    }
   }
 
   render() {
@@ -34,12 +48,9 @@ class ErrorBoundary extends React.Component<
         <View style={errorStyles.container}>
           <Text style={errorStyles.title}>Aplikácia spadla</Text>
           <ScrollView style={errorStyles.scroll}>
-            <Text style={errorStyles.message}>
-              {this.state.error?.message ?? 'Neznáma chyba'}
-            </Text>
-            <Text style={errorStyles.stack}>
-              {this.state.error?.stack ?? ''}
-            </Text>
+            <Text style={errorStyles.message}>{this.state.error?.message ?? 'Neznáma chyba'}</Text>
+            <Text style={errorStyles.stack}>{this.state.error?.stack ?? ''}</Text>
+            <Text style={errorStyles.stack}>{this.state.componentStack ?? ''}</Text>
           </ScrollView>
         </View>
       );
@@ -79,7 +90,7 @@ const errorStyles = StyleSheet.create({
   },
 });
 
-export default function RootLayout() {
+function RootLayout() {
   // DEFAULTS: app renders immediately as unauthenticated with onboarding done
   // Auth check runs in background and updates state if user IS authenticated
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -104,16 +115,39 @@ export default function RootLayout() {
 
       // 2. Check auth
       try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { supabase } = require('../src/lib/supabase');
         const { data } = await supabase.auth.getSession();
         if (data?.session) setIsAuthenticated(true);
 
         // Listen for future changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          (_event: string, session: { user: unknown } | null) => {
-            setIsAuthenticated(!!session);
+        const {
+          data: { subscription },
+        } = supabase.auth.onAuthStateChange((event: string, session: { user: unknown } | null) => {
+          setIsAuthenticated(!!session);
+
+          // Defense in depth: when Supabase reports the user has been
+          // signed out (e.g. token expiration, manual logout, deleted
+          // user), drop any cached household / query data so the next
+          // user on the device starts from a clean slate.
+          if (event === 'SIGNED_OUT') {
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              const { clearHouseholdCache } = require('../src/lib/api');
+              clearHouseholdCache();
+            } catch {
+              // optional - ignore if module not loadable
+            }
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              const { queryClient } = require('../src/lib/queryClient');
+              queryClient.cancelQueries();
+              queryClient.clear();
+            } catch {
+              // optional - ignore if module not loadable
+            }
           }
-        );
+        });
         authCleanup = () => subscription.unsubscribe();
       } catch (err) {
         console.warn('Auth check failed:', err);
@@ -121,6 +155,7 @@ export default function RootLayout() {
 
       // 3. Notifications (fire and forget)
       try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { configureNotificationHandler } = require('../src/lib/notifications');
         configureNotificationHandler();
       } catch {
@@ -129,6 +164,7 @@ export default function RootLayout() {
 
       // 4. RevenueCat (fire and forget)
       try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { initializeSubscriptions } = require('../src/lib/subscriptions');
         initializeSubscriptions().catch(() => {});
       } catch {
@@ -149,9 +185,12 @@ export default function RootLayout() {
   useEffect(() => {
     let sub: { remove: () => void } | null = null;
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const Notifications = require('expo-notifications');
       sub = Notifications.addNotificationResponseReceivedListener(
-        (response: { notification: { request: { content: { data: Record<string, unknown> } } } }) => {
+        (response: {
+          notification: { request: { content: { data: Record<string, unknown> } } };
+        }) => {
           const data = response.notification.request.content.data;
           if (data.loanId) {
             router.push(`/(tabs)/loans/${data.loanId as string}`);
@@ -225,3 +264,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
+// Wrap the root layout with Sentry's ErrorBoundary + Performance instrumentation.
+// Safe even when initSentry() didn't run with a DSN — Sentry.wrap is a no-op then.
+export default Sentry.wrap(RootLayout);

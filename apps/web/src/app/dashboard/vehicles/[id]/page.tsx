@@ -1,17 +1,21 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { VehicleDetailClient } from './VehicleDetailClient';
 
-export default async function VehicleDetailPage({ 
-  params 
-}: { 
-  params: Promise<{ id: string }> 
+export default async function VehicleDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
 }): Promise<React.ReactNode> {
   const { id } = await params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (!user) {
+    redirect('/auth/login');
+  }
 
   // Get vehicle from assets table
   const { data: vehicleData, error: vehicleError } = await supabase
@@ -40,14 +44,16 @@ export default async function VehicleDetailPage({
   // Get linked loans
   const { data: loans } = await supabase
     .from('loans')
-    .select(`
-      id, name, lender, principal, status,
+    .select(
+      `
+      id, name, lender, principal, status, annual_rate,
       loan_schedules(
         principal_balance_after,
         total_due,
         status
       )
-    `)
+    `
+    )
     .eq('linked_asset_id', id)
     .order('created_at', { ascending: false });
 
@@ -83,12 +89,17 @@ export default async function VehicleDetailPage({
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   // Transform linked loans
-  const linkedLoans = (loans || []).map(loan => {
+  const linkedLoans = (loans || []).map((loan) => {
     const schedules = loan.loan_schedules || [];
     const pendingSchedules = schedules.filter((s: { status: string }) => s.status !== 'paid');
-    const currentBalance = pendingSchedules.length > 0 
-      ? Math.min(...pendingSchedules.map((s: { principal_balance_after: number }) => s.principal_balance_after))
-      : 0;
+    const currentBalance =
+      pendingSchedules.length > 0
+        ? Math.min(
+            ...pendingSchedules.map(
+              (s: { principal_balance_after: number }) => s.principal_balance_after
+            )
+          )
+        : 0;
     const monthlyPayment = schedules.length > 0 ? schedules[0].total_due : 0;
 
     return {
@@ -99,10 +110,11 @@ export default async function VehicleDetailPage({
       currentBalance: Number(currentBalance),
       monthlyPayment: Number(monthlyPayment),
       status: loan.status,
+      annualRate: loan.annual_rate != null ? Number(loan.annual_rate) : undefined,
     };
   });
 
-  const linkedInsurances = (insurances || []).map(ins => ({
+  const linkedInsurances = (insurances || []).map((ins) => ({
     id: ins.id,
     type: ins.type,
     policyNumber: ins.policy_number,
@@ -112,7 +124,7 @@ export default async function VehicleDetailPage({
     isActive: new Date(ins.valid_to) >= now,
   }));
 
-  const linkedDocuments = (documents || []).map(doc => ({
+  const linkedDocuments = (documents || []).map((doc) => ({
     id: doc.id,
     documentType: doc.document_type,
     validTo: doc.valid_to,
@@ -120,7 +132,7 @@ export default async function VehicleDetailPage({
     isValid: new Date(doc.valid_to) >= now,
   }));
 
-  const linkedServiceRecords = (serviceRecords || []).map(sr => ({
+  const linkedServiceRecords = (serviceRecords || []).map((sr) => ({
     id: sr.id,
     serviceDate: sr.service_date,
     serviceType: sr.service_type,
@@ -129,7 +141,7 @@ export default async function VehicleDetailPage({
     description: sr.description,
   }));
 
-  const linkedFines = (fines || []).map(f => ({
+  const linkedFines = (fines || []).map((f) => ({
     id: f.id,
     fineDate: f.fine_date,
     fineAmount: Number(f.fine_amount),
@@ -145,9 +157,22 @@ export default async function VehicleDetailPage({
   const totalServiceCost = linkedServiceRecords.reduce((sum, s) => sum + (s.price || 0), 0);
   const totalFineAmount = linkedFines.reduce((sum, f) => sum + f.fineAmount, 0);
 
-  const stkDoc = linkedDocuments.find(d => d.documentType === 'stk' && d.isValid);
-  const ekDoc = linkedDocuments.find(d => d.documentType === 'ek' && d.isValid);
-  const nearestInsurance = linkedInsurances.find(i => i.isActive);
+  const stkDoc = linkedDocuments.find((d) => d.documentType === 'stk' && d.isValid);
+  const ekDoc = linkedDocuments.find((d) => d.documentType === 'ek' && d.isValid);
+  const vignetteDoc = linkedDocuments.find((d) => d.documentType === 'vignette' && d.isValid);
+  const nearestInsurance = linkedInsurances.find((i) => i.isActive);
+
+  // Latest doc (regardless of validity) – needed to show "expired" state
+  const sortByValidToDesc = (docs: typeof linkedDocuments) =>
+    [...docs].sort((a, b) => new Date(b.validTo).getTime() - new Date(a.validTo).getTime());
+  const latestStk = sortByValidToDesc(linkedDocuments.filter((d) => d.documentType === 'stk'))[0];
+  const latestEk = sortByValidToDesc(linkedDocuments.filter((d) => d.documentType === 'ek'))[0];
+  const latestVignette = sortByValidToDesc(
+    linkedDocuments.filter((d) => d.documentType === 'vignette')
+  )[0];
+  const latestInsurance = [...linkedInsurances].sort(
+    (a, b) => new Date(b.validTo).getTime() - new Date(a.validTo).getTime()
+  )[0];
 
   const vehicle = {
     id: vehicleData.id,
@@ -174,30 +199,50 @@ export default async function VehicleDetailPage({
     acquisitionDate: vehicleData.acquisition_date,
     // Summaries
     loanCount: linkedLoans.length,
+    activeLoanCount: linkedLoans.filter((l) => l.status === 'active').length,
+    historicalLoanCount: linkedLoans.filter((l) => l.status !== 'active').length,
     totalLoanPaid,
     totalLoanBalance,
     insuranceCount: linkedInsurances.length,
-    activeInsuranceCount: linkedInsurances.filter(i => i.isActive).length,
+    activeInsuranceCount: linkedInsurances.filter((i) => i.isActive).length,
     totalInsuranceCost,
     nearestInsuranceExpiry: nearestInsurance?.validTo,
+    latestInsuranceExpiry: latestInsurance?.validTo,
     documentCount: linkedDocuments.length,
-    validDocumentCount: linkedDocuments.filter(d => d.isValid).length,
+    validDocumentCount: linkedDocuments.filter((d) => d.isValid).length,
     totalDocumentCost,
     stkExpiry: stkDoc?.validTo,
     ekExpiry: ekDoc?.validTo,
+    vignetteExpiry: vignetteDoc?.validTo,
+    latestStkExpiry: latestStk?.validTo,
+    latestEkExpiry: latestEk?.validTo,
+    latestVignetteExpiry: latestVignette?.validTo,
     serviceCount: linkedServiceRecords.length,
     totalServiceCost,
     lastServiceDate: linkedServiceRecords[0]?.serviceDate,
     lastServiceKm: linkedServiceRecords[0]?.kmState,
     fineCount: linkedFines.length,
-    unpaidFineCount: linkedFines.filter(f => !f.isPaid).length,
+    unpaidFineCount: linkedFines.filter((f) => !f.isPaid).length,
     totalFineAmount,
-    unpaidFineAmount: linkedFines.filter(f => !f.isPaid).reduce((sum, f) => sum + f.fineAmount, 0),
-    totalCostOfOwnership: totalLoanPaid + totalInsuranceCost + totalDocumentCost + totalServiceCost + totalFineAmount,
-    // Alerts
+    unpaidFineAmount: linkedFines
+      .filter((f) => !f.isPaid)
+      .reduce((sum, f) => sum + f.fineAmount, 0),
+    totalCostOfOwnership:
+      totalLoanPaid + totalInsuranceCost + totalDocumentCost + totalServiceCost + totalFineAmount,
+    // Alerts (expiring soon)
     stkExpiringSoon: stkDoc ? new Date(stkDoc.validTo) <= thirtyDaysFromNow : false,
     ekExpiringSoon: ekDoc ? new Date(ekDoc.validTo) <= thirtyDaysFromNow : false,
-    insuranceExpiringSoon: nearestInsurance ? new Date(nearestInsurance.validTo) <= thirtyDaysFromNow : false,
+    vignetteExpiringSoon: vignetteDoc ? new Date(vignetteDoc.validTo) <= thirtyDaysFromNow : false,
+    insuranceExpiringSoon: nearestInsurance
+      ? new Date(nearestInsurance.validTo) <= thirtyDaysFromNow
+      : false,
+    // Alerts (already expired)
+    stkExpired: latestStk ? new Date(latestStk.validTo) < now : false,
+    ekExpired: latestEk ? new Date(latestEk.validTo) < now : false,
+    vignetteExpired: latestVignette ? new Date(latestVignette.validTo) < now : false,
+    insuranceExpired: latestInsurance
+      ? new Date(latestInsurance.validTo) < now && !nearestInsurance
+      : false,
     // Linked items
     linkedItems: {
       loans: linkedLoans,

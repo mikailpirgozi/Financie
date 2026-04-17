@@ -17,7 +17,7 @@ export function processPayment(
 
   // Find first unpaid installment
   const unpaidIndex = updatedSchedule.findIndex(
-    entry => entry.status === 'pending' || entry.status === 'overdue'
+    (entry) => entry.status === 'pending' || entry.status === 'overdue'
   );
 
   if (unpaidIndex === -1) {
@@ -44,7 +44,7 @@ export function processPayment(
       status: 'paid',
     };
     remainingAmount -= installment.totalDue;
-    
+
     return {
       updatedSchedule,
       appliedAmount: installment.totalDue,
@@ -61,18 +61,29 @@ export function processPayment(
 }
 
 /**
- * Calculate early repayment penalty
+ * Calculate early repayment penalty.
+ *
+ * Canonical convention (shared with `simulator.calculateEarlyRepayment`):
+ *   penalty = prepaidAmount × penaltyPct / 100
+ *
+ * The first argument is ALWAYS the *prepaid* amount, never the remaining
+ * principal — that matches Slovak Consumer Credit Act (§ 16) and the EU
+ * Mortgage Credit Directive. Callers must pass `min(repaymentAmount,
+ * currentBalance)` if they want to cap over-payments.
  */
 export function calculateEarlyRepaymentPenalty(
-  principalAmount: number,
+  prepaidAmount: number,
   penaltyPercentage: number
 ): number {
-  return Math.round(principalAmount * (penaltyPercentage / 100) * 100) / 100;
+  return Math.round(prepaidAmount * (penaltyPercentage / 100) * 100) / 100;
 }
 
 /**
- * Process early repayment
- * Returns new balance after early repayment and penalty
+ * Process early repayment.
+ *
+ * Returns the new balance after the prepayment and the cash penalty owed.
+ * Consistent with `simulator.calculateEarlyRepayment` — the penalty is settled
+ * in cash and NOT capitalised back into the principal.
  */
 export function processEarlyRepayment(
   currentBalance: number,
@@ -83,8 +94,8 @@ export function processEarlyRepayment(
   penalty: number;
   appliedToPrincipal: number;
 } {
-  const penalty = calculateEarlyRepaymentPenalty(repaymentAmount, penaltyPercentage);
-  const appliedToPrincipal = repaymentAmount;
+  const appliedToPrincipal = Math.min(repaymentAmount, currentBalance);
+  const penalty = calculateEarlyRepaymentPenalty(appliedToPrincipal, penaltyPercentage);
   const newBalance = Math.max(0, currentBalance - appliedToPrincipal);
 
   return {
@@ -97,9 +108,7 @@ export function processEarlyRepayment(
 /**
  * Split payment into principal, interest, and fees
  */
-export function splitPayment(
-  installment: LoanScheduleEntry
-): {
+export function splitPayment(installment: LoanScheduleEntry): {
   principal: number;
   interest: number;
   fees: number;
@@ -110,4 +119,3 @@ export function splitPayment(
     fees: installment.feesDue,
   };
 }
-

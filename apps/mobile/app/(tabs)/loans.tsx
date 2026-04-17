@@ -54,17 +54,59 @@ export default function LoansScreen() {
   // Use React Query hooks for data fetching with caching
   const { data: household, isLoading: isHouseholdLoading } = useHousehold();
   const householdId = household?.id ?? '';
-  
-  const { 
-    data: loans = [], 
-    isLoading: isLoansLoading, 
+
+  const {
+    data: loans = [],
+    isLoading: isLoansLoading,
     isFetching,
     error: loansError,
     refetch,
   } = useLoans(householdId);
 
   const isLoading = isHouseholdLoading || (isLoansLoading && !loans.length);
-  const error = loansError ? (loansError instanceof Error ? loansError.message : 'Nepodarilo sa nacitat uvery') : null;
+  const error = loansError
+    ? loansError instanceof Error
+      ? loansError.message
+      : 'Nepodarilo sa nacitat uvery'
+    : null;
+
+  // Schedule local push reminders (D-3, D, overdue) when loans change.
+  // Throttled internally by react-query's staleTime + the upstream
+  // cancelAll-then-reschedule logic in scheduleLoanReminders.
+  useEffect(() => {
+    if (!loans.length) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { scheduleLoanReminders } = require('../../src/lib/notifications');
+        // Pull the next 90 days of pending schedules across all loans
+        const { data: schedules, error: schedErr } = await supabase
+          .from('loan_schedules')
+          .select('id, loan_id, installment_no, due_date, total_due, status')
+          .in(
+            'loan_id',
+            loans.map((l: Loan) => l.id)
+          )
+          .neq('status', 'paid')
+          .gte('due_date', new Date().toISOString().slice(0, 10))
+          .lte(
+            'due_date',
+            new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+          );
+        if (cancelled || schedErr || !schedules) return;
+        await scheduleLoanReminders(
+          loans.map((l: Loan) => ({ id: l.id, name: l.name, lender: l.lender })),
+          schedules
+        );
+      } catch (err) {
+        console.warn('scheduleLoanReminders failed:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loans]);
 
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [toast, setToast] = useState<{
@@ -113,7 +155,9 @@ export default function LoansScreen() {
     if (loanIds.length === 0) return;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) return;
 
       // Fetch pinned high-priority notes for all loans in parallel
@@ -122,21 +166,17 @@ export default function LoansScreen() {
       await Promise.all(
         loanIds.map(async (loanId) => {
           try {
-            const response = await fetch(
-              `${env.EXPO_PUBLIC_API_URL}/api/loans/${loanId}/notes`,
-              {
-                headers: {
-                  Authorization: `Bearer ${session.access_token}`,
-                },
-              }
-            );
+            const response = await fetch(`${env.EXPO_PUBLIC_API_URL}/api/loans/${loanId}/notes`, {
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+              },
+            });
 
             if (response.ok) {
               const data = await response.json();
               // Find the first pinned high-priority note
               const pinnedNote = (data.notes || []).find(
-                (note: LoanNote) =>
-                  note.is_pinned && note.priority === 'high'
+                (note: LoanNote) => note.is_pinned && note.priority === 'high'
               );
               if (pinnedNote) {
                 notesMap[loanId] = pinnedNote;
@@ -178,23 +218,16 @@ export default function LoansScreen() {
       0
     );
 
-    const totalPrincipal = loans.reduce(
-      (sum, l) => sum + parseAmount(l.principal),
-      0
-    );
+    const totalPrincipal = loans.reduce((sum, l) => sum + parseAmount(l.principal), 0);
 
-    const totalOverdueCount = loans.reduce(
-      (sum, l) => sum + (l.overdue_count || 0),
-      0
-    );
+    const totalOverdueCount = loans.reduce((sum, l) => sum + (l.overdue_count || 0), 0);
 
     const totalPaid = loans.reduce(
       (sum, l) => sum + parseAmount(l.amount_paid || l.paid_principal),
       0
     );
 
-    const totalProgress =
-      totalPrincipal > 0 ? (totalPaid / totalPrincipal) * 100 : 0;
+    const totalProgress = totalPrincipal > 0 ? (totalPaid / totalPrincipal) * 100 : 0;
 
     // Calculate total monthly payment from active loans
     const totalMonthlyPayment = activeLoans.reduce(
@@ -210,10 +243,7 @@ export default function LoansScreen() {
       return sum + (paidAmount - paidPrincipal);
     }, 0);
 
-    const totalInterest = loans.reduce(
-      (sum, l) => sum + parseAmount(l.total_interest),
-      0
-    );
+    const totalInterest = loans.reduce((sum, l) => sum + parseAmount(l.total_interest), 0);
 
     const totalInterestRemaining = totalInterest - totalInterestPaid;
 
@@ -226,7 +256,7 @@ export default function LoansScreen() {
       daysUntil: number;
       loanId: string;
     };
-    
+
     let nextPayment: NextPaymentType | null = null;
 
     for (const loan of activeLoans) {
@@ -277,16 +307,22 @@ export default function LoansScreen() {
   }, [statusFilteredLoans, advancedFilters]);
 
   // Update filter options with counts
-  const dynamicFilterOptions: SegmentOption<FilterStatus>[] = useMemo(() => [
-    { value: 'all', label: 'Všetky', count: loans.length },
-    { value: 'active', label: 'Aktívne', count: stats.activeLoans.length },
-    { value: 'overdue', label: 'Dlžné', count: stats.overdueLoans.length },
-    { value: 'paid_off', label: 'Hotové', count: stats.paidOffLoans.length },
-  ], [loans.length, stats.activeLoans.length, stats.overdueLoans.length, stats.paidOffLoans.length]);
+  const dynamicFilterOptions: SegmentOption<FilterStatus>[] = useMemo(
+    () => [
+      { value: 'all', label: 'Všetky', count: loans.length },
+      { value: 'active', label: 'Aktívne', count: stats.activeLoans.length },
+      { value: 'overdue', label: 'Dlžné', count: stats.overdueLoans.length },
+      { value: 'paid_off', label: 'Hotové', count: stats.paidOffLoans.length },
+    ],
+    [loans.length, stats.activeLoans.length, stats.overdueLoans.length, stats.paidOffLoans.length]
+  );
 
-  const handleLoanPress = useCallback((loanId: string) => {
-    router.push(`/(tabs)/loans/${loanId}`);
-  }, [router]);
+  const handleLoanPress = useCallback(
+    (loanId: string) => {
+      router.push(`/(tabs)/loans/${loanId}`);
+    },
+    [router]
+  );
 
   const handleLoanLongPress = useCallback((loan: Loan) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -375,7 +411,7 @@ export default function LoansScreen() {
                 type: 'success',
               });
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              
+
               // Invalidate queries to refetch
               queryClient.invalidateQueries({ queryKey: queryKeys.loans(householdId) });
               queryClient.invalidateQueries({ queryKey: ['dashboard-alerts'] });
@@ -393,175 +429,201 @@ export default function LoansScreen() {
     );
   }, [selectedLoan, handleCloseActionSheet, queryClient, householdId]);
 
-  const handleSaveNote = useCallback(async (noteData: {
-    content: string;
-    priority: 'high' | 'normal' | 'low';
-    status: 'pending' | 'completed' | 'info';
-    is_pinned: boolean;
-  }) => {
-    if (!selectedLoan) return;
+  const handleSaveNote = useCallback(
+    async (noteData: {
+      content: string;
+      priority: 'high' | 'normal' | 'low';
+      status: 'pending' | 'completed' | 'info';
+      is_pinned: boolean;
+    }) => {
+      if (!selectedLoan) return;
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      const response = await fetch(
-        `${env.EXPO_PUBLIC_API_URL}/api/loans/${selectedLoan.id}/notes`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify(noteData),
+        const response = await fetch(
+          `${env.EXPO_PUBLIC_API_URL}/api/loans/${selectedLoan.id}/notes`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session?.access_token}`,
+            },
+            body: JSON.stringify(noteData),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to save note');
         }
-      );
 
-      if (!response.ok) {
-        throw new Error('Failed to save note');
+        setNoteEditorVisible(false);
+        setSelectedLoan(null);
+        setToast({
+          visible: true,
+          message: 'Poznamka bola pridana',
+          type: 'success',
+        });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        // Reload pinned notes
+        await loadPinnedNotes(loans.map((l) => l.id));
+      } catch (err) {
+        setToast({
+          visible: true,
+          message: 'Nepodarilo sa ulozit poznamku',
+          type: 'error',
+        });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
-
-      setNoteEditorVisible(false);
-      setSelectedLoan(null);
-      setToast({
-        visible: true,
-        message: 'Poznamka bola pridana',
-        type: 'success',
-      });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      // Reload pinned notes
-      await loadPinnedNotes(loans.map((l) => l.id));
-    } catch (err) {
-      setToast({
-        visible: true,
-        message: 'Nepodarilo sa ulozit poznamku',
-        type: 'error',
-      });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  }, [selectedLoan, loans]);
+    },
+    [selectedLoan, loans]
+  );
 
   const handleAddLoan = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push('/(tabs)/loans/new');
   }, [router]);
 
-  const renderLoanItem = useCallback(({ item }: { item: Loan }) => (
-    <LoanListItem
-      loan={item}
-      pinnedNote={pinnedNotes[item.id] || null}
-      onPress={() => handleLoanPress(item.id)}
-      onLongPress={() => handleLoanLongPress(item)}
-    />
-  ), [pinnedNotes, handleLoanPress, handleLoanLongPress]);
+  const renderLoanItem = useCallback(
+    ({ item }: { item: Loan }) => (
+      <LoanListItem
+        loan={item}
+        pinnedNote={pinnedNotes[item.id] || null}
+        onPress={() => handleLoanPress(item.id)}
+        onLongPress={() => handleLoanLongPress(item)}
+      />
+    ),
+    [pinnedNotes, handleLoanPress, handleLoanLongPress]
+  );
 
-  const renderHeader = useCallback(() => (
-    <View style={styles.listHeader}>
-      {/* Hero Card */}
-      {loans.length > 0 && (
-        <LoanHeroCard
-          totalBalance={stats.totalRemaining}
-          totalPrincipal={stats.totalPrincipal}
-          activeCount={stats.activeLoans.length}
-          overdueCount={stats.totalOverdueCount}
-          paidOffCount={stats.paidOffLoans.length}
-          totalProgress={stats.totalProgress}
-          totalMonthlyPayment={stats.totalMonthlyPayment}
-          totalInterestPaid={stats.totalInterestPaid}
-          totalInterestRemaining={stats.totalInterestRemaining}
-          nextPayment={stats.nextPayment}
-          onNextPaymentPress={handleNextPaymentPress}
-          onQuickPayPress={handleQuickPayPress}
-        />
-      )}
-
-      {/* Filter Segment */}
-      {loans.length > 0 && (
-        <View style={styles.filterSection}>
-          <SegmentControl
-            options={dynamicFilterOptions}
-            value={filterStatus}
-            onChange={setFilterStatus}
-            size="md"
+  const renderHeader = useCallback(
+    () => (
+      <View style={styles.listHeader}>
+        {/* Hero Card */}
+        {loans.length > 0 && (
+          <LoanHeroCard
+            totalBalance={stats.totalRemaining}
+            totalPrincipal={stats.totalPrincipal}
+            activeCount={stats.activeLoans.length}
+            overdueCount={stats.totalOverdueCount}
+            paidOffCount={stats.paidOffLoans.length}
+            totalProgress={stats.totalProgress}
+            totalMonthlyPayment={stats.totalMonthlyPayment}
+            totalInterestPaid={stats.totalInterestPaid}
+            totalInterestRemaining={stats.totalInterestRemaining}
+            nextPayment={stats.nextPayment}
+            onNextPaymentPress={handleNextPaymentPress}
+            onQuickPayPress={handleQuickPayPress}
           />
-        </View>
-      )}
+        )}
 
-      {/* Results count */}
-      {loans.length > 0 && filteredAndSortedLoans.length > 0 && (
-        <Text style={[styles.resultsCount, { color: colors.textMuted }]}>
-          {filteredAndSortedLoans.length}{' '}
-          {filteredAndSortedLoans.length === 1
-            ? 'uver'
-            : filteredAndSortedLoans.length < 5
-            ? 'uvery'
-            : 'uverov'}
-          {advancedFilters.search && ` pre "${advancedFilters.search}"`}
-        </Text>
-      )}
+        {/* Filter Segment */}
+        {loans.length > 0 && (
+          <View style={styles.filterSection}>
+            <SegmentControl
+              options={dynamicFilterOptions}
+              value={filterStatus}
+              onChange={setFilterStatus}
+              size="md"
+            />
+          </View>
+        )}
 
-      {/* No results message */}
-      {loans.length > 0 && filteredAndSortedLoans.length === 0 && (advancedFilters.search || advancedFilters.lender || advancedFilters.loanType) && (
-        <View style={styles.noResults}>
-          <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>
-            Ziadne uvery nezodpovedaju filtrom
+        {/* Results count */}
+        {loans.length > 0 && filteredAndSortedLoans.length > 0 && (
+          <Text style={[styles.resultsCount, { color: colors.textMuted }]}>
+            {filteredAndSortedLoans.length}{' '}
+            {filteredAndSortedLoans.length === 1
+              ? 'uver'
+              : filteredAndSortedLoans.length < 5
+                ? 'uvery'
+                : 'uverov'}
+            {advancedFilters.search && ` pre "${advancedFilters.search}"`}
           </Text>
+        )}
+
+        {/* No results message */}
+        {loans.length > 0 &&
+          filteredAndSortedLoans.length === 0 &&
+          (advancedFilters.search || advancedFilters.lender || advancedFilters.loanType) && (
+            <View style={styles.noResults}>
+              <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>
+                Ziadne uvery nezodpovedaju filtrom
+              </Text>
+              <TouchableOpacity
+                style={[styles.clearFiltersButton, { borderColor: colors.primary }]}
+                onPress={() =>
+                  setAdvancedFilters({
+                    search: '',
+                    lender: null,
+                    loanType: null,
+                    sortBy: 'next_payment',
+                  })
+                }
+              >
+                <Text style={[styles.clearFiltersText, { color: colors.primary }]}>
+                  Zrusit filtre
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+      </View>
+    ),
+    [
+      loans.length,
+      stats,
+      dynamicFilterOptions,
+      filterStatus,
+      filteredAndSortedLoans.length,
+      advancedFilters,
+      colors,
+      handleNextPaymentPress,
+      handleQuickPayPress,
+    ]
+  );
+
+  const renderEmpty = useCallback(
+    () => (
+      <View style={styles.emptyState}>
+        <View style={[styles.emptyIconContainer, { backgroundColor: colors.primaryLight }]}>
+          <Text style={styles.emptyIcon}>💰</Text>
+        </View>
+        <Text style={[styles.emptyTitle, { color: colors.text }]}>
+          {filterStatus === 'paid_off'
+            ? 'Žiadne hotové úvery'
+            : filterStatus === 'active'
+              ? 'Žiadne aktívne úvery'
+              : filterStatus === 'overdue'
+                ? 'Žiadne dlžné úvery'
+                : 'Zatiaľ nemáte žiadne úvery'}
+        </Text>
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+          {filterStatus === 'paid_off'
+            ? 'Doplatené úvery sa zobrazia tu'
+            : filterStatus === 'active'
+              ? 'Aktívne úvery sa zobrazia tu'
+              : filterStatus === 'overdue'
+                ? 'Skvelé! Všetky splátky sú uhradené včas'
+                : 'Pridajte svoj prvý úver a začnite sledovať splátky'}
+        </Text>
+        {filterStatus === 'all' && (
           <TouchableOpacity
-            style={[styles.clearFiltersButton, { borderColor: colors.primary }]}
-            onPress={() => setAdvancedFilters({
-              search: '',
-              lender: null,
-              loanType: null,
-              sortBy: 'next_payment',
-            })}
+            style={[styles.emptyButton, { backgroundColor: colors.primary }]}
+            onPress={handleAddLoan}
           >
-            <Text style={[styles.clearFiltersText, { color: colors.primary }]}>
-              Zrusit filtre
+            <Plus size={20} color={colors.textInverse} />
+            <Text style={[styles.emptyButtonText, { color: colors.textInverse }]}>
+              Pridat prvy uver
             </Text>
           </TouchableOpacity>
-        </View>
-      )}
-    </View>
-  ), [loans.length, stats, dynamicFilterOptions, filterStatus, filteredAndSortedLoans.length, advancedFilters, colors, handleNextPaymentPress, handleQuickPayPress]);
-
-  const renderEmpty = useCallback(() => (
-    <View style={styles.emptyState}>
-      <View
-        style={[styles.emptyIconContainer, { backgroundColor: colors.primaryLight }]}
-      >
-        <Text style={styles.emptyIcon}>💰</Text>
+        )}
       </View>
-      <Text style={[styles.emptyTitle, { color: colors.text }]}>
-        {filterStatus === 'paid_off'
-          ? 'Žiadne hotové úvery'
-          : filterStatus === 'active'
-          ? 'Žiadne aktívne úvery'
-          : filterStatus === 'overdue'
-          ? 'Žiadne dlžné úvery'
-          : 'Zatiaľ nemáte žiadne úvery'}
-      </Text>
-      <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-        {filterStatus === 'paid_off'
-          ? 'Doplatené úvery sa zobrazia tu'
-          : filterStatus === 'active'
-          ? 'Aktívne úvery sa zobrazia tu'
-          : filterStatus === 'overdue'
-          ? 'Skvelé! Všetky splátky sú uhradené včas'
-          : 'Pridajte svoj prvý úver a začnite sledovať splátky'}
-      </Text>
-      {filterStatus === 'all' && (
-        <TouchableOpacity
-          style={[styles.emptyButton, { backgroundColor: colors.primary }]}
-          onPress={handleAddLoan}
-        >
-          <Plus size={20} color={colors.textInverse} />
-          <Text style={[styles.emptyButtonText, { color: colors.textInverse }]}>
-            Pridat prvy uver
-          </Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  ), [filterStatus, colors, handleAddLoan]);
+    ),
+    [filterStatus, colors, handleAddLoan]
+  );
 
   const handleCloseNoteEditor = useCallback(() => {
     setNoteEditorVisible(false);
@@ -569,13 +631,15 @@ export default function LoansScreen() {
   }, []);
 
   const handleDismissToast = useCallback(() => {
-    setToast(prev => ({ ...prev, visible: false }));
+    setToast((prev) => ({ ...prev, visible: false }));
   }, []);
 
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.header, { paddingTop: insets.top + 16, backgroundColor: colors.surface }]}>
+        <View
+          style={[styles.header, { paddingTop: insets.top + 16, backgroundColor: colors.surface }]}
+        >
           <Text style={[styles.title, { color: colors.text }]}>Uvery</Text>
         </View>
         <View style={styles.content}>
@@ -615,9 +679,7 @@ export default function LoansScreen() {
           onPress={handleAddLoan}
         >
           <Plus size={20} color={colors.textInverse} />
-          <Text style={[styles.addButtonText, { color: colors.textInverse }]}>
-            Pridat
-          </Text>
+          <Text style={[styles.addButtonText, { color: colors.textInverse }]}>Pridat</Text>
         </TouchableOpacity>
       </View>
 
@@ -653,7 +715,9 @@ export default function LoansScreen() {
         }
         contentContainerStyle={[
           styles.listContent,
-          filteredAndSortedLoans.length === 0 && !(advancedFilters.search || advancedFilters.lender || advancedFilters.loanType) && styles.listContentEmpty,
+          filteredAndSortedLoans.length === 0 &&
+            !(advancedFilters.search || advancedFilters.lender || advancedFilters.loanType) &&
+            styles.listContentEmpty,
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"

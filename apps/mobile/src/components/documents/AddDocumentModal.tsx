@@ -14,7 +14,20 @@ import {
   TouchableOpacity,
   Animated,
 } from 'react-native';
-import { X, Calendar, Car, Building, Euro, FileText, ChevronDown, Plus, Search, Paperclip, File, Trash2 } from 'lucide-react-native';
+import {
+  X,
+  Calendar,
+  Car,
+  Building,
+  Euro,
+  FileText,
+  ChevronDown,
+  Plus,
+  Search,
+  Paperclip,
+  File,
+  Trash2,
+} from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as DocumentPicker from 'expo-document-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -57,6 +70,7 @@ export interface EditInsuranceData {
 export interface EditVehicleDocumentData {
   id: string;
   documentType: DocumentType;
+  assetId?: string;
   validFrom?: string;
   validTo: string;
   documentNumber?: string;
@@ -68,6 +82,7 @@ export interface EditVehicleDocumentData {
 
 export interface EditServiceRecordData {
   id: string;
+  assetId?: string;
   serviceDate: string;
   serviceType?: ServiceType;
   serviceProvider?: string;
@@ -80,6 +95,7 @@ export interface EditServiceRecordData {
 
 export interface EditFineData {
   id: string;
+  assetId?: string;
   fineDate: string;
   fineAmount: number;
   fineAmountLate?: number;
@@ -90,14 +106,22 @@ export interface EditFineData {
   filePaths?: string[];
 }
 
-export type EditData = EditInsuranceData | EditVehicleDocumentData | EditServiceRecordData | EditFineData;
+export type EditData =
+  | EditInsuranceData
+  | EditVehicleDocumentData
+  | EditServiceRecordData
+  | EditFineData;
 
 interface AddDocumentModalProps {
   visible: boolean;
   documentType: DocumentCategory;
   householdId?: string;
   editData?: EditData;
-  onSave: (data: InsuranceFormData | VehicleDocumentFormData | ServiceRecordFormData | FineFormData, editId?: string) => Promise<void>;
+  presetAssetId?: string | null;
+  onSave: (
+    data: InsuranceFormData | VehicleDocumentFormData | ServiceRecordFormData | FineFormData,
+    editId?: string
+  ) => Promise<void>;
   onClose: () => void;
 }
 
@@ -217,13 +241,20 @@ function formatDate(date: Date): string {
 
 function getDocumentTypeLabel(type: DocumentCategory): string {
   switch (type) {
-    case 'insurance': return 'Poistka';
-    case 'stk': return 'STK';
-    case 'ek': return 'Emisna kontrola';
-    case 'vignette': return 'Dialnicna znamka';
-    case 'service': return 'Servisny zaznam';
-    case 'fine': return 'Pokuta';
-    default: return 'Dokument';
+    case 'insurance':
+      return 'Poistka';
+    case 'stk':
+      return 'STK';
+    case 'ek':
+      return 'Emisna kontrola';
+    case 'vignette':
+      return 'Dialnicna znamka';
+    case 'service':
+      return 'Servisny zaznam';
+    case 'fine':
+      return 'Pokuta';
+    default:
+      return 'Dokument';
   }
 }
 
@@ -236,6 +267,7 @@ export function AddDocumentModal({
   documentType,
   householdId,
   editData,
+  presetAssetId,
   onSave,
   onClose,
 }: AddDocumentModalProps) {
@@ -249,14 +281,16 @@ export function AddDocumentModal({
 
   // Common state
   const [isSaving, setIsSaving] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState<'validFrom' | 'validTo' | 'serviceDate' | 'fineDate' | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState<
+    'validFrom' | 'validTo' | 'serviceDate' | 'fineDate' | null
+  >(null);
 
   // Insurance form state
   const [insuranceType, setInsuranceType] = useState<InsuranceType>('pzp');
   const [policyNumber, setPolicyNumber] = useState('');
   const [company, setCompany] = useState('');
   const [paymentFrequency, setPaymentFrequency] = useState<PaymentFrequency>('yearly');
-  
+
   // Insurer picker state
   const [insurers, setInsurers] = useState<Insurer[]>([]);
   const [selectedInsurerId, setSelectedInsurerId] = useState<string | null>(null);
@@ -266,27 +300,27 @@ export function AddDocumentModal({
   const [showAddInsurer, setShowAddInsurer] = useState(false);
   const [newInsurerName, setNewInsurerName] = useState('');
   const [isAddingInsurer, setIsAddingInsurer] = useState(false);
-  
+
   // Vehicle picker state
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [showVehiclePicker, setShowVehiclePicker] = useState(false);
   const [vehicleSearchQuery, setVehicleSearchQuery] = useState('');
   const [_isLoadingVehicles, setIsLoadingVehicles] = useState(false);
-  
+
   // File upload state
   const [selectedFiles, setSelectedFiles] = useState<{ name: string; uri: string }[]>([]);
-  
+
   // Vehicle document form state
   const [documentNumber, setDocumentNumber] = useState('');
   const [country, setCountry] = useState<VignetteCountry>('SK');
-  
+
   // Service record form state
   const [serviceType, setServiceType] = useState<ServiceType>('regular');
   const [serviceProvider, setServiceProvider] = useState('');
   const [kmState, setKmState] = useState('');
   const [description, setDescription] = useState('');
-  
+
   // Fine form state
   const [fineAmount, setFineAmount] = useState('');
   const [enforcementCompany, setEnforcementCompany] = useState('');
@@ -301,7 +335,7 @@ export function AddDocumentModal({
   });
   const [serviceDate, setServiceDate] = useState(new Date());
   const [fineDate, setFineDate] = useState(new Date());
-  
+
   // Price field (common)
   const [price, setPrice] = useState('');
   const [notes, setNotes] = useState('');
@@ -371,14 +405,14 @@ export function AddDocumentModal({
   // Handle adding new insurer
   const handleAddInsurer = async () => {
     if (!householdId || !newInsurerName.trim()) return;
-    
+
     setIsAddingInsurer(true);
     try {
       const response = await createInsurer({
         householdId,
         name: newInsurerName.trim(),
       });
-      setInsurers(prev => [...prev, response.data]);
+      setInsurers((prev) => [...prev, response.data]);
       setSelectedInsurerId(response.data.id);
       setCompany(response.data.name);
       setNewInsurerName('');
@@ -409,7 +443,7 @@ export function AddDocumentModal({
 
   // Get selected vehicle display name
   const getSelectedVehicleName = () => {
-    const vehicle = vehicles.find(v => v.id === selectedVehicleId);
+    const vehicle = vehicles.find((v) => v.id === selectedVehicleId);
     if (!vehicle) return '';
     const licensePlate = vehicle.licensePlate ? ` (${vehicle.licensePlate})` : '';
     return `${vehicle.name}${licensePlate}`;
@@ -419,11 +453,12 @@ export function AddDocumentModal({
   const getFilteredVehicles = useCallback(() => {
     if (!vehicleSearchQuery.trim()) return vehicles;
     const query = vehicleSearchQuery.toLowerCase();
-    return vehicles.filter(v => 
-      v.name.toLowerCase().includes(query) ||
-      (v.licensePlate?.toLowerCase().includes(query)) ||
-      (v.make?.toLowerCase().includes(query)) ||
-      (v.model?.toLowerCase().includes(query))
+    return vehicles.filter(
+      (v) =>
+        v.name.toLowerCase().includes(query) ||
+        v.licensePlate?.toLowerCase().includes(query) ||
+        v.make?.toLowerCase().includes(query) ||
+        v.model?.toLowerCase().includes(query)
     );
   }, [vehicles, vehicleSearchQuery]);
 
@@ -435,13 +470,13 @@ export function AddDocumentModal({
         multiple: true,
         copyToCacheDirectory: true,
       });
-      
+
       if (!result.canceled && result.assets) {
-        const newFiles = result.assets.map(asset => ({
+        const newFiles = result.assets.map((asset) => ({
           name: asset.name,
           uri: asset.uri,
         }));
-        setSelectedFiles(prev => [...prev, ...newFiles]);
+        setSelectedFiles((prev) => [...prev, ...newFiles]);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     } catch (error) {
@@ -451,15 +486,15 @@ export function AddDocumentModal({
 
   // Remove selected file
   const handleRemoveFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   // Get combined insurers list (API + defaults)
   const getAllInsurers = useCallback(() => {
-    const apiInsurerNames = insurers.map(i => i.name.toLowerCase());
+    const apiInsurerNames = insurers.map((i) => i.name.toLowerCase());
     const defaultsToAdd = SLOVAK_INSURERS.filter(
-      name => !apiInsurerNames.includes(name.toLowerCase())
+      (name) => !apiInsurerNames.includes(name.toLowerCase())
     ).map((name, index) => ({
       id: `default-${index}`,
       name,
@@ -472,9 +507,7 @@ export function AddDocumentModal({
   const getFilteredInsurers = useCallback(() => {
     const all = getAllInsurers();
     if (!insurerSearchQuery.trim()) return all;
-    return all.filter(i => 
-      i.name.toLowerCase().includes(insurerSearchQuery.toLowerCase())
-    );
+    return all.filter((i) => i.name.toLowerCase().includes(insurerSearchQuery.toLowerCase()));
   }, [getAllInsurers, insurerSearchQuery]);
 
   // Animate modal
@@ -513,7 +546,7 @@ export function AddDocumentModal({
       populateFormFromEditData();
       return;
     }
-    
+
     // Default reset for new document
     setInsuranceType('pzp');
     setPolicyNumber('');
@@ -541,8 +574,8 @@ export function AddDocumentModal({
     setInsurerSearchQuery('');
     setShowAddInsurer(false);
     setNewInsurerName('');
-    // Reset vehicle state
-    setSelectedVehicleId(null);
+    // Reset vehicle state (use preset if provided)
+    setSelectedVehicleId(presetAssetId ?? null);
     setVehicleSearchQuery('');
     // Reset files
     setSelectedFiles([]);
@@ -553,13 +586,15 @@ export function AddDocumentModal({
 
     // Common fields
     setNotes((editData as { notes?: string }).notes || '');
-    
+
     // Populate files if available
     const filePaths = (editData as { filePaths?: string[] }).filePaths || [];
-    setSelectedFiles(filePaths.map((uri, index) => ({
-      name: `Dokument ${index + 1}`,
-      uri,
-    })));
+    setSelectedFiles(
+      filePaths.map((uri, index) => ({
+        name: `Dokument ${index + 1}`,
+        uri,
+      }))
+    );
 
     if (documentType === 'insurance' && 'insuranceType' in editData) {
       const data = editData as EditInsuranceData;
@@ -572,13 +607,17 @@ export function AddDocumentModal({
       setValidTo(new Date(data.validTo));
       setPrice(data.price.toString());
       setPaymentFrequency(data.paymentFrequency);
-    } else if ((documentType === 'stk' || documentType === 'ek' || documentType === 'vignette') && 'documentType' in editData) {
+    } else if (
+      (documentType === 'stk' || documentType === 'ek' || documentType === 'vignette') &&
+      'documentType' in editData
+    ) {
       const data = editData as EditVehicleDocumentData;
       setDocumentNumber(data.documentNumber || '');
       if (data.validFrom) setValidFrom(new Date(data.validFrom));
       setValidTo(new Date(data.validTo));
       setPrice(data.price?.toString() || '');
       if (data.country) setCountry(data.country);
+      setSelectedVehicleId(data.assetId || presetAssetId || null);
     } else if (documentType === 'service' && 'serviceDate' in editData) {
       const data = editData as EditServiceRecordData;
       setServiceDate(new Date(data.serviceDate));
@@ -587,16 +626,17 @@ export function AddDocumentModal({
       setKmState(data.kmState?.toString() || '');
       setPrice(data.price?.toString() || '');
       setDescription(data.description || '');
+      setSelectedVehicleId(data.assetId || presetAssetId || null);
     } else if (documentType === 'fine' && 'fineDate' in editData) {
       const data = editData as EditFineData;
       setFineDate(new Date(data.fineDate));
       setFineAmount(data.fineAmount.toString());
       setEnforcementCompany(data.enforcementCompany || '');
+      setSelectedVehicleId(data.assetId || presetAssetId || null);
       setIsPaid(data.isPaid);
       setDescription(data.description || '');
     }
   };
-
 
   const handleClose = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -657,10 +697,10 @@ export function AddDocumentModal({
     try {
       // Upload files to Supabase Storage first
       const uploadedFilePaths: string[] = [];
-      
+
       if (selectedFiles.length > 0 && householdId) {
         console.log(`📤 Uploading ${selectedFiles.length} files...`);
-        
+
         // Determine folder based on document type
         const folderMap: Record<DocumentCategory, string> = {
           insurance: 'insurances',
@@ -671,7 +711,7 @@ export function AddDocumentModal({
           fine: 'fines',
         };
         const folder = folderMap[documentType] || 'documents';
-        
+
         // Upload each file
         for (const file of selectedFiles) {
           try {
@@ -686,7 +726,7 @@ export function AddDocumentModal({
               webp: 'image/webp',
             };
             const mimeType = mimeTypes[extension] || 'application/octet-stream';
-            
+
             const result = await uploadFile({
               uri: file.uri,
               type: mimeType,
@@ -694,7 +734,7 @@ export function AddDocumentModal({
               householdId,
               folder,
             });
-            
+
             console.log(`✅ Uploaded: ${file.name} -> ${result.data.path}`);
             uploadedFilePaths.push(result.data.path);
           } catch (uploadError) {
@@ -703,8 +743,12 @@ export function AddDocumentModal({
           }
         }
       }
-      
-      let formData: InsuranceFormData | VehicleDocumentFormData | ServiceRecordFormData | FineFormData;
+
+      let formData:
+        | InsuranceFormData
+        | VehicleDocumentFormData
+        | ServiceRecordFormData
+        | FineFormData;
 
       switch (documentType) {
         case 'insurance':
@@ -713,7 +757,10 @@ export function AddDocumentModal({
             insuranceType,
             policyNumber: policyNumber.trim(),
             company: company.trim(),
-            insurerId: selectedInsurerId && !selectedInsurerId.startsWith('default-') ? selectedInsurerId : undefined,
+            insurerId:
+              selectedInsurerId && !selectedInsurerId.startsWith('default-')
+                ? selectedInsurerId
+                : undefined,
             assetId: selectedVehicleId || undefined,
             validFrom: formatDate(validFrom),
             validTo: formatDate(validTo),
@@ -729,7 +776,7 @@ export function AddDocumentModal({
         case 'vignette':
           formData = {
             type: 'vehicleDocument',
-            documentType: documentType === 'vignette' ? 'vignette' : documentType as DocumentType,
+            documentType: documentType === 'vignette' ? 'vignette' : (documentType as DocumentType),
             assetId: selectedVehicleId!,
             validFrom: formatDate(validFrom),
             validTo: formatDate(validTo),
@@ -787,7 +834,7 @@ export function AddDocumentModal({
     if (Platform.OS === 'android') {
       setShowDatePicker(null);
     }
-    
+
     if (selectedDate) {
       switch (showDatePicker) {
         case 'validFrom':
@@ -824,10 +871,15 @@ export function AddDocumentModal({
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           setShowVehiclePicker(true);
         }}
-        style={[styles.inputRow, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}
+        style={[
+          styles.inputRow,
+          { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+        ]}
       >
         <Car size={18} color={colors.textSecondary} />
-        <Text style={[styles.pickerText, { color: selectedVehicleId ? colors.text : colors.textMuted }]}>
+        <Text
+          style={[styles.pickerText, { color: selectedVehicleId ? colors.text : colors.textMuted }]}
+        >
           {selectedVehicleId ? getSelectedVehicleName() : 'Vyberte vozidlo'}
         </Text>
         <ChevronDown size={18} color={colors.textSecondary} />
@@ -838,9 +890,7 @@ export function AddDocumentModal({
   const renderInsuranceForm = () => (
     <>
       <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Typ poistky *
-        </Text>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Typ poistky *</Text>
         <SegmentControl
           options={insuranceTypeOptions}
           value={insuranceType}
@@ -850,10 +900,13 @@ export function AddDocumentModal({
       </View>
 
       <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Číslo poistky *
-        </Text>
-        <View style={[styles.inputRow, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Číslo poistky *</Text>
+        <View
+          style={[
+            styles.inputRow,
+            { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+          ]}
+        >
           <FileText size={18} color={colors.textSecondary} />
           <TextInput
             style={[styles.input, { color: colors.text }]}
@@ -867,15 +920,16 @@ export function AddDocumentModal({
       </View>
 
       <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Poisťovňa *
-        </Text>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Poisťovňa *</Text>
         <Pressable
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setShowInsurerPicker(true);
           }}
-          style={[styles.inputRow, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}
+          style={[
+            styles.inputRow,
+            { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+          ]}
         >
           <Building size={18} color={colors.textSecondary} />
           <Text style={[styles.pickerText, { color: company ? colors.text : colors.textMuted }]}>
@@ -886,9 +940,7 @@ export function AddDocumentModal({
       </View>
 
       <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Frekvencia platby
-        </Text>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Frekvencia platby</Text>
         <SegmentControl
           options={paymentFrequencyOptions}
           value={paymentFrequency}
@@ -907,25 +959,27 @@ export function AddDocumentModal({
 
   const renderFileUploadSection = () => (
     <View style={styles.section}>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>
-        Dokumenty
-      </Text>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>Dokumenty</Text>
       <Pressable
         onPress={handlePickDocument}
-        style={[styles.uploadButton, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}
+        style={[
+          styles.uploadButton,
+          { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+        ]}
       >
         <Paperclip size={18} color={colors.primary} />
-        <Text style={[styles.uploadButtonText, { color: colors.primary }]}>
-          Pridať dokument
-        </Text>
+        <Text style={[styles.uploadButtonText, { color: colors.primary }]}>Pridať dokument</Text>
       </Pressable>
-      
+
       {selectedFiles.length > 0 && (
         <View style={styles.filesList}>
           {selectedFiles.map((file, index) => (
             <View
               key={index}
-              style={[styles.fileItem, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}
+              style={[
+                styles.fileItem,
+                { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+              ]}
             >
               <File size={16} color={colors.textSecondary} />
               <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={1}>
@@ -947,9 +1001,7 @@ export function AddDocumentModal({
 
       {documentType === 'vignette' && (
         <View style={styles.section}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Krajina
-          </Text>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>Krajina</Text>
           <SegmentControl
             options={vignetteCountryOptions}
             value={country}
@@ -960,10 +1012,13 @@ export function AddDocumentModal({
       )}
 
       <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Cislo dokumentu
-        </Text>
-        <View style={[styles.inputRow, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Cislo dokumentu</Text>
+        <View
+          style={[
+            styles.inputRow,
+            { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+          ]}
+        >
           <FileText size={18} color={colors.textSecondary} />
           <TextInput
             style={[styles.input, { color: colors.text }]}
@@ -986,9 +1041,7 @@ export function AddDocumentModal({
       {renderVehiclePicker(true)}
 
       <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Typ servisu
-        </Text>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Typ servisu</Text>
         <SegmentControl
           options={serviceTypeOptions}
           value={serviceType}
@@ -1000,10 +1053,13 @@ export function AddDocumentModal({
       {renderDateFields('Datum servisu *', 'serviceDate', serviceDate)}
 
       <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Servisna firma
-        </Text>
-        <View style={[styles.inputRow, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Servisna firma</Text>
+        <View
+          style={[
+            styles.inputRow,
+            { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+          ]}
+        >
           <Building size={18} color={colors.textSecondary} />
           <TextInput
             style={[styles.input, { color: colors.text }]}
@@ -1016,10 +1072,13 @@ export function AddDocumentModal({
       </View>
 
       <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Stav km
-        </Text>
-        <View style={[styles.inputRow, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Stav km</Text>
+        <View
+          style={[
+            styles.inputRow,
+            { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+          ]}
+        >
           <Car size={18} color={colors.textSecondary} />
           <TextInput
             style={[styles.input, { color: colors.text }]}
@@ -1035,9 +1094,7 @@ export function AddDocumentModal({
       {renderPriceField('Cena')}
 
       <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Popis prac
-        </Text>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Popis prac</Text>
         <TextInput
           style={[
             styles.textArea,
@@ -1066,10 +1123,13 @@ export function AddDocumentModal({
       {renderDateFields('Datum pokuty *', 'fineDate', fineDate)}
 
       <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Suma pokuty *
-        </Text>
-        <View style={[styles.inputRow, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Suma pokuty *</Text>
+        <View
+          style={[
+            styles.inputRow,
+            { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+          ]}
+        >
           <Euro size={18} color={colors.textSecondary} />
           <TextInput
             style={[styles.input, { color: colors.text }]}
@@ -1084,10 +1144,13 @@ export function AddDocumentModal({
       </View>
 
       <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Vymahacia firma
-        </Text>
-        <View style={[styles.inputRow, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Vymahacia firma</Text>
+        <View
+          style={[
+            styles.inputRow,
+            { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+          ]}
+        >
           <Building size={18} color={colors.textSecondary} />
           <TextInput
             style={[styles.input, { color: colors.text }]}
@@ -1123,15 +1186,11 @@ export function AddDocumentModal({
         >
           {isPaid && <Text style={styles.checkmark}>✓</Text>}
         </View>
-        <Text style={[styles.checkboxLabel, { color: colors.text }]}>
-          Pokuta je zaplatena
-        </Text>
+        <Text style={[styles.checkboxLabel, { color: colors.text }]}>Pokuta je zaplatena</Text>
       </Pressable>
 
       <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Popis
-        </Text>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Popis</Text>
         <TextInput
           style={[
             styles.textArea,
@@ -1153,14 +1212,19 @@ export function AddDocumentModal({
     </>
   );
 
-  const renderDateFields = (label: string, field: 'validFrom' | 'validTo' | 'serviceDate' | 'fineDate', value: Date) => (
+  const renderDateFields = (
+    label: string,
+    field: 'validFrom' | 'validTo' | 'serviceDate' | 'fineDate',
+    value: Date
+  ) => (
     <View style={styles.section}>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>
-        {label}
-      </Text>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
       <Pressable
         onPress={() => setShowDatePicker(field)}
-        style={[styles.inputRow, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}
+        style={[
+          styles.inputRow,
+          { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+        ]}
       >
         <Calendar size={18} color={colors.textSecondary} />
         <Text style={[styles.dateText, { color: colors.text }]}>
@@ -1172,10 +1236,13 @@ export function AddDocumentModal({
 
   const renderPriceField = (label: string) => (
     <View style={styles.section}>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>
-        {label}
-      </Text>
-      <View style={[styles.inputRow, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
+      <View
+        style={[
+          styles.inputRow,
+          { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+        ]}
+      >
         <Euro size={18} color={colors.textSecondary} />
         <TextInput
           style={[styles.input, { color: colors.text }]}
@@ -1211,12 +1278,7 @@ export function AddDocumentModal({
 
   return (
     <View style={styles.overlay}>
-      <Animated.View
-        style={[
-          styles.backdrop,
-          { backgroundColor: 'rgba(0,0,0,0.5)', opacity },
-        ]}
-      >
+      <Animated.View style={[styles.backdrop, { backgroundColor: 'rgba(0,0,0,0.5)', opacity }]}>
         <Pressable style={styles.backdropPress} onPress={handleClose} />
       </Animated.View>
 
@@ -1254,11 +1316,12 @@ export function AddDocumentModal({
             {renderFormContent()}
 
             {/* Notes field (common for insurance and vehicle docs) */}
-            {(documentType === 'insurance' || documentType === 'stk' || documentType === 'ek' || documentType === 'vignette') && (
+            {(documentType === 'insurance' ||
+              documentType === 'stk' ||
+              documentType === 'ek' ||
+              documentType === 'vignette') && (
               <View style={styles.section}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>
-                  Poznamky
-                </Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Poznamky</Text>
                 <TextInput
                   style={[
                     styles.textArea,
@@ -1281,17 +1344,8 @@ export function AddDocumentModal({
           </ScrollView>
 
           {/* Footer */}
-          <View
-            style={[
-              styles.footer,
-              { borderTopColor: colors.border },
-            ]}
-          >
-            <Button
-              variant="outline"
-              onPress={handleClose}
-              style={styles.cancelButton}
-            >
+          <View style={[styles.footer, { borderTopColor: colors.border }]}>
+            <Button variant="outline" onPress={handleClose} style={styles.cancelButton}>
               Zrušiť
             </Button>
             <Button
@@ -1312,19 +1366,20 @@ export function AddDocumentModal({
           <Pressable style={styles.datePickerBackdrop} onPress={closeDatePicker} />
           <View style={[styles.datePickerContainer, { backgroundColor: colors.surface }]}>
             <View style={styles.datePickerHeader}>
-              <Text style={[styles.datePickerTitle, { color: colors.text }]}>
-                Vyberte dátum
-              </Text>
+              <Text style={[styles.datePickerTitle, { color: colors.text }]}>Vyberte dátum</Text>
               <Pressable onPress={closeDatePicker}>
                 <Text style={[styles.datePickerDone, { color: colors.primary }]}>Hotovo</Text>
               </Pressable>
             </View>
             <DateTimePicker
               value={
-                showDatePicker === 'validFrom' ? validFrom :
-                showDatePicker === 'validTo' ? validTo :
-                showDatePicker === 'serviceDate' ? serviceDate :
-                fineDate
+                showDatePicker === 'validFrom'
+                  ? validFrom
+                  : showDatePicker === 'validTo'
+                    ? validTo
+                    : showDatePicker === 'serviceDate'
+                      ? serviceDate
+                      : fineDate
               }
               mode="date"
               display="spinner"
@@ -1363,10 +1418,13 @@ export function AddDocumentModal({
           {showAddInsurer ? (
             /* Add new insurer form */
             <View style={styles.addInsurerForm}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Názov poisťovne
-              </Text>
-              <View style={[styles.inputRow, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Názov poisťovne</Text>
+              <View
+                style={[
+                  styles.inputRow,
+                  { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+                ]}
+              >
                 <Building size={18} color={colors.textSecondary} />
                 <TextInput
                   style={[styles.input, { color: colors.text }]}
@@ -1402,8 +1460,18 @@ export function AddDocumentModal({
             /* Insurer list */
             <>
               {/* Search input */}
-              <View style={[styles.insurerSearchContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-                <View style={[styles.insurerSearchInput, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}>
+              <View
+                style={[
+                  styles.insurerSearchContainer,
+                  { backgroundColor: colors.surface, borderBottomColor: colors.border },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.insurerSearchInput,
+                    { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+                  ]}
+                >
                   <Search size={18} color={colors.textSecondary} />
                   <TextInput
                     style={[styles.input, { color: colors.text }]}
@@ -1421,7 +1489,10 @@ export function AddDocumentModal({
                   setShowAddInsurer(true);
                   setNewInsurerName(insurerSearchQuery);
                 }}
-                style={[styles.addInsurerButton, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}
+                style={[
+                  styles.addInsurerButton,
+                  { backgroundColor: colors.surface, borderBottomColor: colors.border },
+                ]}
               >
                 <View style={[styles.addInsurerIcon, { backgroundColor: colors.primaryLight }]}>
                   <Plus size={20} color={colors.primary} />
@@ -1441,18 +1512,23 @@ export function AddDocumentModal({
                     onPress={() => handleSelectInsurer(item)}
                     style={[
                       styles.insurerItem,
-                      { 
+                      {
                         backgroundColor: colors.surface,
                         borderBottomColor: colors.border,
                       },
                       selectedInsurerId === item.id && { backgroundColor: colors.primaryLight },
                     ]}
                   >
-                    <Building size={20} color={selectedInsurerId === item.id ? colors.primary : colors.textSecondary} />
-                    <Text style={[
-                      styles.insurerItemText,
-                      { color: selectedInsurerId === item.id ? colors.primary : colors.text },
-                    ]}>
+                    <Building
+                      size={20}
+                      color={selectedInsurerId === item.id ? colors.primary : colors.textSecondary}
+                    />
+                    <Text
+                      style={[
+                        styles.insurerItemText,
+                        { color: selectedInsurerId === item.id ? colors.primary : colors.text },
+                      ]}
+                    >
                       {item.name}
                     </Text>
                     {selectedInsurerId === item.id && (
@@ -1483,9 +1559,7 @@ export function AddDocumentModal({
         <View style={[styles.insurerModal, { backgroundColor: colors.background }]}>
           {/* Header */}
           <View style={[styles.insurerModalHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.insurerModalTitle, { color: colors.text }]}>
-              Vyberte vozidlo
-            </Text>
+            <Text style={[styles.insurerModalTitle, { color: colors.text }]}>Vyberte vozidlo</Text>
             <Pressable
               onPress={() => {
                 setShowVehiclePicker(false);
@@ -1498,8 +1572,18 @@ export function AddDocumentModal({
           </View>
 
           {/* Search input */}
-          <View style={[styles.insurerSearchContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <View style={[styles.insurerSearchInput, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.insurerSearchContainer,
+              { backgroundColor: colors.surface, borderBottomColor: colors.border },
+            ]}
+          >
+            <View
+              style={[
+                styles.insurerSearchInput,
+                { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+              ]}
+            >
               <Search size={18} color={colors.textSecondary} />
               <TextInput
                 style={[styles.input, { color: colors.text }]}
@@ -1521,19 +1605,24 @@ export function AddDocumentModal({
                 onPress={() => handleSelectVehicle(item)}
                 style={[
                   styles.insurerItem,
-                  { 
+                  {
                     backgroundColor: colors.surface,
                     borderBottomColor: colors.border,
                   },
                   selectedVehicleId === item.id && { backgroundColor: colors.primaryLight },
                 ]}
               >
-                <Car size={20} color={selectedVehicleId === item.id ? colors.primary : colors.textSecondary} />
+                <Car
+                  size={20}
+                  color={selectedVehicleId === item.id ? colors.primary : colors.textSecondary}
+                />
                 <View style={styles.vehicleItemContent}>
-                  <Text style={[
-                    styles.insurerItemText,
-                    { color: selectedVehicleId === item.id ? colors.primary : colors.text },
-                  ]}>
+                  <Text
+                    style={[
+                      styles.insurerItemText,
+                      { color: selectedVehicleId === item.id ? colors.primary : colors.text },
+                    ]}
+                  >
                     {item.name}
                   </Text>
                   {(item.licensePlate || item.make || item.model) && (
@@ -1550,9 +1639,11 @@ export function AddDocumentModal({
             ListEmptyComponent={
               <View style={styles.emptyInsurers}>
                 <Car size={48} color={colors.textMuted} />
-                <Text style={[styles.emptyInsurersText, { color: colors.textSecondary, marginTop: 12 }]}>
-                  {vehicleSearchQuery 
-                    ? 'Žiadne vozidlá nezodpovedajú vyhľadávaniu' 
+                <Text
+                  style={[styles.emptyInsurersText, { color: colors.textSecondary, marginTop: 12 }]}
+                >
+                  {vehicleSearchQuery
+                    ? 'Žiadne vozidlá nezodpovedajú vyhľadávaniu'
                     : 'Zatiaľ nemáte žiadne vozidlá'}
                 </Text>
                 <Text style={[styles.emptyInsurersSubtext, { color: colors.textMuted }]}>
@@ -1694,7 +1785,7 @@ const styles = StyleSheet.create({
   saveButton: {
     flex: 2,
   },
-pickerText: {
+  pickerText: {
     flex: 1,
     fontSize: 15,
   },

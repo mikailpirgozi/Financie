@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  Car, 
-  AlertTriangle, 
-  FileCheck, 
-  Shield, 
+import {
+  Car,
+  AlertTriangle,
+  FileCheck,
+  Shield,
   CreditCard,
   Building2,
   Calendar,
@@ -55,32 +55,68 @@ interface VehicleData {
   acquisitionValue: number;
   currentValue: number;
   acquisitionDate: string;
+  // Loans
   loanCount: number;
+  activeLoanCount?: number;
+  historicalLoanCount?: number;
   totalLoanPaid: number;
   totalLoanBalance: number;
+  // Insurance
   insuranceCount: number;
   activeInsuranceCount: number;
   totalInsuranceCost: number;
-  nearestInsuranceExpiry?: string;
+  nearestInsuranceExpiry?: string | null;
+  latestInsuranceExpiry?: string | null;
+  // Documents
   documentCount: number;
   validDocumentCount: number;
   totalDocumentCost: number;
-  stkExpiry?: string;
-  ekExpiry?: string;
+  stkExpiry?: string | null;
+  ekExpiry?: string | null;
+  vignetteExpiry?: string | null;
+  latestStkExpiry?: string | null;
+  latestEkExpiry?: string | null;
+  latestVignetteExpiry?: string | null;
+  // Service
   serviceCount: number;
   totalServiceCost: number;
   lastServiceDate?: string;
   lastServiceKm?: number;
+  // Fines
   fineCount: number;
   unpaidFineCount: number;
   totalFineAmount: number;
   unpaidFineAmount: number;
+  // TCO
   totalCostOfOwnership: number;
+  // Alerts (expiring soon)
   stkExpiringSoon: boolean;
   ekExpiringSoon: boolean;
+  vignetteExpiringSoon?: boolean;
   insuranceExpiringSoon: boolean;
+  // Alerts (expired)
+  stkExpired?: boolean;
+  ekExpired?: boolean;
+  vignetteExpired?: boolean;
+  insuranceExpired?: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+type ExpiryStatus = 'ok' | 'expiring' | 'expired' | 'missing';
+
+function classifyExpiry(
+  latestDate: string | null | undefined,
+  expiringSoon?: boolean,
+  expired?: boolean
+): ExpiryStatus {
+  if (!latestDate) return 'missing';
+  if (expired) return 'expired';
+  const date = new Date(latestDate);
+  if (Number.isNaN(date.getTime())) return 'missing';
+  if (date.getTime() < Date.now()) return 'expired';
+  if (expiringSoon) return 'expiring';
+  return 'ok';
 }
 
 interface VehiclesClientProps {
@@ -109,7 +145,11 @@ function formatDate(dateStr: string | undefined): string {
   return date.toLocaleDateString('sk-SK');
 }
 
-export function VehiclesClient({ vehicles, stats, filters }: VehiclesClientProps): React.JSX.Element {
+export function VehiclesClient({
+  vehicles,
+  stats,
+  filters,
+}: VehiclesClientProps): React.JSX.Element {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [companyFilter, setCompanyFilter] = useState<string>('all');
@@ -117,11 +157,11 @@ export function VehiclesClient({ vehicles, stats, filters }: VehiclesClientProps
   const [yearFilter, setYearFilter] = useState<string>('all');
 
   // Filter vehicles
-  const filteredVehicles = vehicles.filter(v => {
+  const filteredVehicles = vehicles.filter((v) => {
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      const matchesSearch = 
+      const matchesSearch =
         v.name.toLowerCase().includes(query) ||
         v.licensePlate?.toLowerCase().includes(query) ||
         v.make?.toLowerCase().includes(query) ||
@@ -182,7 +222,15 @@ export function VehiclesClient({ vehicles, stats, filters }: VehiclesClientProps
             {stats.expiringSoonCount > 0 && (
               <div className="flex items-center gap-2 text-amber-600">
                 <AlertTriangle className="h-4 w-4" />
-                <span className="font-medium">{stats.expiringSoonCount} s končiacou platnosťou</span>
+                <span className="font-medium">
+                  {stats.expiringSoonCount} s končiacou platnosťou
+                </span>
+              </div>
+            )}
+            {stats.expiredCount && stats.expiredCount > 0 && (
+              <div className="flex items-center gap-2 text-red-600">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="font-medium">{stats.expiredCount} s expirovaným dokladom</span>
               </div>
             )}
           </div>
@@ -199,9 +247,7 @@ export function VehiclesClient({ vehicles, stats, filters }: VehiclesClientProps
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.totalValue)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              aktuálna trhová hodnota
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">aktuálna trhová hodnota</p>
           </CardContent>
         </Card>
 
@@ -226,10 +272,10 @@ export function VehiclesClient({ vehicles, stats, filters }: VehiclesClientProps
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.totalValue - stats.totalLoanBalance)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              hodnota - úvery
-            </p>
+            <div className="text-2xl font-bold">
+              {formatCurrency(stats.totalValue - stats.totalLoanBalance)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">hodnota - úvery</p>
           </CardContent>
         </Card>
 
@@ -241,9 +287,7 @@ export function VehiclesClient({ vehicles, stats, filters }: VehiclesClientProps
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.totalTco)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              úvery + poistky + servis + pokuty
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">úvery + poistky + servis + pokuty</p>
           </CardContent>
         </Card>
       </div>
@@ -272,8 +316,10 @@ export function VehiclesClient({ vehicles, stats, filters }: VehiclesClientProps
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Všetky firmy</SelectItem>
-                  {filters.companies.map(company => (
-                    <SelectItem key={company} value={company}>{company}</SelectItem>
+                  {filters.companies.map((company) => (
+                    <SelectItem key={company} value={company}>
+                      {company}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -287,8 +333,10 @@ export function VehiclesClient({ vehicles, stats, filters }: VehiclesClientProps
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Všetky značky</SelectItem>
-                  {filters.makes.map(make => (
-                    <SelectItem key={make} value={make}>{make}</SelectItem>
+                  {filters.makes.map((make) => (
+                    <SelectItem key={make} value={make}>
+                      {make}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -302,8 +350,10 @@ export function VehiclesClient({ vehicles, stats, filters }: VehiclesClientProps
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Všetky roky</SelectItem>
-                  {filters.years.map(year => (
-                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                  {filters.years.map((year) => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -314,12 +364,8 @@ export function VehiclesClient({ vehicles, stats, filters }: VehiclesClientProps
 
       {/* Vehicles List */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredVehicles.map(vehicle => (
-          <VehicleCard 
-            key={vehicle.id} 
-            vehicle={vehicle} 
-            onDelete={handleDelete}
-          />
+        {filteredVehicles.map((vehicle) => (
+          <VehicleCard key={vehicle.id} vehicle={vehicle} onDelete={handleDelete} />
         ))}
       </div>
 
@@ -340,11 +386,77 @@ interface VehicleCardProps {
   onDelete: (id: string) => Promise<void>;
 }
 
-function VehicleCard({ vehicle, onDelete }: VehicleCardProps): React.JSX.Element {
-  const hasAlerts = vehicle.stkExpiringSoon || vehicle.ekExpiringSoon || vehicle.insuranceExpiringSoon;
-  
+interface DocumentBadgeProps {
+  label: string;
+  status: ExpiryStatus;
+  latestDate?: string | null;
+}
+
+function DocumentBadge({
+  label,
+  status,
+  latestDate,
+}: DocumentBadgeProps): React.JSX.Element | null {
+  if (status === 'missing') return null;
+  const statusText =
+    status === 'expired'
+      ? `${label} expirované`
+      : status === 'expiring'
+        ? `${label} končí ${formatDate(latestDate ?? undefined)}`
+        : `${label} ${formatDate(latestDate ?? undefined)}`;
   return (
-    <Card className={`hover:shadow-md transition-shadow ${hasAlerts ? 'border-amber-300 dark:border-amber-700' : ''}`}>
+    <Badge variant={status === 'ok' ? 'secondary' : 'destructive'} className="text-xs">
+      <FileCheck className="h-3 w-3 mr-1" />
+      {statusText}
+    </Badge>
+  );
+}
+
+function VehicleCard({ vehicle, onDelete }: VehicleCardProps): React.JSX.Element {
+  const stkStatus = classifyExpiry(
+    vehicle.latestStkExpiry ?? vehicle.stkExpiry,
+    vehicle.stkExpiringSoon,
+    vehicle.stkExpired
+  );
+  const ekStatus = classifyExpiry(
+    vehicle.latestEkExpiry ?? vehicle.ekExpiry,
+    vehicle.ekExpiringSoon,
+    vehicle.ekExpired
+  );
+  const vignetteStatus = classifyExpiry(
+    vehicle.latestVignetteExpiry ?? vehicle.vignetteExpiry,
+    vehicle.vignetteExpiringSoon,
+    vehicle.vignetteExpired
+  );
+  const insuranceStatus =
+    vehicle.activeInsuranceCount > 0
+      ? classifyExpiry(
+          vehicle.nearestInsuranceExpiry ?? vehicle.latestInsuranceExpiry,
+          vehicle.insuranceExpiringSoon,
+          vehicle.insuranceExpired
+        )
+      : 'missing';
+
+  const hasAlerts =
+    vehicle.stkExpiringSoon ||
+    vehicle.ekExpiringSoon ||
+    vehicle.vignetteExpiringSoon ||
+    vehicle.insuranceExpiringSoon ||
+    vehicle.stkExpired ||
+    vehicle.ekExpired ||
+    vehicle.vignetteExpired ||
+    vehicle.insuranceExpired;
+
+  const hasErrors =
+    vehicle.stkExpired || vehicle.ekExpired || vehicle.vignetteExpired || vehicle.insuranceExpired;
+  const borderClass = hasErrors
+    ? 'border-red-300 dark:border-red-700'
+    : hasAlerts
+      ? 'border-amber-300 dark:border-amber-700'
+      : '';
+
+  return (
+    <Card className={`hover:shadow-md transition-shadow ${borderClass}`}>
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
@@ -353,10 +465,7 @@ function VehicleCard({ vehicle, onDelete }: VehicleCardProps): React.JSX.Element
             </div>
             <div>
               <CardTitle className="text-lg">
-                {vehicle.make && vehicle.model 
-                  ? `${vehicle.make} ${vehicle.model}`
-                  : vehicle.name
-                }
+                {vehicle.make && vehicle.model ? `${vehicle.make} ${vehicle.model}` : vehicle.name}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 {vehicle.licensePlate || vehicle.name}
@@ -407,9 +516,7 @@ function VehicleCard({ vehicle, onDelete }: VehicleCardProps): React.JSX.Element
               <span>{vehicle.registeredCompany}</span>
             </div>
           )}
-          <div className="font-semibold text-lg">
-            {formatCurrency(vehicle.currentValue)}
-          </div>
+          <div className="font-semibold text-lg">{formatCurrency(vehicle.currentValue)}</div>
         </div>
 
         {/* Quick Stats */}
@@ -435,30 +542,42 @@ function VehicleCard({ vehicle, onDelete }: VehicleCardProps): React.JSX.Element
               {formatCurrencyCompact(vehicle.totalLoanBalance)}
             </Badge>
           )}
-          
-          {vehicle.activeInsuranceCount > 0 ? (
-            <Badge 
-              variant={vehicle.insuranceExpiringSoon ? 'destructive' : 'secondary'} 
-              className="text-xs"
-            >
-              <Shield className="h-3 w-3 mr-1" />
-              {vehicle.insuranceExpiringSoon ? 'Končí!' : 'Poistené'}
-            </Badge>
-          ) : (
+
+          {insuranceStatus === 'missing' ? (
             <Badge variant="destructive" className="text-xs">
               <Shield className="h-3 w-3 mr-1" />
               Bez poistky
             </Badge>
-          )}
-
-          {vehicle.stkExpiry && (
-            <Badge 
-              variant={vehicle.stkExpiringSoon ? 'destructive' : 'secondary'} 
+          ) : (
+            <Badge
+              variant={insuranceStatus === 'ok' ? 'secondary' : 'destructive'}
               className="text-xs"
             >
-              <FileCheck className="h-3 w-3 mr-1" />
-              STK {formatDate(vehicle.stkExpiry)}
+              <Shield className="h-3 w-3 mr-1" />
+              {insuranceStatus === 'expired'
+                ? 'Poistka expirovaná'
+                : insuranceStatus === 'expiring'
+                  ? 'Poistka končí'
+                  : 'Poistené'}
             </Badge>
+          )}
+
+          <DocumentBadge
+            label="STK"
+            status={stkStatus}
+            latestDate={vehicle.latestStkExpiry ?? vehicle.stkExpiry}
+          />
+          <DocumentBadge
+            label="EK"
+            status={ekStatus}
+            latestDate={vehicle.latestEkExpiry ?? vehicle.ekExpiry}
+          />
+          {(vehicle.vignetteExpiry || vehicle.latestVignetteExpiry) && (
+            <DocumentBadge
+              label="Známka"
+              status={vignetteStatus}
+              latestDate={vehicle.latestVignetteExpiry ?? vehicle.vignetteExpiry}
+            />
           )}
 
           {vehicle.unpaidFineCount > 0 && (

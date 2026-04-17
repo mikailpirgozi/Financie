@@ -1,0 +1,11 @@
+**/node_modules/**
+**/.next/**
+**/.expo/**
+**/dist/**
+**/build/**
+**/.playwright/**
+**/playwright-report/**
+**/coverage/**
+**/*.lock
+pnpm-lock.yaml
+**/database.types.ts

@@ -1,10 +1,5 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Vehicle } from '@/lib/api';
@@ -20,7 +15,6 @@ const FUEL_TYPE_LABELS: Record<string, string> = {
   diesel: 'Diesel',
   electric: 'Elektro',
   hybrid: 'Hybrid',
-  plugin_hybrid: 'Plug-in Hybrid',
   lpg: 'LPG',
   cng: 'CNG',
 };
@@ -30,10 +24,24 @@ const FUEL_TYPE_ICONS: Record<string, string> = {
   diesel: 'flame-outline',
   electric: 'flash-outline',
   hybrid: 'leaf-outline',
-  plugin_hybrid: 'battery-charging-outline',
   lpg: 'flame-outline',
   cng: 'flame-outline',
 };
+
+type ExpiryStatus = 'ok' | 'expiring' | 'expired' | 'missing';
+
+function classifyExpiry(
+  latestExpiry: string | null | undefined,
+  expiringSoon: boolean | undefined
+): ExpiryStatus {
+  if (!latestExpiry) return 'missing';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expiry = new Date(latestExpiry);
+  if (expiry < today) return 'expired';
+  if (expiringSoon) return 'expiring';
+  return 'ok';
+}
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('sk-SK', {
@@ -44,26 +52,66 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
-function formatDate(dateStr: string | undefined): string {
+function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '-';
   return new Date(dateStr).toLocaleDateString('sk-SK');
 }
 
-export function VehicleCard({ vehicle, onPress, onLongPress }: VehicleCardProps): React.JSX.Element {
+export function VehicleCard({
+  vehicle,
+  onPress,
+  onLongPress,
+}: VehicleCardProps): React.JSX.Element {
   const { theme } = useTheme();
-  const hasAlerts = vehicle.stkExpiringSoon || vehicle.ekExpiringSoon || vehicle.insuranceExpiringSoon;
+
+  const stkStatus = classifyExpiry(
+    vehicle.latestStkExpiry ?? vehicle.stkExpiry ?? null,
+    vehicle.stkExpiringSoon
+  );
+  const ekStatus = classifyExpiry(
+    vehicle.latestEkExpiry ?? vehicle.ekExpiry ?? null,
+    vehicle.ekExpiringSoon
+  );
+  const vignetteStatus = classifyExpiry(
+    vehicle.latestVignetteExpiry ?? vehicle.vignetteExpiry ?? null,
+    vehicle.vignetteExpiringSoon
+  );
+
+  const hasAlerts =
+    vehicle.stkExpiringSoon ||
+    vehicle.ekExpiringSoon ||
+    vehicle.insuranceExpiringSoon ||
+    vehicle.vignetteExpiringSoon ||
+    vehicle.stkExpired ||
+    vehicle.ekExpired ||
+    vehicle.vignetteExpired ||
+    vehicle.insuranceExpired ||
+    stkStatus === 'expired' ||
+    ekStatus === 'expired' ||
+    vignetteStatus === 'expired';
+
+  const statusColor = (status: ExpiryStatus) => {
+    if (status === 'expired') return theme.colors.error;
+    if (status === 'expiring') return theme.colors.warning;
+    if (status === 'ok') return theme.colors.success;
+    return theme.colors.textSecondary;
+  };
+
+  const statusLabel = (label: string, status: ExpiryStatus, dateStr: string | null | undefined) => {
+    if (status === 'missing') return `${label} —`;
+    if (status === 'expired') return `${label} expirovaná ${formatDate(dateStr)}`;
+    return `${label} ${formatDate(dateStr)}`;
+  };
 
   // Primary title: Make + Model if available, fallback to name
-  const vehicleTitle = vehicle.make 
+  const vehicleTitle = vehicle.make
     ? `${vehicle.make}${vehicle.model ? ' ' + vehicle.model : ''}`
     : vehicle.name;
 
   // Subtitle: ŠPZ + year + description (if different from make+model)
-  const autoName = vehicle.make 
-    ? `${vehicle.make}${vehicle.model ? ' ' + vehicle.model : ''}` 
-    : '';
+  const autoName = vehicle.make ? `${vehicle.make}${vehicle.model ? ' ' + vehicle.model : ''}` : '';
   const hasCustomDescription = vehicle.name && vehicle.name !== autoName;
-  
+
   const subtitleParts: string[] = [];
   if (vehicle.licensePlate) subtitleParts.push(vehicle.licensePlate);
   if (vehicle.year) subtitleParts.push(vehicle.year.toString());
@@ -73,11 +121,11 @@ export function VehicleCard({ vehicle, onPress, onLongPress }: VehicleCardProps)
     <TouchableOpacity
       style={[
         styles.card,
-        { 
+        {
           backgroundColor: theme.colors.card,
           borderColor: hasAlerts ? theme.colors.warning : theme.colors.border,
           borderWidth: hasAlerts ? 2 : 1,
-        }
+        },
       ]}
       onPress={onPress}
       onLongPress={onLongPress}
@@ -93,7 +141,10 @@ export function VehicleCard({ vehicle, onPress, onLongPress }: VehicleCardProps)
             {vehicleTitle}
           </Text>
           {subtitleParts.length > 0 && (
-            <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]} numberOfLines={1}>
+            <Text
+              style={[styles.subtitle, { color: theme.colors.textSecondary }]}
+              numberOfLines={1}
+            >
               {subtitleParts.join(' • ')}
             </Text>
           )}
@@ -110,7 +161,10 @@ export function VehicleCard({ vehicle, onPress, onLongPress }: VehicleCardProps)
         {vehicle.registeredCompany && (
           <View style={styles.infoItem}>
             <Ionicons name="business-outline" size={14} color={theme.colors.textSecondary} />
-            <Text style={[styles.infoText, { color: theme.colors.textSecondary }]} numberOfLines={1}>
+            <Text
+              style={[styles.infoText, { color: theme.colors.textSecondary }]}
+              numberOfLines={1}
+            >
               {vehicle.registeredCompany}
             </Text>
           </View>
@@ -125,10 +179,13 @@ export function VehicleCard({ vehicle, onPress, onLongPress }: VehicleCardProps)
         )}
         {vehicle.fuelType && (
           <View style={styles.infoItem}>
-            <Ionicons 
-              name={(FUEL_TYPE_ICONS[vehicle.fuelType] || 'flash-outline') as keyof typeof Ionicons.glyphMap} 
-              size={14} 
-              color={theme.colors.textSecondary} 
+            <Ionicons
+              name={
+                (FUEL_TYPE_ICONS[vehicle.fuelType] ||
+                  'flash-outline') as keyof typeof Ionicons.glyphMap
+              }
+              size={14}
+              color={theme.colors.textSecondary}
             />
             <Text style={[styles.infoText, { color: theme.colors.textSecondary }]}>
               {FUEL_TYPE_LABELS[vehicle.fuelType] || vehicle.fuelType}
@@ -147,48 +204,73 @@ export function VehicleCard({ vehicle, onPress, onLongPress }: VehicleCardProps)
             </Text>
           </View>
         )}
-        
+
         {vehicle.activeInsuranceCount > 0 ? (
-          <View style={[
-            styles.badge, 
-            { backgroundColor: vehicle.insuranceExpiringSoon ? theme.colors.warning + '20' : theme.colors.success + '20' }
-          ]}>
-            <Ionicons 
-              name="shield-checkmark-outline" 
-              size={12} 
-              color={vehicle.insuranceExpiringSoon ? theme.colors.warning : theme.colors.success} 
+          <View
+            style={[
+              styles.badge,
+              {
+                backgroundColor: vehicle.insuranceExpiringSoon
+                  ? theme.colors.warning + '20'
+                  : theme.colors.success + '20',
+              },
+            ]}
+          >
+            <Ionicons
+              name="shield-checkmark-outline"
+              size={12}
+              color={vehicle.insuranceExpiringSoon ? theme.colors.warning : theme.colors.success}
             />
-            <Text style={[
-              styles.badgeText, 
-              { color: vehicle.insuranceExpiringSoon ? theme.colors.warning : theme.colors.success }
-            ]}>
+            <Text
+              style={[
+                styles.badgeText,
+                {
+                  color: vehicle.insuranceExpiringSoon
+                    ? theme.colors.warning
+                    : theme.colors.success,
+                },
+              ]}
+            >
               {vehicle.insuranceExpiringSoon ? 'Končí!' : 'Poistené'}
             </Text>
           </View>
         ) : (
           <View style={[styles.badge, { backgroundColor: theme.colors.error + '20' }]}>
             <Ionicons name="shield-outline" size={12} color={theme.colors.error} />
-            <Text style={[styles.badgeText, { color: theme.colors.error }]}>
-              Bez poistky
+            <Text style={[styles.badgeText, { color: theme.colors.error }]}>Bez poistky</Text>
+          </View>
+        )}
+
+        {stkStatus !== 'missing' && (
+          <View style={[styles.badge, { backgroundColor: statusColor(stkStatus) + '20' }]}>
+            <Ionicons name="document-text-outline" size={12} color={statusColor(stkStatus)} />
+            <Text style={[styles.badgeText, { color: statusColor(stkStatus) }]} numberOfLines={1}>
+              {statusLabel('STK', stkStatus, vehicle.latestStkExpiry ?? vehicle.stkExpiry ?? null)}
             </Text>
           </View>
         )}
 
-        {vehicle.stkExpiry && (
-          <View style={[
-            styles.badge, 
-            { backgroundColor: vehicle.stkExpiringSoon ? theme.colors.warning + '20' : theme.colors.textSecondary + '20' }
-          ]}>
-            <Ionicons 
-              name="document-text-outline" 
-              size={12} 
-              color={vehicle.stkExpiringSoon ? theme.colors.warning : theme.colors.textSecondary} 
-            />
-            <Text style={[
-              styles.badgeText, 
-              { color: vehicle.stkExpiringSoon ? theme.colors.warning : theme.colors.textSecondary }
-            ]}>
-              STK {formatDate(vehicle.stkExpiry)}
+        {ekStatus !== 'missing' && (
+          <View style={[styles.badge, { backgroundColor: statusColor(ekStatus) + '20' }]}>
+            <Ionicons name="leaf-outline" size={12} color={statusColor(ekStatus)} />
+            <Text style={[styles.badgeText, { color: statusColor(ekStatus) }]} numberOfLines={1}>
+              {statusLabel('EK', ekStatus, vehicle.latestEkExpiry ?? vehicle.ekExpiry ?? null)}
+            </Text>
+          </View>
+        )}
+
+        {vignetteStatus !== 'missing' && (
+          <View style={[styles.badge, { backgroundColor: statusColor(vignetteStatus) + '20' }]}>
+            <Ionicons name="trail-sign-outline" size={12} color={statusColor(vignetteStatus)} />
+            <Text
+              style={[styles.badgeText, { color: statusColor(vignetteStatus) }]}
+              numberOfLines={1}
+            >
+              {statusLabel(
+                'Známka',
+                vignetteStatus,
+                vehicle.latestVignetteExpiry ?? vehicle.vignetteExpiry ?? null
+              )}
             </Text>
           </View>
         )}

@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  Platform,
+  ScrollView,
+  KeyboardAvoidingView,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Scan } from 'lucide-react-native';
@@ -15,7 +25,10 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showEnableBiometric, setShowEnableBiometric] = useState(false);
-  const [pendingCredentials, setPendingCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [pendingCredentials, setPendingCredentials] = useState<{
+    email: string;
+    password: string;
+  } | null>(null);
   const router = useRouter();
   const biometricAttempted = useRef(false);
 
@@ -30,8 +43,10 @@ export default function LoginScreen() {
 
   // Complete login after authentication
   const completeLogin = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
     if (session) {
       // Initialize user on backend (creates household if needed)
       try {
@@ -39,7 +54,7 @@ export default function LoginScreen() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
         });
 
@@ -49,6 +64,27 @@ export default function LoginScreen() {
         }
       } catch (initError) {
         console.warn('Failed to initialize user:', initError);
+      }
+
+      // Register for push notifications and persist Expo push token in DB.
+      // Fire-and-forget — failure here must not block login.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { registerForPushNotifications } = require('../../src/lib/notifications');
+        registerForPushNotifications().catch((err: unknown) => {
+          console.warn('Push registration failed:', err);
+        });
+      } catch {
+        // optional - module not available in some envs
+      }
+
+      // Tell RevenueCat who is logged in so purchases attribute correctly.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { identifySubscriptionUser } = require('../../src/lib/subscriptions');
+        identifySubscriptionUser(session.user.id).catch(() => {});
+      } catch {
+        // optional - subscriptions module not initialised
       }
     }
 
@@ -154,7 +190,8 @@ export default function LoginScreen() {
           </View>
           <Text style={styles.biometricTitle}>Aktivovať {getBiometricTypeName()}?</Text>
           <Text style={styles.biometricDescription}>
-            Prihláste sa rýchlejšie pomocou {getBiometricTypeName()}. Vaše prihlasovacie údaje budú bezpečne uložené v zariadení.
+            Prihláste sa rýchlejšie pomocou {getBiometricTypeName()}. Vaše prihlasovacie údaje budú
+            bezpečne uložené v zariadení.
           </Text>
           <TouchableOpacity style={styles.button} onPress={handleEnableBiometric}>
             <Text style={styles.buttonText}>Aktivovať {getBiometricTypeName()}</Text>
@@ -186,10 +223,7 @@ export default function LoginScreen() {
               {/* Face ID / Touch ID tlačidlo ak je povolené */}
               {isAvailable && isEnabled && (
                 <>
-                  <TouchableOpacity
-                    style={styles.biometricButton}
-                    onPress={handleBiometricLogin}
-                  >
+                  <TouchableOpacity style={styles.biometricButton} onPress={handleBiometricLogin}>
                     <Scan size={24} color="#8B5CF6" />
                     <Text style={styles.biometricButtonText}>
                       Prihlásiť sa cez {getBiometricTypeName()}
@@ -382,4 +416,3 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
 });
-

@@ -4,7 +4,11 @@ import { createClient } from '@/lib/supabase/server';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@finapp/ui';
 import { LoanDetailClient } from './LoanDetailClient';
 
-export default async function LoanDetailPage({ params }: { params: Promise<{ id: string }> }): Promise<React.ReactNode> {
+export default async function LoanDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<React.ReactNode> {
   const { id } = await params;
   const supabase = await createClient();
   const {
@@ -13,16 +17,24 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
 
   if (!user) return null;
 
-  // Get loan with schedule
+  // Get loan with schedule + linked asset (vehicle/real estate)
   const { data: loan, error: loanError } = await supabase
     .from('loans')
-    .select('*')
+    .select('*, linked_asset:linked_asset_id(id, name, kind, license_plate, current_value)')
     .eq('id', id)
     .single();
 
   if (loanError || !loan) {
     notFound();
   }
+
+  const linkedAsset = loan.linked_asset as {
+    id: string;
+    name: string | null;
+    kind: string | null;
+    license_plate: string | null;
+    current_value: number | null;
+  } | null;
 
   const { data: schedule } = await supabase
     .from('loan_schedules')
@@ -34,22 +46,23 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
   today.setHours(0, 0, 0, 0);
 
   // Mark overdue installments
-  const scheduleWithStatus = schedule?.map((s) => {
-    const dueDate = new Date(s.due_date);
-    dueDate.setHours(0, 0, 0, 0);
-    
-    if (s.status === 'paid') return s;
-    
-    if (dueDate < today) {
-      return { ...s, status: 'overdue' };
-    }
-    
-    return s;
-  }) ?? [];
+  const scheduleWithStatus =
+    schedule?.map((s) => {
+      const dueDate = new Date(s.due_date);
+      dueDate.setHours(0, 0, 0, 0);
+
+      if (s.status === 'paid') return s;
+
+      if (dueDate < today) {
+        return { ...s, status: 'overdue' };
+      }
+
+      return s;
+    }) ?? [];
 
   const paidCount = scheduleWithStatus.filter((s) => s.status === 'paid').length;
   const overdueCount = scheduleWithStatus.filter((s) => s.status === 'overdue').length;
-  
+
   // Calculate totals
   const totalInterest = scheduleWithStatus.reduce((sum, s) => sum + Number(s.interest_due), 0);
   const totalFees = scheduleWithStatus.reduce((sum, s) => sum + Number(s.fees_due), 0);
@@ -61,12 +74,12 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
     ? Number(lastPaidInstallment.principal_balance_after)
     : Number(loan.principal);
   const paidPrincipal = Number(loan.principal) - currentBalance;
-  
+
   // Next installment
   const nextPendingInstallment = scheduleWithStatus.find(
     (s) => s.status === 'pending' || s.status === 'overdue'
   );
-  
+
   // Due soon (within 7 days)
   const dueSoonDate = new Date(today);
   dueSoonDate.setDate(dueSoonDate.getDate() + 7);
@@ -75,32 +88,34 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
     const dueDate = new Date(s.due_date);
     return dueDate >= today && dueDate <= dueSoonDate;
   }).length;
-  
+
   const monthlyPayment =
     scheduleWithStatus.length > 0 ? Number(scheduleWithStatus[0].total_due) : 0;
-  
+
   const remainingInstallments = scheduleWithStatus.length - paidCount;
-  
+
   // Loan end date
-  const loanEndDate = scheduleWithStatus.length > 0
-    ? new Date(scheduleWithStatus[scheduleWithStatus.length - 1].due_date)
-    : null;
-  
+  const loanEndDate =
+    scheduleWithStatus.length > 0
+      ? new Date(scheduleWithStatus[scheduleWithStatus.length - 1].due_date)
+      : null;
+
   // Days until next payment
   const daysUntilNext = nextPendingInstallment
-    ? Math.ceil((new Date(nextPendingInstallment.due_date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    ? Math.ceil(
+        (new Date(nextPendingInstallment.due_date).getTime() - today.getTime()) /
+          (1000 * 60 * 60 * 24)
+      )
     : null;
-  
+
   // Additional useful metrics
   const totalPaid = scheduleWithStatus
     .filter((s) => s.status === 'paid')
     .reduce((sum, s) => sum + Number(s.total_due), 0);
-  
+
   const remainingToPay = totalPayment - totalPaid;
-  
-  const interestToTotalRatio = totalPayment > 0 
-    ? (totalInterest / totalPayment) * 100 
-    : 0;
+
+  const interestToTotalRatio = totalPayment > 0 ? (totalInterest / totalPayment) * 100 : 0;
 
   return (
     <div className="space-y-6">
@@ -122,8 +137,8 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
             loan.status === 'active'
               ? 'bg-green-100 text-green-700'
               : loan.status === 'paid_off'
-              ? 'bg-blue-100 text-blue-700'
-              : 'bg-red-100 text-red-700'
+                ? 'bg-blue-100 text-blue-700'
+                : 'bg-red-100 text-red-700'
           }`}
         >
           {loan.status === 'active' && 'Aktívny'}
@@ -150,7 +165,57 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
           </div>
         </div>
       )}
-      
+
+      {/* Linked Asset Card */}
+      {linkedAsset && (
+        <Card className="border-blue-200 bg-blue-50/30 dark:border-blue-900 dark:bg-blue-950/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-blue-800 dark:text-blue-200 flex items-center gap-2">
+              {linkedAsset.kind === 'real_estate' ? '🏠' : '🚗'}
+              Naviazaný majetok
+            </CardTitle>
+            <CardDescription>
+              Tento úver je naviazaný na konkrétny majetok – LTV a equity sa počítajú voči nemu.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <Link
+                  href={
+                    linkedAsset.kind === 'real_estate'
+                      ? `/dashboard/real-estate/${linkedAsset.id}`
+                      : `/dashboard/vehicles/${linkedAsset.id}`
+                  }
+                  className="text-base font-semibold text-blue-700 dark:text-blue-300 hover:underline"
+                >
+                  {linkedAsset.name || 'Naviazaný majetok'}
+                </Link>
+                {linkedAsset.license_plate && (
+                  <span className="ml-2 text-xs font-mono bg-muted px-2 py-0.5 rounded">
+                    {linkedAsset.license_plate}
+                  </span>
+                )}
+              </div>
+              {linkedAsset.current_value != null && (
+                <div className="text-right">
+                  <div className="text-xs text-muted-foreground">Aktuálna hodnota</div>
+                  <div className="text-lg font-semibold">
+                    {Number(linkedAsset.current_value).toLocaleString('sk-SK')} €
+                  </div>
+                  {currentBalance > 0 && Number(linkedAsset.current_value) > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      LTV: {((currentBalance / Number(linkedAsset.current_value)) * 100).toFixed(1)}{' '}
+                      %
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {dueSoonCount > 0 && overdueCount === 0 && (
         <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded">
           <div className="flex items-center">
@@ -159,11 +224,10 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
             </div>
             <div className="ml-3">
               <h3 className="text-sm font-medium text-orange-800">
-                Máte {dueSoonCount} {dueSoonCount === 1 ? 'splátku' : 'splátky'} splatnú v najbližších 7 dňoch
+                Máte {dueSoonCount} {dueSoonCount === 1 ? 'splátku' : 'splátky'} splatnú v
+                najbližších 7 dňoch
               </h3>
-              <p className="text-sm text-orange-700 mt-1">
-                Pripravte si prostriedky na úhradu.
-              </p>
+              <p className="text-sm text-orange-700 mt-1">Pripravte si prostriedky na úhradu.</p>
             </div>
           </div>
         </div>
@@ -262,9 +326,7 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{remainingToPay.toFixed(2)} €</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Uhradené: {totalPaid.toFixed(2)} €
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Uhradené: {totalPaid.toFixed(2)} €</p>
           </CardContent>
         </Card>
       </div>
@@ -283,7 +345,8 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
             <div className="flex justify-between">
               <span className="text-muted-foreground">Doba splácania:</span>
               <span className="font-medium">
-                {loan.term_months} mesiacov ({Math.floor(loan.term_months / 12)} {Math.floor(loan.term_months / 12) === 1 ? 'rok' : 'rokov'})
+                {loan.term_months} mesiacov ({Math.floor(loan.term_months / 12)}{' '}
+                {Math.floor(loan.term_months / 12) === 1 ? 'rok' : 'rokov'})
               </span>
             </div>
             <div className="flex justify-between">
@@ -295,9 +358,7 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
             {loanEndDate && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Dátum ukončenia:</span>
-                <span className="font-medium">
-                  {loanEndDate.toLocaleDateString('sk-SK')}
-                </span>
+                <span className="font-medium">{loanEndDate.toLocaleDateString('sk-SK')}</span>
               </div>
             )}
             <div className="flex justify-between">
@@ -367,13 +428,15 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
             {nextPendingInstallment && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Ďalšia splátka:</span>
-                <span className={`font-medium ${
-                  daysUntilNext !== null && daysUntilNext < 0 
-                    ? 'text-red-600' 
-                    : daysUntilNext !== null && daysUntilNext <= 7 
-                    ? 'text-orange-600' 
-                    : ''
-                }`}>
+                <span
+                  className={`font-medium ${
+                    daysUntilNext !== null && daysUntilNext < 0
+                      ? 'text-red-600'
+                      : daysUntilNext !== null && daysUntilNext <= 7
+                        ? 'text-orange-600'
+                        : ''
+                  }`}
+                >
                   {new Date(nextPendingInstallment.due_date).toLocaleDateString('sk-SK', {
                     day: 'numeric',
                     month: 'long',
@@ -381,11 +444,13 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
                   })}
                   {daysUntilNext !== null && (
                     <span className="text-xs ml-2">
-                      ({daysUntilNext < 0 
-                        ? `${Math.abs(daysUntilNext)} dní po splatnosti` 
+                      (
+                      {daysUntilNext < 0
+                        ? `${Math.abs(daysUntilNext)} dní po splatnosti`
                         : daysUntilNext === 0
-                        ? 'dnes'
-                        : `o ${daysUntilNext} dní`})
+                          ? 'dnes'
+                          : `o ${daysUntilNext} dní`}
+                      )
                     </span>
                   )}
                 </span>
@@ -433,4 +498,3 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
     </div>
   );
 }
-

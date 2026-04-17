@@ -9,12 +9,26 @@ import type {
 } from '../types';
 import { calculateLoan } from './calculator';
 import { addMonths, calculateDayCountFactor } from './day-count';
+import { calculateEarlyRepaymentPenalty } from './payment-processor';
 
 /**
- * Calculate early repayment scenario
- * Shows penalty, new schedule, and savings
+ * Calculate early repayment scenario.
+ * Shows penalty, new schedule, and savings.
+ *
+ * Penalty semantics (canonical across the codebase):
+ *   penalty = repaymentAmount × penaltyPct / 100
+ *
+ * Rationale: matches Slovak Consumer Credit Act (§ 16) and EU Mortgage Credit
+ * Directive — the lender may charge the penalty only on the *prepaid* amount,
+ * never on the entire outstanding balance. The penalty is paid in cash and is
+ * NOT capitalised back into the remaining principal.
+ *
+ * The standalone helpers in `./payment-processor` (`processEarlyRepayment`,
+ * `calculateEarlyRepaymentPenalty`) follow exactly the same convention.
  */
-export function calculateEarlyRepayment(input: EarlyRepaymentCalculationInput): EarlyRepaymentResult {
+export function calculateEarlyRepayment(
+  input: EarlyRepaymentCalculationInput
+): EarlyRepaymentResult {
   const {
     loanType,
     principal,
@@ -31,7 +45,6 @@ export function calculateEarlyRepayment(input: EarlyRepaymentCalculationInput): 
     penaltyPct,
   } = input;
 
-  // Calculate original schedule
   const originalResult = calculateLoan({
     loanType,
     principal,
@@ -45,7 +58,6 @@ export function calculateEarlyRepayment(input: EarlyRepaymentCalculationInput): 
     balloonAmount,
   });
 
-  // Get remaining balance at current installment
   const currentEntry = originalResult.schedule[currentInstallment - 1];
   if (!currentEntry) {
     throw new Error('Invalid installment number');
@@ -53,13 +65,14 @@ export function calculateEarlyRepayment(input: EarlyRepaymentCalculationInput): 
 
   const remainingBalance = currentEntry.principalBalanceAfter;
 
-  // Calculate penalty
-  const penaltyAmount = roundToTwo(remainingBalance * (penaltyPct / 100));
+  // Penalty = % of the amount being prepaid (consumer-friendly + EU-compliant).
+  // Capped at the remaining balance so over-payments don't inflate the fee.
+  const cappedRepayment = Math.min(repaymentAmount, remainingBalance);
+  const penaltyAmount = calculateEarlyRepaymentPenalty(cappedRepayment, penaltyPct);
 
-  // Calculate new balance after early repayment
-  const newBalance = roundToTwo(remainingBalance - repaymentAmount + penaltyAmount);
+  // New balance does NOT include the penalty — penalty is settled in cash.
+  const newBalance = roundToTwo(Math.max(0, remainingBalance - repaymentAmount));
 
-  // If fully paid off
   if (newBalance <= 0) {
     return {
       penaltyAmount,
@@ -311,9 +324,7 @@ function applyOneTimePayments(
 
     // Apply extra payment to principal
     const newPrincipalDue = roundToTwo(entry.principalDue + payment.amount);
-    const newBalance = roundToTwo(
-      Math.max(0, entry.principalBalanceAfter - payment.amount)
-    );
+    const newBalance = roundToTwo(Math.max(0, entry.principalBalanceAfter - payment.amount));
 
     // Update current entry
     newSchedule[payment.installmentNo - 1] = {
@@ -366,10 +377,7 @@ function applyRateChange(
 /**
  * Calculate savings from early payoff
  */
-function calculateSavings(
-  schedule: LoanScheduleEntry[],
-  currentInstallment: number
-): number {
+function calculateSavings(schedule: LoanScheduleEntry[], currentInstallment: number): number {
   const remaining = schedule.slice(currentInstallment);
   return remaining.reduce((sum, entry) => sum + entry.interestDue + entry.feesDue, 0);
 }
@@ -397,4 +405,3 @@ function calculateEffectiveRate(
 function roundToTwo(num: number): number {
   return Math.round(num * 100) / 100;
 }
-

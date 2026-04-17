@@ -67,10 +67,14 @@ export function useLinkLoanToAsset() {
     mutationFn: ({ loanId, assetId }: { loanId: string; assetId: string }) =>
       linkLoanToAsset(loanId, assetId),
     onSuccess: (_, variables) => {
-      // Invalidate relevant queries
+      // Invalidate relevant queries (vrátane konkrétneho úveru a vehicle detailu)
       queryClient.invalidateQueries({ queryKey: ['portfolio'] });
       queryClient.invalidateQueries({ queryKey: ['asset', 'metrics', variables.assetId] });
       queryClient.invalidateQueries({ queryKey: ['loans'] });
+      queryClient.invalidateQueries({ queryKey: ['loan', variables.loanId] });
+      queryClient.invalidateQueries({ queryKey: ['vehicle', variables.assetId] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -83,11 +87,15 @@ export function useUnlinkLoanFromAsset() {
 
   return useMutation({
     mutationFn: (loanId: string) => unlinkLoanFromAsset(loanId),
-    onSuccess: () => {
-      // Invalidate relevant queries
+    onSuccess: (_, loanId) => {
+      // Invalidate relevant queries (cieľový úver + všetky vehicle/portfolio cache)
       queryClient.invalidateQueries({ queryKey: ['portfolio'] });
       queryClient.invalidateQueries({ queryKey: ['asset', 'metrics'] });
       queryClient.invalidateQueries({ queryKey: ['loans'] });
+      queryClient.invalidateQueries({ queryKey: ['loan', loanId] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicle'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -138,4 +146,3 @@ export function useAddAssetCashFlow() {
     },
   });
 }
-

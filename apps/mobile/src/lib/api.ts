@@ -36,7 +36,13 @@ export type AuditLogEntry = ApiAuditLogEntry;
 export type IncomeTemplate = ApiIncomeTemplate;
 export type SubscriptionStatus = ApiSubscriptionStatus;
 export type SimulationResult = ApiSimulationResult;
-export type { CreateExpenseData, CreateIncomeData, CreateCategoryData, CreateRuleData, AuditLogFilters };
+export type {
+  CreateExpenseData,
+  CreateIncomeData,
+  CreateCategoryData,
+  CreateRuleData,
+  AuditLogFilters,
+};
 export type { EarlyRepaymentPreview, EarlyRepaymentRequest, SimulationParams };
 export type { DashboardData, MonthlyDashboardData };
 
@@ -84,7 +90,7 @@ async function withRetry<T>(
     return await fn();
   } catch (error) {
     if (retries === 0) throw error;
-    
+
     // Don't retry on 4xx errors (client errors)
     if (error instanceof Error && error.message.includes('HTTP 4')) {
       throw error;
@@ -104,7 +110,9 @@ export async function apiFetch<T>(
   useRetry: boolean = true
 ): Promise<T> {
   const fetchFn = async (): Promise<T> => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -135,9 +143,9 @@ export async function apiFetch<T>(
       });
 
       if (!response.ok) {
-        const error: ApiError = await response.json().catch(() => ({ 
+        const error: ApiError = await response.json().catch(() => ({
           error: 'Unknown error',
-          statusCode: response.status 
+          statusCode: response.status,
         }));
         // Only log actual errors
         if (__DEV__) {
@@ -156,12 +164,15 @@ export async function apiFetch<T>(
           error: error instanceof Error ? error.message : String(error),
         });
       }
-      
+
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
           throw new ApiTimeoutError('Request timed out. Please check your internet connection.');
         }
-        if (error.message.includes('Network request failed') || error.message.includes('Failed to fetch')) {
+        if (
+          error.message.includes('Network request failed') ||
+          error.message.includes('Failed to fetch')
+        ) {
           throw new ApiNetworkError('Network error. Please check your internet connection.');
         }
       }
@@ -177,9 +188,7 @@ export async function apiFetch<T>(
 // ============================================
 
 export async function getLoans(householdId: string): Promise<Loan[]> {
-  const { loans } = await apiFetch<{ loans: Loan[] }>(
-    `/api/loans?householdId=${householdId}`
-  );
+  const { loans } = await apiFetch<{ loans: Loan[] }>(`/api/loans?householdId=${householdId}`);
   return loans;
 }
 
@@ -316,14 +325,11 @@ export async function deleteIncome(incomeId: string): Promise<void> {
 // CATEGORIES API
 // ============================================
 
-export async function getCategories(
-  householdId: string,
-  kind?: string
-): Promise<Category[]> {
+export async function getCategories(householdId: string, kind?: string): Promise<Category[]> {
   const url = kind
     ? `/api/categories?householdId=${householdId}&kind=${kind}`
     : `/api/categories?householdId=${householdId}`;
-  
+
   const { categories } = await apiFetch<{ categories: Category[] }>(url);
   return categories;
 }
@@ -348,21 +354,23 @@ export async function getCurrentHousehold(): Promise<Household> {
   if (householdCache && Date.now() - householdCache.timestamp < CACHE_TTL) {
     return householdCache.data;
   }
-  
+
   // If there's already a pending request, wait for it (deduplication)
   if (pendingHouseholdRequest) {
     return pendingHouseholdRequest;
   }
-  
+
   // Create new request
   pendingHouseholdRequest = (async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (!user) {
         throw new Error('User not authenticated');
       }
-      
+
       const { data, error } = await supabase
         .from('household_members')
         .select('household_id, role, households(*)')
@@ -372,8 +380,12 @@ export async function getCurrentHousehold(): Promise<Household> {
       if (error) {
         // If no household found, fall back to API (which creates one)
         if (error.code === 'PGRST116') {
-          const { household } = await apiFetch<{ household: Household }>('/api/households/current', {}, false);
-          
+          const { household } = await apiFetch<{ household: Household }>(
+            '/api/households/current',
+            {},
+            false
+          );
+
           // Cache the result
           householdCache = { data: household, timestamp: Date.now() };
           return household;
@@ -383,17 +395,17 @@ export async function getCurrentHousehold(): Promise<Household> {
 
       // Transform to expected format
       const household = data.households as unknown as Household;
-      
+
       // Cache the result
       householdCache = { data: household, timestamp: Date.now() };
-      
+
       return household;
     } finally {
       // Clear pending request
       pendingHouseholdRequest = null;
     }
   })();
-  
+
   return pendingHouseholdRequest;
 }
 
@@ -439,14 +451,12 @@ export async function getDashboardFull(
   const params = new URLSearchParams({
     monthsCount: monthsCount.toString(),
   });
-  
+
   if (includeRecent) {
     params.append('includeRecent', 'true');
   }
-  
-  return apiFetch<DashboardFullResponse>(
-    `/api/dashboard-full?${params.toString()}`
-  );
+
+  return apiFetch<DashboardFullResponse>(`/api/dashboard-full?${params.toString()}`);
 }
 
 /**
@@ -503,12 +513,8 @@ export interface DashboardAlertsResponse {
   householdId: string;
 }
 
-export async function getDashboardAlerts(
-  householdId: string
-): Promise<DashboardAlertsResponse> {
-  return apiFetch<DashboardAlertsResponse>(
-    `/api/dashboard-alerts?householdId=${householdId}`
-  );
+export async function getDashboardAlerts(householdId: string): Promise<DashboardAlertsResponse> {
+  return apiFetch<DashboardAlertsResponse>(`/api/dashboard-alerts?householdId=${householdId}`);
 }
 
 // ============================================
@@ -516,9 +522,7 @@ export async function getDashboardAlerts(
 // ============================================
 
 export async function getRules(householdId: string): Promise<Rule[]> {
-  const { rules } = await apiFetch<{ rules: Rule[] }>(
-    `/api/rules?householdId=${householdId}`
-  );
+  const { rules } = await apiFetch<{ rules: Rule[] }>(`/api/rules?householdId=${householdId}`);
   return rules;
 }
 
@@ -553,16 +557,14 @@ export async function getAuditLog(
   filters?: AuditLogFilters
 ): Promise<AuditLogEntry[]> {
   const params = new URLSearchParams({ householdId });
-  
+
   if (filters?.entityType) params.append('entityType', filters.entityType);
   if (filters?.action) params.append('action', filters.action);
   if (filters?.startDate) params.append('startDate', filters.startDate);
   if (filters?.endDate) params.append('endDate', filters.endDate);
-  
-  const { logs } = await apiFetch<{ logs: AuditLogEntry[] }>(
-    `/api/audit?${params.toString()}`
-  );
-  
+
+  const { logs } = await apiFetch<{ logs: AuditLogEntry[] }>(`/api/audit?${params.toString()}`);
+
   return logs || [];
 }
 
@@ -582,13 +584,10 @@ export async function updateCategory(
   id: string,
   data: Partial<CreateCategoryData>
 ): Promise<Category> {
-  const response = await apiFetch<{ category: Category } | Category>(
-    `/api/categories/${id}`,
-    {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }
-  );
+  const response = await apiFetch<{ category: Category } | Category>(`/api/categories/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
   return 'id' in response ? response : response.category;
 }
 
@@ -656,17 +655,19 @@ export async function getIncomeTemplates(): Promise<IncomeTemplate[]> {
   }
 }
 
-export async function createIncomeTemplate(data: Omit<IncomeTemplate, 'id' | 'created_at'>): Promise<IncomeTemplate> {
+export async function createIncomeTemplate(
+  data: Omit<IncomeTemplate, 'id' | 'created_at'>
+): Promise<IncomeTemplate> {
   const templates = await getIncomeTemplates();
   const newTemplate: IncomeTemplate = {
     ...data,
     id: `template_${Date.now()}`,
     created_at: new Date().toISOString(),
   };
-  
+
   templates.push(newTemplate);
   await AsyncStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
-  
+
   return newTemplate;
 }
 
@@ -685,7 +686,7 @@ export async function applyIncomeTemplate(template: IncomeTemplate, date: string
     categoryId: template.category_id,
     source: template.source,
     note: template.note,
-  }).then(r => r.income);
+  }).then((r) => r.income);
 }
 
 // ============================================
@@ -703,7 +704,16 @@ import type {
   Insurer,
 } from '@finapp/core';
 
-export type { Insurance, InsuranceStats, VehicleDocument, DocumentStats, ServiceRecord, Fine, FineStats, Insurer };
+export type {
+  Insurance,
+  InsuranceStats,
+  VehicleDocument,
+  DocumentStats,
+  ServiceRecord,
+  Fine,
+  FineStats,
+  Insurer,
+};
 
 export interface InsurancesResponse {
   data: Insurance[];
@@ -725,7 +735,10 @@ export async function createInsurance(data: Partial<Insurance>): Promise<{ data:
   });
 }
 
-export async function updateInsurance(id: string, data: Partial<Insurance>): Promise<{ data: Insurance }> {
+export async function updateInsurance(
+  id: string,
+  data: Partial<Insurance>
+): Promise<{ data: Insurance }> {
   return apiFetch(`/api/insurances/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -746,7 +759,7 @@ export interface VehicleDocumentsResponse {
 }
 
 export async function getVehicleDocuments(
-  householdId: string, 
+  householdId: string,
   documentType?: string
 ): Promise<VehicleDocumentsResponse> {
   const params = new URLSearchParams({ householdId });
@@ -758,14 +771,19 @@ export async function getVehicleDocument(id: string): Promise<{ data: VehicleDoc
   return apiFetch(`/api/vehicle-documents/${id}`);
 }
 
-export async function createVehicleDocument(data: Partial<VehicleDocument>): Promise<{ data: VehicleDocument }> {
+export async function createVehicleDocument(
+  data: Partial<VehicleDocument>
+): Promise<{ data: VehicleDocument }> {
   return apiFetch('/api/vehicle-documents', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export async function updateVehicleDocument(id: string, data: Partial<VehicleDocument>): Promise<{ data: VehicleDocument }> {
+export async function updateVehicleDocument(
+  id: string,
+  data: Partial<VehicleDocument>
+): Promise<{ data: VehicleDocument }> {
   return apiFetch(`/api/vehicle-documents/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -785,7 +803,10 @@ export interface ServiceRecordsResponse {
   stats: { total: number; totalCost: number };
 }
 
-export async function getServiceRecords(householdId: string, assetId?: string): Promise<ServiceRecordsResponse> {
+export async function getServiceRecords(
+  householdId: string,
+  assetId?: string
+): Promise<ServiceRecordsResponse> {
   const params = new URLSearchParams({ householdId });
   if (assetId) params.append('assetId', assetId);
   return apiFetch<ServiceRecordsResponse>(`/api/service-records?${params.toString()}`);
@@ -795,14 +816,19 @@ export async function getServiceRecord(id: string): Promise<{ data: ServiceRecor
   return apiFetch(`/api/service-records/${id}`);
 }
 
-export async function createServiceRecord(data: Partial<ServiceRecord>): Promise<{ data: ServiceRecord }> {
+export async function createServiceRecord(
+  data: Partial<ServiceRecord>
+): Promise<{ data: ServiceRecord }> {
   return apiFetch('/api/service-records', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export async function updateServiceRecord(id: string, data: Partial<ServiceRecord>): Promise<{ data: ServiceRecord }> {
+export async function updateServiceRecord(
+  id: string,
+  data: Partial<ServiceRecord>
+): Promise<{ data: ServiceRecord }> {
   return apiFetch(`/api/service-records/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -856,7 +882,10 @@ export async function getInsurers(householdId: string): Promise<{ data: Insurer[
   return apiFetch(`/api/insurers?householdId=${householdId}`);
 }
 
-export async function createInsurer(data: { householdId: string; name: string }): Promise<{ data: Insurer }> {
+export async function createInsurer(data: {
+  householdId: string;
+  name: string;
+}): Promise<{ data: Insurer }> {
   return apiFetch('/api/insurers', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -889,7 +918,10 @@ export async function getLoanDocuments(loanId: string): Promise<LoanDocumentsRes
   return apiFetch<LoanDocumentsResponse>(`/api/loans/${loanId}/documents`);
 }
 
-export async function getLoanDocument(loanId: string, docId: string): Promise<{ document: LoanDocument }> {
+export async function getLoanDocument(
+  loanId: string,
+  docId: string
+): Promise<{ document: LoanDocument }> {
   return apiFetch<{ document: LoanDocument }>(`/api/loans/${loanId}/documents/${docId}`);
 }
 
@@ -912,7 +944,10 @@ export async function createLoanDocument(
   });
 }
 
-export async function deleteLoanDocument(loanId: string, docId: string): Promise<{ success: boolean }> {
+export async function deleteLoanDocument(
+  loanId: string,
+  docId: string
+): Promise<{ success: boolean }> {
   return apiFetch(`/api/loans/${loanId}/documents/${docId}`, { method: 'DELETE' });
 }
 
@@ -924,6 +959,7 @@ export interface Vehicle {
   id: string;
   householdId: string;
   name: string;
+  kind?: 'vehicle';
   make?: string;
   model?: string;
   year?: number;
@@ -943,19 +979,32 @@ export interface Vehicle {
   acquisitionValue: number;
   currentValue: number;
   acquisitionDate: string;
+  isIncomeGenerating?: boolean;
+  monthlyIncome?: number;
+  monthlyExpenses?: number;
+  assetStatus?: string;
   // Summary data
   loanCount: number;
+  activeLoanCount?: number;
+  historicalLoanCount?: number;
   totalLoanPaid: number;
   totalLoanBalance: number;
   insuranceCount: number;
   activeInsuranceCount: number;
   totalInsuranceCost: number;
-  nearestInsuranceExpiry?: string;
+  nearestInsuranceExpiry?: string | null;
+  latestInsuranceExpiry?: string | null;
   documentCount: number;
   validDocumentCount: number;
   totalDocumentCost: number;
-  stkExpiry?: string;
-  ekExpiry?: string;
+  // Currently valid expiry dates (null when expired)
+  stkExpiry?: string | null;
+  ekExpiry?: string | null;
+  vignetteExpiry?: string | null;
+  // Latest known expiry dates (regardless of validity) - used to render "expired" UI
+  latestStkExpiry?: string | null;
+  latestEkExpiry?: string | null;
+  latestVignetteExpiry?: string | null;
   serviceCount: number;
   totalServiceCost: number;
   lastServiceDate?: string;
@@ -965,10 +1014,16 @@ export interface Vehicle {
   totalFineAmount: number;
   unpaidFineAmount: number;
   totalCostOfOwnership: number;
-  // Alerts
+  // Alerts (currently valid but expiring within 30 days)
   stkExpiringSoon: boolean;
   ekExpiringSoon: boolean;
+  vignetteExpiringSoon?: boolean;
   insuranceExpiringSoon: boolean;
+  // Expired flags (latest known is in the past)
+  stkExpired?: boolean;
+  ekExpired?: boolean;
+  vignetteExpired?: boolean;
+  insuranceExpired?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -993,58 +1048,103 @@ export interface VehiclesResponse {
   };
 }
 
+export interface VehicleLinkedLoan {
+  id: string;
+  name?: string;
+  lender: string;
+  principal: number;
+  currentBalance: number;
+  monthlyPayment: number;
+  status: string;
+  loanType?: string;
+  annualRate?: number;
+  termMonths?: number;
+  startDate?: string;
+}
+
+export interface VehicleLinkedInsurance {
+  id: string;
+  type: string;
+  policyNumber: string;
+  company?: string;
+  brokerCompany?: string | null;
+  validFrom?: string;
+  validTo: string;
+  price: number;
+  paymentFrequency?: string;
+  paidDate?: string | null;
+  greenCardValidFrom?: string | null;
+  greenCardValidTo?: string | null;
+  kmState?: number | null;
+  coverageAmount?: number | null;
+  deductibleAmount?: number | null;
+  deductiblePercentage?: number | null;
+  lastExtendedDate?: string | null;
+  extensionCount?: number | null;
+  filePaths?: string[];
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  isActive: boolean;
+}
+
+export interface VehicleLinkedDocument {
+  id: string;
+  documentType: string;
+  validFrom?: string | null;
+  validTo: string;
+  documentNumber?: string | null;
+  brokerCompany?: string | null;
+  price?: number;
+  country?: string | null;
+  isRequired?: boolean;
+  kmState?: number | null;
+  paidDate?: string | null;
+  lastExtendedDate?: string | null;
+  extensionCount?: number | null;
+  filePaths?: string[];
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  isValid: boolean;
+}
+
+export interface VehicleLinkedServiceRecord {
+  id: string;
+  serviceDate: string;
+  serviceProvider?: string | null;
+  serviceType?: string;
+  price?: number;
+  kmState?: number;
+  description?: string;
+  notes?: string;
+  filePaths?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface VehicleLinkedFine {
+  id: string;
+  fineDate: string;
+  fineAmount: number;
+  isPaid: boolean;
+  description?: string;
+  country?: string | null;
+  enforcementCompany?: string | null;
+  filePaths?: string[];
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface VehicleDetailResponse {
   data: Vehicle & {
     linkedItems: {
-      loans: Array<{
-        id: string;
-        name?: string;
-        lender: string;
-        principal: number;
-        currentBalance: number;
-        monthlyPayment: number;
-        status: string;
-      }>;
-      insurances: Array<{
-        id: string;
-        type: string;
-        policyNumber: string;
-        company?: string;
-        validTo: string;
-        price: number;
-        filePaths?: string[];
-        notes?: string;
-        isActive: boolean;
-      }>;
-      documents: Array<{
-        id: string;
-        documentType: string;
-        validFrom?: string;
-        validTo: string;
-        price?: number;
-        filePaths?: string[];
-        notes?: string;
-        isValid: boolean;
-      }>;
-      serviceRecords: Array<{
-        id: string;
-        serviceDate: string;
-        serviceType?: string;
-        price?: number;
-        kmState?: number;
-        description?: string;
-        filePaths?: string[];
-        notes?: string;
-      }>;
-      fines: Array<{
-        id: string;
-        fineDate: string;
-        fineAmount: number;
-        isPaid: boolean;
-        description?: string;
-        filePaths?: string[];
-        notes?: string;
-      }>;
+      loans: VehicleLinkedLoan[];
+      insurances: VehicleLinkedInsurance[];
+      documents: VehicleLinkedDocument[];
+      serviceRecords: VehicleLinkedServiceRecord[];
+      fines: VehicleLinkedFine[];
       loanDocuments?: Array<{
         id: string;
         loanId: string;
@@ -1108,7 +1208,10 @@ export async function createVehicle(data: CreateVehicleData): Promise<{ data: Ve
   });
 }
 
-export async function updateVehicle(id: string, data: Partial<CreateVehicleData>): Promise<{ data: Vehicle }> {
+export async function updateVehicle(
+  id: string,
+  data: Partial<CreateVehicleData>
+): Promise<{ data: Vehicle }> {
   return apiFetch(`/api/vehicles/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -1127,11 +1230,159 @@ export interface LinkToVehicleData {
   fineIds?: string[];
 }
 
-export async function linkToVehicle(vehicleId: string, data: LinkToVehicleData): Promise<{ success: boolean; message: string }> {
+export async function linkToVehicle(
+  vehicleId: string,
+  data: LinkToVehicleData
+): Promise<{ success: boolean; message: string }> {
   return apiFetch(`/api/vehicles/${vehicleId}/link`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
+}
+
+// ============================================
+// INSURANCES API (vehicle-linked CRUD)
+// ============================================
+
+export interface InsurancePayload {
+  householdId: string;
+  assetId?: string | null;
+  insurerId?: string | null;
+  type: 'pzp' | 'kasko' | 'pzp_kasko' | 'leasing' | 'property' | 'life' | 'other';
+  policyNumber: string;
+  company?: string | null;
+  brokerCompany?: string | null;
+  validFrom: string; // YYYY-MM-DD
+  validTo: string; // YYYY-MM-DD
+  price: number;
+  paymentFrequency?: 'monthly' | 'quarterly' | 'biannual' | 'yearly';
+  paidDate?: string | null;
+  greenCardValidFrom?: string | null;
+  greenCardValidTo?: string | null;
+  kmState?: number | null;
+  coverageAmount?: number | null;
+  deductibleAmount?: number | null;
+  deductiblePercentage?: number | null;
+  filePaths?: string[];
+  notes?: string | null;
+}
+
+export interface InsuranceListResponse {
+  data: VehicleLinkedInsurance[];
+  stats: {
+    total: number;
+    active: number;
+    expiringSoon: number;
+    expired: number;
+    totalAnnualCost: number;
+  };
+}
+
+export async function listInsurances(
+  householdId: string,
+  assetId?: string
+): Promise<InsuranceListResponse> {
+  const qs = new URLSearchParams({ householdId });
+  if (assetId) qs.set('assetId', assetId);
+  return apiFetch<InsuranceListResponse>(`/api/insurances?${qs.toString()}`);
+}
+
+// ============================================
+// VEHICLE DOCUMENTS API (STK / EK / vignette / TP)
+// ============================================
+
+export interface VehicleDocumentPayload {
+  householdId: string;
+  assetId: string;
+  documentType: 'stk' | 'ek' | 'vignette' | 'technical_certificate';
+  validFrom?: string | null;
+  validTo: string;
+  documentNumber?: string | null;
+  price?: number | null;
+  brokerCompany?: string | null;
+  country?: 'SK' | 'CZ' | 'AT' | 'HU' | 'SI' | 'PL' | 'DE' | 'CH' | null;
+  isRequired?: boolean;
+  kmState?: number | null;
+  paidDate?: string | null;
+  filePaths?: string[];
+  notes?: string | null;
+}
+
+export interface VehicleDocumentListResponse {
+  data: VehicleLinkedDocument[];
+  stats?: Record<string, number>;
+}
+
+export async function listVehicleDocuments(
+  householdId: string,
+  assetId?: string,
+  documentType?: 'stk' | 'ek' | 'vignette' | 'technical_certificate'
+): Promise<VehicleDocumentListResponse> {
+  const qs = new URLSearchParams({ householdId });
+  if (assetId) qs.set('assetId', assetId);
+  if (documentType) qs.set('documentType', documentType);
+  return apiFetch<VehicleDocumentListResponse>(`/api/vehicle-documents?${qs.toString()}`);
+}
+
+// ============================================
+// SERVICE RECORDS API
+// ============================================
+
+export interface ServiceRecordPayload {
+  householdId: string;
+  assetId: string;
+  serviceDate: string;
+  serviceProvider?: string | null;
+  serviceType?: 'regular' | 'repair' | 'tire_change' | 'inspection' | 'other' | null;
+  kmState?: number | null;
+  price?: number | null;
+  description?: string | null;
+  notes?: string | null;
+  filePaths?: string[];
+}
+
+export interface ServiceRecordListResponse {
+  data: VehicleLinkedServiceRecord[];
+  stats?: Record<string, number>;
+}
+
+export async function listServiceRecords(
+  householdId: string,
+  assetId?: string
+): Promise<ServiceRecordListResponse> {
+  const qs = new URLSearchParams({ householdId });
+  if (assetId) qs.set('assetId', assetId);
+  return apiFetch<ServiceRecordListResponse>(`/api/service-records?${qs.toString()}`);
+}
+
+// ============================================
+// FINES API
+// ============================================
+
+export interface FinePayload {
+  householdId: string;
+  assetId?: string | null;
+  fineDate: string;
+  fineAmount: number;
+  fineAmountLate?: number | null;
+  country?: string | null;
+  enforcementCompany?: string | null;
+  isPaid?: boolean;
+  ownerPaidDate?: string | null;
+  description?: string | null;
+  notes?: string | null;
+  filePaths?: string[];
+}
+
+export interface FineListResponse {
+  data: VehicleLinkedFine[];
+  stats?: Record<string, number>;
+}
+
+export async function listFines(householdId: string, assetId?: string): Promise<FineListResponse> {
+  const qs = new URLSearchParams({ householdId });
+  if (assetId) qs.set('assetId', assetId);
+  return apiFetch<FineListResponse>(`/api/fines?${qs.toString()}`);
 }
 
 // ============================================
@@ -1163,7 +1414,9 @@ export interface UploadFileResponse {
  * Upload file to Supabase Storage via API (with auth)
  */
 export async function uploadFile(params: UploadFileParams): Promise<UploadFileResponse> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
     throw new Error('Not authenticated');
@@ -1184,7 +1437,7 @@ export async function uploadFile(params: UploadFileParams): Promise<UploadFileRe
   const response = await fetch(`${API_URL}/api/files/upload`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${session.access_token}`,
+      Authorization: `Bearer ${session.access_token}`,
       // Note: Don't set Content-Type for FormData - browser/RN sets it automatically with boundary
     },
     body: formData,
@@ -1214,7 +1467,9 @@ interface SignedUrlResponse {
  * @param expiresIn Expiration time in seconds (default: 1 hour)
  */
 export async function getSignedUrl(filePath: string, expiresIn = 3600): Promise<string> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
     throw new Error('Not authenticated');
@@ -1223,7 +1478,7 @@ export async function getSignedUrl(filePath: string, expiresIn = 3600): Promise<
   const response = await fetch(`${API_URL}/api/files/signed-url`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${session.access_token}`,
+      Authorization: `Bearer ${session.access_token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ path: filePath, expiresIn }),

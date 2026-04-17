@@ -13,7 +13,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -51,7 +53,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      query = query.or(`name.ilike.%${search}%,license_plate.ilike.%${search}%,make.ilike.%${search}%,model.ilike.%${search}%`);
+      query = query.or(
+        `name.ilike.%${search}%,license_plate.ilike.%${search}%,make.ilike.%${search}%,model.ilike.%${search}%`
+      );
     }
 
     const { data, error } = await query;
@@ -62,82 +66,102 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform to camelCase
-    const vehicles = data?.map(item => ({
-      id: item.id,
-      householdId: item.household_id,
-      name: item.name,
-      make: item.make,
-      model: item.model,
-      year: item.year,
-      licensePlate: item.license_plate,
-      vin: item.vin,
-      registeredCompany: item.registered_company,
-      fuelType: item.fuel_type,
-      mileage: item.mileage,
-      acquisitionValue: Number(item.acquisition_value),
-      currentValue: Number(item.current_value),
-      acquisitionDate: item.acquisition_date,
-      // Loan summary
-      loanCount: item.loan_count,
-      totalLoanPaid: Number(item.total_loan_paid),
-      totalLoanBalance: Number(item.total_loan_balance),
-      // Insurance summary
-      insuranceCount: item.insurance_count,
-      activeInsuranceCount: item.active_insurance_count,
-      totalInsuranceCost: Number(item.total_insurance_cost),
-      nearestInsuranceExpiry: item.nearest_insurance_expiry,
-      // Document summary
-      documentCount: item.document_count,
-      validDocumentCount: item.valid_document_count,
-      totalDocumentCost: Number(item.total_document_cost),
-      stkExpiry: item.stk_expiry,
-      ekExpiry: item.ek_expiry,
-      // Service summary
-      serviceCount: item.service_count,
-      totalServiceCost: Number(item.total_service_cost),
-      lastServiceDate: item.last_service_date,
-      lastServiceKm: item.last_service_km,
-      // Fines summary
-      fineCount: item.fine_count,
-      unpaidFineCount: item.unpaid_fine_count,
-      totalFineAmount: Number(item.total_fine_amount),
-      unpaidFineAmount: Number(item.unpaid_fine_amount),
-      // TCO
-      totalCostOfOwnership: Number(item.total_cost_of_ownership),
-      // Alerts
-      stkExpiringSoon: item.stk_expiring_soon,
-      ekExpiringSoon: item.ek_expiring_soon,
-      insuranceExpiringSoon: item.insurance_expiring_soon,
-      createdAt: item.created_at,
-      updatedAt: item.updated_at,
-    })) || [];
+    const vehicles =
+      data?.map((item) => ({
+        id: item.id,
+        householdId: item.household_id,
+        name: item.name,
+        make: item.make,
+        model: item.model,
+        year: item.year,
+        licensePlate: item.license_plate,
+        vin: item.vin,
+        registeredCompany: item.registered_company,
+        fuelType: item.fuel_type,
+        mileage: item.mileage,
+        acquisitionValue: Number(item.acquisition_value),
+        currentValue: Number(item.current_value),
+        acquisitionDate: item.acquisition_date,
+        // Loan summary
+        loanCount: item.loan_count,
+        activeLoanCount: item.active_loan_count ?? 0,
+        historicalLoanCount: item.historical_loan_count ?? 0,
+        totalLoanPaid: Number(item.total_loan_paid),
+        totalLoanBalance: Number(item.total_loan_balance),
+        // Insurance summary
+        insuranceCount: item.insurance_count,
+        activeInsuranceCount: item.active_insurance_count,
+        totalInsuranceCost: Number(item.total_insurance_cost),
+        nearestInsuranceExpiry: item.nearest_insurance_expiry,
+        latestInsuranceExpiry: item.latest_insurance_expiry ?? null,
+        // Document summary
+        documentCount: item.document_count,
+        validDocumentCount: item.valid_document_count,
+        totalDocumentCost: Number(item.total_document_cost),
+        stkExpiry: item.stk_expiry,
+        ekExpiry: item.ek_expiry,
+        vignetteExpiry: item.vignette_expiry ?? null,
+        latestStkExpiry: item.latest_stk_expiry ?? null,
+        latestEkExpiry: item.latest_ek_expiry ?? null,
+        latestVignetteExpiry: item.latest_vignette_expiry ?? null,
+        // Service summary
+        serviceCount: item.service_count,
+        totalServiceCost: Number(item.total_service_cost),
+        lastServiceDate: item.last_service_date,
+        lastServiceKm: item.last_service_km,
+        // Fines summary
+        fineCount: item.fine_count,
+        unpaidFineCount: item.unpaid_fine_count,
+        totalFineAmount: Number(item.total_fine_amount),
+        unpaidFineAmount: Number(item.unpaid_fine_amount),
+        // TCO
+        totalCostOfOwnership: Number(item.total_cost_of_ownership),
+        // Alerts (expiring soon)
+        stkExpiringSoon: item.stk_expiring_soon,
+        ekExpiringSoon: item.ek_expiring_soon,
+        vignetteExpiringSoon: item.vignette_expiring_soon ?? false,
+        insuranceExpiringSoon: item.insurance_expiring_soon,
+        // Alerts (already expired)
+        stkExpired: item.stk_expired ?? false,
+        ekExpired: item.ek_expired ?? false,
+        vignetteExpired: item.vignette_expired ?? false,
+        insuranceExpired: item.insurance_expired ?? false,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+      })) || [];
 
     // Calculate stats
     const stats = {
       totalCount: vehicles.length,
       totalValue: vehicles.reduce((sum, v) => sum + v.currentValue, 0),
       totalAcquisitionValue: vehicles.reduce((sum, v) => sum + v.acquisitionValue, 0),
-      expiringSoonCount: vehicles.filter(v => 
-        v.stkExpiringSoon || v.ekExpiringSoon || v.insuranceExpiringSoon
+      expiringSoonCount: vehicles.filter(
+        (v) =>
+          v.stkExpiringSoon || v.ekExpiringSoon || v.vignetteExpiringSoon || v.insuranceExpiringSoon
       ).length,
-      withActiveLoansCount: vehicles.filter(v => v.totalLoanBalance > 0).length,
+      expiredCount: vehicles.filter(
+        (v) => v.stkExpired || v.ekExpired || v.vignetteExpired || v.insuranceExpired
+      ).length,
+      withActiveLoansCount: vehicles.filter((v) => v.totalLoanBalance > 0).length,
       totalLoanBalance: vehicles.reduce((sum, v) => sum + v.totalLoanBalance, 0),
       totalTco: vehicles.reduce((sum, v) => sum + v.totalCostOfOwnership, 0),
     };
 
     // Get unique companies for filter dropdown
-    const uniqueCompanies = [...new Set(vehicles.map(v => v.registeredCompany).filter(Boolean))];
-    const uniqueMakes = [...new Set(vehicles.map(v => v.make).filter(Boolean))];
-    const uniqueYears = [...new Set(vehicles.map(v => v.year).filter(Boolean))].sort((a, b) => (b ?? 0) - (a ?? 0));
+    const uniqueCompanies = [...new Set(vehicles.map((v) => v.registeredCompany).filter(Boolean))];
+    const uniqueMakes = [...new Set(vehicles.map((v) => v.make).filter(Boolean))];
+    const uniqueYears = [...new Set(vehicles.map((v) => v.year).filter(Boolean))].sort(
+      (a, b) => (b ?? 0) - (a ?? 0)
+    );
 
-    return NextResponse.json({ 
-      data: vehicles, 
+    return NextResponse.json({
+      data: vehicles,
       stats,
       filters: {
         companies: uniqueCompanies,
         makes: uniqueMakes,
         years: uniqueYears,
-      }
+      },
     });
   } catch (error) {
     console.error('GET /api/vehicles error:', error);
@@ -155,14 +179,16 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    
+
     // Validate input
     const validatedInput = createVehicleSchema.parse({
       ...body,
@@ -201,11 +227,7 @@ export async function POST(request: NextRequest) {
       asset_status: validatedInput.assetStatus,
     };
 
-    const { data, error } = await supabase
-      .from('assets')
-      .insert(dbData)
-      .select()
-      .single();
+    const { data, error } = await supabase.from('assets').insert(dbData).select().single();
 
     if (error) {
       console.error('Error creating vehicle:', error);
@@ -261,9 +283,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: vehicle }, { status: 201 });
   } catch (error) {
     console.error('POST /api/vehicles error:', error);
-    
+
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Validation failed', details: error.issues },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json(

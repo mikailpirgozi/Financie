@@ -7,14 +7,24 @@ import { z } from 'zod';
 const serverEnvSchema = z.object({
   // Supabase (server-side service role - optional for some operations)
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
-  
+
   // Stripe
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
-  
+
   // Email (Resend)
   RESEND_API_KEY: z.string().optional(),
-  
+
+  // OCR provider (OpenAI Vision API or compatible)
+  OPENAI_API_KEY: z.string().optional(),
+  OCR_MODEL: z.string().optional().default('gpt-4o-mini'),
+  AI_INSIGHTS_MODEL: z.string().optional().default('gpt-4o-mini'),
+
+  // Sentry (server-side: org/project/auth-token used at build time only)
+  SENTRY_ORG: z.string().optional(),
+  SENTRY_PROJECT: z.string().optional(),
+  SENTRY_AUTH_TOKEN: z.string().optional(),
+
   // Node environment
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
@@ -27,15 +37,19 @@ const clientEnvSchema = z.object({
   // Supabase
   NEXT_PUBLIC_SUPABASE_URL: z.string().url('Invalid Supabase URL'),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, 'Supabase anon key is required'),
-  
+
   // App URLs
   NEXT_PUBLIC_APP_URL: z.string().url().optional().default('http://localhost:3000'),
   NEXT_PUBLIC_SITE_URL: z.string().url().optional().default('http://localhost:3000'),
-  
+
   // Stripe (client-side)
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional(),
   NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID: z.string().optional(),
   NEXT_PUBLIC_STRIPE_PREMIUM_MONTHLY_PRICE_ID: z.string().optional(),
+
+  // Sentry (DSN must be public to load the browser SDK; safe to expose)
+  NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional(),
+  NEXT_PUBLIC_SENTRY_ENVIRONMENT: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -51,6 +65,12 @@ function getServerEnv(): ServerEnv {
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    OCR_MODEL: process.env.OCR_MODEL,
+    AI_INSIGHTS_MODEL: process.env.AI_INSIGHTS_MODEL,
+    SENTRY_ORG: process.env.SENTRY_ORG,
+    SENTRY_PROJECT: process.env.SENTRY_PROJECT,
+    SENTRY_AUTH_TOKEN: process.env.SENTRY_AUTH_TOKEN,
     NODE_ENV: process.env.NODE_ENV,
   };
 
@@ -77,17 +97,22 @@ function getClientEnv(): ClientEnv {
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID: process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID,
-    NEXT_PUBLIC_STRIPE_PREMIUM_MONTHLY_PRICE_ID: process.env.NEXT_PUBLIC_STRIPE_PREMIUM_MONTHLY_PRICE_ID,
+    NEXT_PUBLIC_STRIPE_PREMIUM_MONTHLY_PRICE_ID:
+      process.env.NEXT_PUBLIC_STRIPE_PREMIUM_MONTHLY_PRICE_ID,
+    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    NEXT_PUBLIC_SENTRY_ENVIRONMENT: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT,
   };
 
   try {
     return clientEnvSchema.parse(env);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      const missingVars = err.issues.map((e: z.ZodIssue) => `${e.path.join('.')}: ${e.message}`).join('\n');
+      const missingVars = err.issues
+        .map((e: z.ZodIssue) => `${e.path.join('.')}: ${e.message}`)
+        .join('\n');
       throw new Error(
         `Missing or invalid environment variables:\n${missingVars}\n` +
-        'Please check your .env.local file and ensure all required variables are set.'
+          'Please check your .env.local file and ensure all required variables are set.'
       );
     }
     throw err;

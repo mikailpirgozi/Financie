@@ -8,8 +8,8 @@ export default function ScreensLayout() {
   const BackButton = () => (
     <TouchableOpacity
       onPress={() => router.back()}
-      style={{ 
-        flexDirection: 'row', 
+      style={{
+        flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 8,
         paddingVertical: 4,
@@ -39,65 +39,87 @@ export default function ScreensLayout() {
         headerLeft: () => <BackButton />,
       }}
     >
-      <Stack.Screen 
-        name="portfolio" 
-        options={{ 
+      <Stack.Screen
+        name="portfolio"
+        options={{
           headerShown: false, // Portfolio má vlastný header
-        }} 
+        }}
       />
-      <Stack.Screen 
-        name="assets" 
-        options={{ 
+      <Stack.Screen
+        name="assets"
+        options={{
           headerTitle: 'Majetok',
           headerRight: () => (
             <TouchableOpacity
               onPress={() => router.push('/(screens)/assets/new')}
-              style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#f59e0b', borderRadius: 8 }}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                backgroundColor: '#f59e0b',
+                borderRadius: 8,
+              }}
             >
               <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>+ Pridať</Text>
             </TouchableOpacity>
           ),
-        }} 
+        }}
       />
-      <Stack.Screen 
-        name="categories" 
-        options={{ 
+      <Stack.Screen
+        name="categories"
+        options={{
           headerTitle: 'Kategórie',
           headerRight: () => (
             <TouchableOpacity
               onPress={() => router.push('/(screens)/categories/new')}
-              style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#8b5cf6', borderRadius: 8 }}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                backgroundColor: '#8b5cf6',
+                borderRadius: 8,
+              }}
             >
               <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>+ Pridať</Text>
             </TouchableOpacity>
           ),
-        }} 
+        }}
       />
-      <Stack.Screen 
-        name="summaries" 
-        options={{ 
+      <Stack.Screen
+        name="summaries"
+        options={{
           headerTitle: 'Mesačné súhrny',
-        }} 
+        }}
       />
-      <Stack.Screen 
-        name="household" 
-        options={{ 
+      <Stack.Screen
+        name="household"
+        options={{
           headerTitle: 'Domácnosť',
-        }} 
+        }}
       />
-      <Stack.Screen 
-        name="rules" 
-        options={{ 
+      <Stack.Screen
+        name="rules"
+        options={{
           headerTitle: 'Pravidlá',
-        }} 
+        }}
       />
-      <Stack.Screen 
-        name="audit" 
-        options={{ 
+      <Stack.Screen
+        name="audit"
+        options={{
           headerTitle: 'Audit Log',
-        }} 
+        }}
+      />
+      <Stack.Screen
+        name="paywall"
+        options={{
+          headerTitle: 'FinApp Pro',
+          presentation: 'modal',
+        }}
+      />
+      <Stack.Screen
+        name="insights"
+        options={{
+          headerTitle: 'AI Insights',
+        }}
       />
     </Stack>
   );
 }
-

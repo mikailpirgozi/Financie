@@ -1,13 +1,19 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Moon, Sun, Monitor } from 'lucide-react';
-import { useTheme } from './ThemeProvider';
+import { useTheme } from 'next-themes';
 import { Button } from '@finapp/ui';
 
 export function ThemeToggle(): React.JSX.Element {
   const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
-  const cycleTheme = () => {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const cycleTheme = (): void => {
     if (theme === 'light') {
       setTheme('dark');
     } else if (theme === 'dark') {
@@ -17,38 +23,32 @@ export function ThemeToggle(): React.JSX.Element {
     }
   };
 
-  const getIcon = () => {
+  const renderIcon = (): React.JSX.Element => {
+    if (!mounted) return <Monitor className="h-5 w-5" />;
     switch (theme) {
       case 'light':
         return <Sun className="h-5 w-5" />;
       case 'dark':
         return <Moon className="h-5 w-5" />;
-      case 'system':
+      default:
         return <Monitor className="h-5 w-5" />;
     }
   };
 
-  const getLabel = () => {
+  const label = ((): string => {
     switch (theme) {
       case 'light':
         return 'Svetlý režim';
       case 'dark':
         return 'Tmavý režim';
-      case 'system':
+      default:
         return 'Systémový režim';
     }
-  };
+  })();
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={cycleTheme}
-      title={getLabel()}
-      aria-label={getLabel()}
-    >
-      {getIcon()}
+    <Button variant="ghost" size="icon" onClick={cycleTheme} title={label} aria-label={label}>
+      {renderIcon()}
     </Button>
   );
 }
-

@@ -72,9 +72,7 @@ export async function createLoan(input: CreateLoanInput) {
     status: entry.status,
   }));
 
-  const { error: scheduleError } = await supabase
-    .from('loan_schedules')
-    .insert(scheduleData);
+  const { error: scheduleError } = await supabase.from('loan_schedules').insert(scheduleData);
 
   if (scheduleError) throw scheduleError;
 
@@ -102,6 +100,12 @@ export interface LoanWithMetrics {
   status: 'active' | 'paid_off' | 'defaulted';
   created_at: string;
   updated_at: string;
+  // Linked asset (vehicle) metadata – flows from get_loans_with_metrics RPC
+  linked_asset_id: string | null;
+  linked_asset_name: string | null;
+  linked_asset_license_plate: string | null;
+  linked_asset_kind: string | null;
+  loan_purpose: string | null;
   // Computed metrics from loan_metrics view
   current_balance: string;
   paid_count: number;
@@ -134,15 +138,16 @@ export interface LoanWithMetrics {
 /**
  * Get all loans for a household with pre-computed metrics.
  * Uses a single JOIN query with loan_metrics materialized view.
- * 
+ *
  * Performance: 1 query instead of 5, ~95% less data transfer
  */
 export async function getLoans(householdId: string): Promise<LoanWithMetrics[]> {
   const supabase = await createClient();
 
   // Single optimized query: JOIN loans with loan_metrics
-  const { data, error } = await supabase
-    .rpc('get_loans_with_metrics', { p_household_id: householdId });
+  const { data, error } = await supabase.rpc('get_loans_with_metrics', {
+    p_household_id: householdId,
+  });
 
   if (error) {
     // Fallback to basic query if RPC doesn't exist yet
@@ -155,7 +160,7 @@ export async function getLoans(householdId: string): Promise<LoanWithMetrics[]> 
   // Map to consistent format
   return data.map((row: Record<string, unknown>) => {
     const nextInstallment = row.next_installment as LoanWithMetrics['next_installment'];
-    
+
     return {
       // Base loan fields
       id: row.id as string,
@@ -177,6 +182,12 @@ export async function getLoans(householdId: string): Promise<LoanWithMetrics[]> 
       status: row.status as LoanWithMetrics['status'],
       created_at: row.created_at as string,
       updated_at: row.updated_at as string,
+      loan_purpose: (row.loan_purpose as string | null) ?? null,
+      // Linked asset (vehicle) metadata
+      linked_asset_id: (row.linked_asset_id as string | null) ?? null,
+      linked_asset_name: (row.linked_asset_name as string | null) ?? null,
+      linked_asset_license_plate: (row.linked_asset_license_plate as string | null) ?? null,
+      linked_asset_kind: (row.linked_asset_kind as string | null) ?? null,
       // Metrics from materialized view
       current_balance: String(row.current_balance ?? row.principal),
       paid_count: Number(row.paid_count ?? 0),
@@ -208,10 +219,10 @@ export async function getLoans(householdId: string): Promise<LoanWithMetrics[]> 
 async function getLoansLegacy(householdId: string): Promise<LoanWithMetrics[]> {
   const supabase = await createClient();
 
-  // Get loans
+  // Get loans (with optional linked asset embed)
   const { data: loans, error: loansError } = await supabase
     .from('loans')
-    .select('*')
+    .select('*, linked_asset:assets!loans_linked_asset_id_fkey(id, name, license_plate, kind)')
     .eq('household_id', householdId)
     .order('created_at', { ascending: false });
 
@@ -222,13 +233,27 @@ async function getLoansLegacy(householdId: string): Promise<LoanWithMetrics[]> {
   const { data: metrics } = await supabase
     .from('loan_metrics')
     .select('*')
-    .in('loan_id', loans.map(l => l.id));
+    .in(
+      'loan_id',
+      loans.map((l) => l.id)
+    );
 
-  const metricsMap = new Map(metrics?.map(m => [m.loan_id, m]) ?? []);
+  const metricsMap = new Map(metrics?.map((m) => [m.loan_id, m]) ?? []);
 
-  return loans.map(loan => {
+  return loans.map((loan) => {
     const metric = metricsMap.get(loan.id);
     const nextInstallment = metric?.next_installment as LoanWithMetrics['next_installment'];
+    const linkedAsset =
+      (
+        loan as {
+          linked_asset?: {
+            id: string;
+            name: string | null;
+            license_plate: string | null;
+            kind: string | null;
+          } | null;
+        }
+      ).linked_asset ?? null;
 
     return {
       ...loan,
@@ -239,6 +264,13 @@ async function getLoansLegacy(householdId: string): Promise<LoanWithMetrics[]> {
       fee_monthly: String(loan.fee_monthly ?? '0'),
       insurance_monthly: String(loan.insurance_monthly ?? '0'),
       early_repayment_penalty_pct: String(loan.early_repayment_penalty_pct ?? '0'),
+      // Loan purpose passthrough (Legacy fallback path)
+      loan_purpose: (loan.loan_purpose as string | null) ?? null,
+      // Linked asset
+      linked_asset_id: (loan.linked_asset_id as string | null) ?? null,
+      linked_asset_name: linkedAsset?.name ?? null,
+      linked_asset_license_plate: linkedAsset?.license_plate ?? null,
+      linked_asset_kind: linkedAsset?.kind ?? null,
       // Metrics
       current_balance: String(metric?.current_balance ?? loan.principal),
       paid_count: Number(metric?.paid_count ?? 0),
@@ -268,7 +300,7 @@ export async function getLoan(loanId: string) {
 
   const { data: loan, error: loanError } = await supabase
     .from('loans')
-    .select('*')
+    .select('*, linked_asset:assets!loans_linked_asset_id_fkey(id, name, license_plate, kind)')
     .eq('id', loanId)
     .single();
 
@@ -292,9 +324,19 @@ export async function getLoan(loanId: string) {
     .single();
 
   // Calculate monthly payment from schedule
-  const monthlyPayment = schedule && schedule.length > 0 
-    ? Number(schedule[0]?.total_due ?? 0)
-    : 0;
+  const monthlyPayment = schedule && schedule.length > 0 ? Number(schedule[0]?.total_due ?? 0) : 0;
+
+  const linkedAsset =
+    (
+      loan as {
+        linked_asset?: {
+          id: string;
+          name: string | null;
+          license_plate: string | null;
+          kind: string | null;
+        } | null;
+      }
+    ).linked_asset ?? null;
 
   // Add computed fields for mobile compatibility
   const loanWithMetrics = {
@@ -304,6 +346,11 @@ export async function getLoan(loanId: string) {
     monthly_payment: monthlyPayment,
     rate: loan.annual_rate,
     term: loan.term_months,
+    // Linked asset metadata flattened
+    linked_asset_id: loan.linked_asset_id ?? null,
+    linked_asset_name: linkedAsset?.name ?? null,
+    linked_asset_license_plate: linkedAsset?.license_plate ?? null,
+    linked_asset_kind: linkedAsset?.kind ?? null,
   };
 
   return { loan: loanWithMetrics, schedule: schedule ?? [] };
@@ -381,10 +428,7 @@ export async function payLoan(loanId: string, amount: number, date: Date) {
 export async function deleteLoan(loanId: string) {
   const supabase = await createClient();
 
-  const { error } = await supabase
-    .from('loans')
-    .delete()
-    .eq('id', loanId);
+  const { error } = await supabase.from('loans').delete().eq('id', loanId);
 
   if (error) throw error;
 }
@@ -418,7 +462,7 @@ export function calculateLoansSummary(loans: LoanWithMetrics[]): LoansSummary {
   let totalOriginal = 0;
   let overdueCount = 0;
   let dueSoonCount = 0;
-  
+
   type NextPaymentInfo = { date: string; amount: number; lender: string; daysUntil: number };
   let nextPayment: NextPaymentInfo | null = null;
 
@@ -432,7 +476,7 @@ export function calculateLoansSummary(loans: LoanWithMetrics[]): LoansSummary {
     // Get monthly payment from next installment
     if (loan.next_installment) {
       totalMonthlyPayment += Number(loan.next_installment.total_due);
-      
+
       // Find the nearest next payment across all loans
       if (!nextPayment || loan.next_installment.days_until < nextPayment.daysUntil) {
         nextPayment = {
@@ -446,9 +490,7 @@ export function calculateLoansSummary(loans: LoanWithMetrics[]): LoansSummary {
   }
 
   // Calculate percentage splatene
-  const totalSplatene = totalOriginal > 0 
-    ? (totalPaid / (totalOriginal + totalPaid)) * 100 
-    : 0;
+  const totalSplatene = totalOriginal > 0 ? (totalPaid / (totalOriginal + totalPaid)) * 100 : 0;
 
   return {
     totalBalance: totalBalance.toFixed(2),
@@ -458,12 +500,14 @@ export function calculateLoansSummary(loans: LoanWithMetrics[]): LoansSummary {
     overdueCount,
     dueSoonCount,
     totalSplatene: Math.round(totalSplatene),
-    nextPayment: nextPayment ? {
-      date: nextPayment.date,
-      amount: nextPayment.amount.toFixed(2),
-      lender: nextPayment.lender,
-      daysUntil: nextPayment.daysUntil,
-    } : null,
+    nextPayment: nextPayment
+      ? {
+          date: nextPayment.date,
+          amount: nextPayment.amount.toFixed(2),
+          lender: nextPayment.lender,
+          daysUntil: nextPayment.daysUntil,
+        }
+      : null,
     loanCount: loans.length,
   };
 }
@@ -474,12 +518,11 @@ export function calculateLoansSummary(loans: LoanWithMetrics[]): LoansSummary {
  */
 export async function refreshLoanMetrics(): Promise<void> {
   const supabase = await createClient();
-  
+
   const { error } = await supabase.rpc('refresh_loan_metrics_safe');
-  
+
   if (error) {
     console.warn('Failed to refresh loan_metrics:', error.message);
     // Don't throw - stale data is acceptable
   }
 }
-

@@ -11,6 +11,8 @@ interface Env {
   EXPO_PUBLIC_SUPABASE_ANON_KEY: string;
   EXPO_PUBLIC_REVENUECAT_IOS_KEY?: string;
   EXPO_PUBLIC_REVENUECAT_ANDROID_KEY?: string;
+  EXPO_PUBLIC_SENTRY_DSN?: string;
+  EXPO_PUBLIC_SENTRY_ENVIRONMENT?: string;
 }
 
 /** Holds the env validation error message if env vars are missing */
@@ -23,6 +25,8 @@ function validateEnv(): Env {
     EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     EXPO_PUBLIC_REVENUECAT_IOS_KEY: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,
     EXPO_PUBLIC_REVENUECAT_ANDROID_KEY: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
+    EXPO_PUBLIC_SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN,
+    EXPO_PUBLIC_SENTRY_ENVIRONMENT: process.env.EXPO_PUBLIC_SENTRY_ENVIRONMENT,
   };
 
   const missing: string[] = [];
@@ -37,8 +41,11 @@ function validateEnv(): Env {
 
     return {
       EXPO_PUBLIC_API_URL: rawEnv.EXPO_PUBLIC_API_URL ?? 'https://missing-api-url.invalid',
-      EXPO_PUBLIC_SUPABASE_URL: rawEnv.EXPO_PUBLIC_SUPABASE_URL ?? 'https://missing-supabase-url.invalid',
+      EXPO_PUBLIC_SUPABASE_URL:
+        rawEnv.EXPO_PUBLIC_SUPABASE_URL ?? 'https://missing-supabase-url.invalid',
       EXPO_PUBLIC_SUPABASE_ANON_KEY: rawEnv.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? 'missing-key',
+      EXPO_PUBLIC_SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN,
+      EXPO_PUBLIC_SENTRY_ENVIRONMENT: process.env.EXPO_PUBLIC_SENTRY_ENVIRONMENT,
     };
   }
 
@@ -48,6 +55,8 @@ function validateEnv(): Env {
     EXPO_PUBLIC_SUPABASE_ANON_KEY: rawEnv.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
     EXPO_PUBLIC_REVENUECAT_IOS_KEY: rawEnv.EXPO_PUBLIC_REVENUECAT_IOS_KEY,
     EXPO_PUBLIC_REVENUECAT_ANDROID_KEY: rawEnv.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
+    EXPO_PUBLIC_SENTRY_DSN: rawEnv.EXPO_PUBLIC_SENTRY_DSN,
+    EXPO_PUBLIC_SENTRY_ENVIRONMENT: rawEnv.EXPO_PUBLIC_SENTRY_ENVIRONMENT,
   };
 }
 

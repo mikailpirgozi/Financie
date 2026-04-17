@@ -24,9 +24,7 @@ const LOAN_TYPE_ICONS: Record<string, string> = {
 };
 
 export function LoanCalendar({ calendar, summary }: LoanCalendarProps) {
-  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(
-    new Set([calendar[0]?.month])
-  );
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set([calendar[0]?.month]));
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('sk-SK', {
@@ -120,9 +118,7 @@ export function LoanCalendar({ calendar, summary }: LoanCalendarProps) {
                 <View>
                   <View style={styles.monthTitleRow}>
                     <Text style={styles.monthTitle}>{formatMonth(monthData.month)}</Text>
-                    {isCurrentMonth && (
-                      <Badge variant="default">Aktuálny</Badge>
-                    )}
+                    {isCurrentMonth && <Badge variant="default">Aktuálny</Badge>}
                   </View>
                   <Text style={styles.monthSubtitle}>
                     {monthData.entries.length}{' '}
@@ -143,42 +139,52 @@ export function LoanCalendar({ calendar, summary }: LoanCalendarProps) {
             {isExpanded && (
               <View style={styles.monthContent}>
                 {monthData.entries.map((entry) => (
-                  <View
-                    key={`${entry.loanId}-${entry.installmentNo}`}
-                    style={styles.entryCard}
-                  >
+                  <View key={`${entry.loanId}-${entry.installmentNo}`} style={styles.entryCard}>
                     <View style={styles.entryHeader}>
                       <View style={styles.entryHeaderLeft}>
                         <Text style={styles.loanIcon}>
-                          {LOAN_TYPE_ICONS[entry.loanType] || '💰'}
+                          {entry.linkedAssetKind === 'vehicle'
+                            ? '🚗'
+                            : entry.linkedAssetKind === 'real_estate'
+                              ? '🏠'
+                              : LOAN_TYPE_ICONS[entry.loanType] || '💰'}
                         </Text>
                         <View>
                           <Text style={styles.loanName}>{entry.loanName}</Text>
                           <View style={styles.entryMeta}>
                             <Text style={styles.entryMetaText}>
-                              {formatDate(typeof entry.dueDate === 'string' ? entry.dueDate : entry.dueDate.toISOString())}
+                              {formatDate(
+                                typeof entry.dueDate === 'string'
+                                  ? entry.dueDate
+                                  : entry.dueDate.toISOString()
+                              )}
                             </Text>
                             <Text style={styles.entryMetaText}>•</Text>
-                            <Text style={styles.entryMetaText}>
-                              Splátka #{entry.installmentNo}
-                            </Text>
+                            <Text style={styles.entryMetaText}>Splátka #{entry.installmentNo}</Text>
                           </View>
                           {entry.linkedAssetName && (
                             <Text style={styles.linkedAsset}>
-                              🏠 {entry.linkedAssetName}
+                              {entry.linkedAssetKind === 'vehicle' ? '🚗' : '🏠'}{' '}
+                              {entry.linkedAssetName}
                             </Text>
                           )}
                         </View>
                       </View>
                       <Badge
-                        variant={entry.status === 'paid' ? 'success' : entry.status === 'overdue' ? 'error' : 'warning'}
+                        variant={
+                          entry.status === 'paid'
+                            ? 'success'
+                            : entry.status === 'overdue'
+                              ? 'error'
+                              : 'warning'
+                        }
                         size="sm"
                       >
                         {entry.status === 'paid'
                           ? 'Zaplatené'
                           : entry.status === 'overdue'
-                          ? 'Po splatnosti'
-                          : 'Čaká'}
+                            ? 'Po splatnosti'
+                            : 'Čaká'}
                       </Badge>
                     </View>
 
@@ -418,4 +424,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

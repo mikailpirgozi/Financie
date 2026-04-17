@@ -48,12 +48,7 @@ const LOAN_TYPE_CONFIG: Record<
  * LoanListItem - memoized pre lepší výkon pri scrollovaní
  * Re-renderuje sa len keď sa zmení loan data alebo pinnedNote
  */
-function LoanListItemComponent({
-  loan,
-  pinnedNote,
-  onPress,
-  onLongPress,
-}: LoanListItemProps) {
+function LoanListItemComponent({ loan, pinnedNote, onPress, onLongPress }: LoanListItemProps) {
   const { theme } = useTheme();
   const colors = theme.colors;
   const scale = useRef(new Animated.Value(1)).current;
@@ -79,9 +74,7 @@ function LoanListItemComponent({
     } else if (loan.next_payment_due_date) {
       const today = new Date();
       const dueDate = new Date(loan.next_payment_due_date);
-      const diffDays = Math.ceil(
-        (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-      );
+      const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       if (diffDays >= 0 && diffDays <= 5) return 'due_soon';
     }
 
@@ -203,206 +196,190 @@ function LoanListItemComponent({
           },
         ]}
       >
-      {/* Status Indicator */}
-      <View style={[styles.statusIndicator, { backgroundColor: statusColor }]} />
+        {/* Status Indicator */}
+        <View style={[styles.statusIndicator, { backgroundColor: statusColor }]} />
 
-      {/* Content */}
-      <View style={styles.content}>
-        {/* Header Row */}
-        <View style={styles.headerRow}>
-          <View style={styles.titleSection}>
-            {status === 'overdue' && (
-              <AlertTriangle
-                size={16}
-                color={colors.danger}
-                style={styles.statusIcon}
-              />
+        {/* Content */}
+        <View style={styles.content}>
+          {/* Header Row */}
+          <View style={styles.headerRow}>
+            <View style={styles.titleSection}>
+              {status === 'overdue' && (
+                <AlertTriangle size={16} color={colors.danger} style={styles.statusIcon} />
+              )}
+              {status === 'due_soon' && (
+                <Clock size={16} color={colors.warning} style={styles.statusIcon} />
+              )}
+              <Text style={[styles.loanName, { color: colors.text }]} numberOfLines={1}>
+                {loan.name || loan.lender}
+              </Text>
+            </View>
+            <ChevronRight size={20} color={colors.textMuted} />
+          </View>
+
+          {/* Subtitle with loan type and rate */}
+          <View style={styles.subtitleRow}>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              {loan.name ? loan.lender : ''}
+              {loan.name && loan.lender ? ' • ' : ''}
+            </Text>
+            <View style={[styles.typeBadge, { backgroundColor: colors.surfacePressed }]}>
+              <loanTypeConfig.icon size={12} color={colors.textSecondary} />
+              <Text style={[styles.typeText, { color: colors.textSecondary }]}>
+                {loanTypeConfig.shortLabel}
+              </Text>
+            </View>
+            <View style={[styles.rateBadge, { backgroundColor: colors.primaryLight }]}>
+              <Text style={[styles.rateText, { color: colors.primary }]}>
+                {annualRate.toFixed(1)}%
+              </Text>
+            </View>
+            {loan.linked_asset_id && loan.linked_asset_kind === 'vehicle' && (
+              <View style={[styles.vehicleBadge, { backgroundColor: colors.primaryLight }]}>
+                <Car size={12} color={colors.primary} />
+                <Text
+                  style={[styles.vehicleBadgeText, { color: colors.primary }]}
+                  numberOfLines={1}
+                >
+                  {loan.linked_asset_license_plate || loan.linked_asset_name || 'Vozidlo'}
+                </Text>
+              </View>
             )}
-            {status === 'due_soon' && (
-              <Clock
-                size={16}
-                color={colors.warning}
-                style={styles.statusIcon}
-              />
-            )}
-            <Text
-              style={[styles.loanName, { color: colors.text }]}
-              numberOfLines={1}
-            >
-              {loan.name || loan.lender}
-            </Text>
           </View>
-          <ChevronRight size={20} color={colors.textMuted} />
-        </View>
 
-        {/* Subtitle with loan type and rate */}
-        <View style={styles.subtitleRow}>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {loan.name ? loan.lender : ''}
-            {loan.name && loan.lender ? ' • ' : ''}
-          </Text>
-          <View style={[styles.typeBadge, { backgroundColor: colors.surfacePressed }]}>
-            <loanTypeConfig.icon size={12} color={colors.textSecondary} />
-            <Text style={[styles.typeText, { color: colors.textSecondary }]}>
-              {loanTypeConfig.shortLabel}
-            </Text>
+          {/* Balance and Monthly Payment Row */}
+          <View style={styles.balanceRow}>
+            <View>
+              <Text style={[styles.balanceAmount, { color: colors.text }]}>
+                {formatCurrency(loan.remaining_balance)}
+              </Text>
+              <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>zostatok</Text>
+            </View>
+            <View style={styles.monthlyPaymentBox}>
+              <Text style={[styles.monthlyAmount, { color: colors.textSecondary }]}>
+                {formatCurrency(loan.monthly_payment)}/mes
+              </Text>
+            </View>
           </View>
-          <View style={[styles.rateBadge, { backgroundColor: colors.primaryLight }]}>
-            <Text style={[styles.rateText, { color: colors.primary }]}>
-              {annualRate.toFixed(1)}%
-            </Text>
-          </View>
-        </View>
 
-        {/* Balance and Monthly Payment Row */}
-        <View style={styles.balanceRow}>
-          <View>
-            <Text style={[styles.balanceAmount, { color: colors.text }]}>
-              {formatCurrency(loan.remaining_balance)}
-            </Text>
-            <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>
-              zostatok
-            </Text>
-          </View>
-          <View style={styles.monthlyPaymentBox}>
-            <Text style={[styles.monthlyAmount, { color: colors.textSecondary }]}>
-              {formatCurrency(loan.monthly_payment)}/mes
-            </Text>
-          </View>
-        </View>
-
-        {/* Progress Bar */}
-        <View style={styles.progressSection}>
-          <View
-            style={[styles.progressTrack, { backgroundColor: colors.borderLight }]}
-          >
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${Math.min(progress, 100)}%`,
-                  backgroundColor:
-                    status === 'paid_off' ? colors.success : statusColor,
-                },
-              ]}
-            />
-          </View>
-          <Text style={[styles.progressText, { color: colors.textMuted }]}>
-            {Math.round(progress)}%
-          </Text>
-        </View>
-
-        {/* Info Row: Next payment date + Remaining installments */}
-        <View style={styles.infoRow}>
-          {/* Next payment date */}
-          {nextDueDate && status !== 'paid_off' && (
-            <View style={styles.infoItem}>
-              <Calendar size={12} color={getDaysUntilColor(daysUntil)} />
-              <Text
+          {/* Progress Bar */}
+          <View style={styles.progressSection}>
+            <View style={[styles.progressTrack, { backgroundColor: colors.borderLight }]}>
+              <View
                 style={[
-                  styles.infoText,
-                  { color: getDaysUntilColor(daysUntil) },
-                ]}
-              >
-                {formatDaysUntil(daysUntil) || new Date(nextDueDate).toLocaleDateString('sk-SK', { day: 'numeric', month: 'short' })}
-              </Text>
-            </View>
-          )}
-
-          {/* Remaining installments */}
-          {remainingInstallments > 0 && status !== 'paid_off' && (
-            <View style={styles.infoItem}>
-              <Hash size={12} color={colors.textMuted} />
-              <Text style={[styles.infoText, { color: colors.textMuted }]}>
-                {remainingInstallments} spl.
-              </Text>
-            </View>
-          )}
-
-          {/* Due soon indicator */}
-          {status === 'paid_off' && (
-            <View style={[styles.paidBadge, { backgroundColor: colors.successLight }]}>
-              <Text style={[styles.paidText, { color: colors.success }]}>
-                ✓ Splatený
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Status Alert or Note Preview */}
-        <View style={styles.footer}>
-          {status === 'overdue' && (
-            <View
-              style={[
-                styles.alertBadge,
-                { backgroundColor: colors.dangerLight, borderColor: colors.danger },
-              ]}
-            >
-              <AlertTriangle size={12} color={colors.danger} />
-              <Text style={[styles.alertText, { color: colors.danger }]}>
-                {loan.overdue_count}{' '}
-                {loan.overdue_count === 1 ? 'splatka' : 'splatok'} po splatnosti
-              </Text>
-            </View>
-          )}
-
-          {status === 'due_soon' && daysUntil !== undefined && daysUntil >= 0 && daysUntil <= 5 && (
-            <View
-              style={[
-                styles.alertBadge,
-                { backgroundColor: colors.warningLight, borderColor: colors.warning },
-              ]}
-            >
-              <Clock size={12} color={colors.warning} />
-              <Text style={[styles.alertText, { color: colors.warning }]}>
-                Splatnost {daysUntil === 0 ? 'dnes' : daysUntil === 1 ? 'zajtra' : `za ${daysUntil} dni`}
-              </Text>
-            </View>
-          )}
-
-          {/* Pinned Note Preview */}
-          {pinnedNote && status !== 'overdue' && status !== 'due_soon' && (
-            <View
-              style={[
-                styles.noteBadge,
-                {
-                  backgroundColor:
-                    pinnedNote.priority === 'high'
-                      ? colors.dangerLight
-                      : colors.surfacePressed,
-                  borderColor:
-                    pinnedNote.priority === 'high'
-                      ? colors.danger
-                      : colors.border,
-                },
-              ]}
-            >
-              <Pin
-                size={12}
-                color={
-                  pinnedNote.priority === 'high'
-                    ? colors.danger
-                    : colors.textSecondary
-                }
-              />
-              <Text
-                style={[
-                  styles.noteText,
+                  styles.progressFill,
                   {
-                    color:
-                      pinnedNote.priority === 'high'
-                        ? colors.danger
-                        : colors.textSecondary,
+                    width: `${Math.min(progress, 100)}%`,
+                    backgroundColor: status === 'paid_off' ? colors.success : statusColor,
                   },
                 ]}
-                numberOfLines={1}
-              >
-                {pinnedNote.content}
-              </Text>
+              />
             </View>
-          )}
+            <Text style={[styles.progressText, { color: colors.textMuted }]}>
+              {Math.round(progress)}%
+            </Text>
+          </View>
+
+          {/* Info Row: Next payment date + Remaining installments */}
+          <View style={styles.infoRow}>
+            {/* Next payment date */}
+            {nextDueDate && status !== 'paid_off' && (
+              <View style={styles.infoItem}>
+                <Calendar size={12} color={getDaysUntilColor(daysUntil)} />
+                <Text style={[styles.infoText, { color: getDaysUntilColor(daysUntil) }]}>
+                  {formatDaysUntil(daysUntil) ||
+                    new Date(nextDueDate).toLocaleDateString('sk-SK', {
+                      day: 'numeric',
+                      month: 'short',
+                    })}
+                </Text>
+              </View>
+            )}
+
+            {/* Remaining installments */}
+            {remainingInstallments > 0 && status !== 'paid_off' && (
+              <View style={styles.infoItem}>
+                <Hash size={12} color={colors.textMuted} />
+                <Text style={[styles.infoText, { color: colors.textMuted }]}>
+                  {remainingInstallments} spl.
+                </Text>
+              </View>
+            )}
+
+            {/* Due soon indicator */}
+            {status === 'paid_off' && (
+              <View style={[styles.paidBadge, { backgroundColor: colors.successLight }]}>
+                <Text style={[styles.paidText, { color: colors.success }]}>✓ Splatený</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Status Alert or Note Preview */}
+          <View style={styles.footer}>
+            {status === 'overdue' && (
+              <View
+                style={[
+                  styles.alertBadge,
+                  { backgroundColor: colors.dangerLight, borderColor: colors.danger },
+                ]}
+              >
+                <AlertTriangle size={12} color={colors.danger} />
+                <Text style={[styles.alertText, { color: colors.danger }]}>
+                  {loan.overdue_count} {loan.overdue_count === 1 ? 'splatka' : 'splatok'} po
+                  splatnosti
+                </Text>
+              </View>
+            )}
+
+            {status === 'due_soon' &&
+              daysUntil !== undefined &&
+              daysUntil >= 0 &&
+              daysUntil <= 5 && (
+                <View
+                  style={[
+                    styles.alertBadge,
+                    { backgroundColor: colors.warningLight, borderColor: colors.warning },
+                  ]}
+                >
+                  <Clock size={12} color={colors.warning} />
+                  <Text style={[styles.alertText, { color: colors.warning }]}>
+                    Splatnost{' '}
+                    {daysUntil === 0 ? 'dnes' : daysUntil === 1 ? 'zajtra' : `za ${daysUntil} dni`}
+                  </Text>
+                </View>
+              )}
+
+            {/* Pinned Note Preview */}
+            {pinnedNote && status !== 'overdue' && status !== 'due_soon' && (
+              <View
+                style={[
+                  styles.noteBadge,
+                  {
+                    backgroundColor:
+                      pinnedNote.priority === 'high' ? colors.dangerLight : colors.surfacePressed,
+                    borderColor: pinnedNote.priority === 'high' ? colors.danger : colors.border,
+                  },
+                ]}
+              >
+                <Pin
+                  size={12}
+                  color={pinnedNote.priority === 'high' ? colors.danger : colors.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.noteText,
+                    {
+                      color: pinnedNote.priority === 'high' ? colors.danger : colors.textSecondary,
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {pinnedNote.content}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
       </Pressable>
     </Animated.View>
   );
@@ -475,6 +452,19 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   rateText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  vehicleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    maxWidth: 140,
+  },
+  vehicleBadgeText: {
     fontSize: 10,
     fontWeight: '700',
   },
@@ -588,8 +578,8 @@ function areEqual(prevProps: LoanListItemProps, nextProps: LoanListItemProps): b
   // Compare loan by id and key properties that affect rendering
   const prevLoan = prevProps.loan;
   const nextLoan = nextProps.loan;
-  
-  const loanEqual = 
+
+  const loanEqual =
     prevLoan.id === nextLoan.id &&
     prevLoan.status === nextLoan.status &&
     prevLoan.remaining_balance === nextLoan.remaining_balance &&
@@ -598,7 +588,7 @@ function areEqual(prevProps: LoanListItemProps, nextProps: LoanListItemProps): b
     prevLoan.paid_count === nextLoan.paid_count;
 
   // Compare pinnedNote
-  const noteEqual = 
+  const noteEqual =
     prevProps.pinnedNote?.id === nextProps.pinnedNote?.id &&
     prevProps.pinnedNote?.content === nextProps.pinnedNote?.content;
 

@@ -54,6 +54,19 @@ export interface ApiLoan {
   fee_setup?: string;
   fee_monthly?: string;
   insurance_monthly?: string;
+  // Linked asset (vehicle) metadata – populated by get_loans_with_metrics RPC
+  linked_asset_id?: string | null;
+  linked_asset_name?: string | null;
+  linked_asset_license_plate?: string | null;
+  linked_asset_kind?:
+    | 'vehicle'
+    | 'real_estate'
+    | 'bank_account'
+    | 'investment'
+    | 'cash'
+    | 'other'
+    | null;
+  loan_purpose?: string | null;
 }
 
 export interface ApiLoanSchedule {

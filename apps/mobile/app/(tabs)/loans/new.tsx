@@ -43,7 +43,13 @@ const newLoanFormSchema = z.object({
   name: z.string().max(200).optional(),
   vehicleId: z.string().optional(), // Optional vehicle to link
   lender: z.string().min(1, 'Veriteľ je povinný'),
-  loanType: z.enum(['annuity', 'fixed_principal', 'interest_only', 'auto_loan', 'graduated_payment']),
+  loanType: z.enum([
+    'annuity',
+    'fixed_principal',
+    'interest_only',
+    'auto_loan',
+    'graduated_payment',
+  ]),
   principal: z.number().positive('Výška úveru musí byť väčšia ako 0'),
   annualRate: z.number().min(0).max(100).optional(),
   monthlyPayment: z.number().positive().optional(),
@@ -60,7 +66,8 @@ const newLoanFormSchema = z.object({
 type FormData = z.infer<typeof newLoanFormSchema>;
 
 // Formatters
-const formatCurrency = (v: number) => `${v.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+const formatCurrency = (v: number) =>
+  `${v.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 const formatPercentage = (v: number) => `${v.toFixed(1)}%`;
 const formatTermMonths = (v: number) => {
   const years = Math.floor(v / 12);
@@ -119,25 +126,28 @@ export default function NewLoanScreen() {
   // to avoid Proxy object issues in Hermes production builds
   // Note: useWatch returns a deep clone, not a Proxy, which is safer for Hermes GC
   const watchedValues = useWatch({ control });
-  
+
   // Provide safe defaults during initialization to prevent crashes
-  const formValues: FormData = useMemo(() => ({
-    name: watchedValues?.name ?? '',
-    vehicleId: watchedValues?.vehicleId ?? '',
-    lender: watchedValues?.lender ?? '',
-    loanType: watchedValues?.loanType ?? 'annuity',
-    principal: watchedValues?.principal ?? 10000,
-    annualRate: watchedValues?.annualRate ?? 5.5,
-    monthlyPayment: watchedValues?.monthlyPayment ?? 250,
-    termMonths: watchedValues?.termMonths ?? 60,
-    startDate: watchedValues?.startDate ?? new Date().toISOString().split('T')[0],
-    rateType: watchedValues?.rateType ?? 'fixed',
-    feeSetup: watchedValues?.feeSetup ?? 0,
-    feeMonthly: watchedValues?.feeMonthly ?? 0,
-    insuranceMonthly: watchedValues?.insuranceMonthly ?? 0,
-    balloonAmount: watchedValues?.balloonAmount ?? 0,
-    calculationMode: watchedValues?.calculationMode ?? 'payment_term',
-  }), [watchedValues]);
+  const formValues: FormData = useMemo(
+    () => ({
+      name: watchedValues?.name ?? '',
+      vehicleId: watchedValues?.vehicleId ?? '',
+      lender: watchedValues?.lender ?? '',
+      loanType: watchedValues?.loanType ?? 'annuity',
+      principal: watchedValues?.principal ?? 10000,
+      annualRate: watchedValues?.annualRate ?? 5.5,
+      monthlyPayment: watchedValues?.monthlyPayment ?? 250,
+      termMonths: watchedValues?.termMonths ?? 60,
+      startDate: watchedValues?.startDate ?? new Date().toISOString().split('T')[0],
+      rateType: watchedValues?.rateType ?? 'fixed',
+      feeSetup: watchedValues?.feeSetup ?? 0,
+      feeMonthly: watchedValues?.feeMonthly ?? 0,
+      insuranceMonthly: watchedValues?.insuranceMonthly ?? 0,
+      balloonAmount: watchedValues?.balloonAmount ?? 0,
+      calculationMode: watchedValues?.calculationMode ?? 'payment_term',
+    }),
+    [watchedValues]
+  );
 
   // Load household ID on mount
   useEffect(() => {
@@ -148,14 +158,10 @@ export default function NewLoanScreen() {
   useEffect(() => {
     const handleBackPress = () => {
       if (isDirty) {
-        Alert.alert(
-          'Neuložené zmeny',
-          'Máte neuložené zmeny. Naozaj chcete odísť?',
-          [
-            { text: 'Zostať', style: 'cancel' },
-            { text: 'Odísť', style: 'destructive', onPress: () => router.back() },
-          ]
-        );
+        Alert.alert('Neuložené zmeny', 'Máte neuložené zmeny. Naozaj chcete odísť?', [
+          { text: 'Zostať', style: 'cancel' },
+          { text: 'Odísť', style: 'destructive', onPress: () => router.back() },
+        ]);
         return true;
       }
       return false;
@@ -172,7 +178,7 @@ export default function NewLoanScreen() {
         throw new Error('Household ID is missing');
       }
       setHouseholdId(household.id);
-      
+
       // Load vehicles for selection
       try {
         const vehiclesResponse = await getVehicles(household.id);
@@ -205,25 +211,29 @@ export default function NewLoanScreen() {
     // Validate startDate before creating Date object
     const startDateStr = formValues.startDate;
     if (!startDateStr || typeof startDateStr !== 'string' || startDateStr.length < 10) return null;
-    
+
     const startDate = new Date(startDateStr);
     if (isNaN(startDate.getTime())) return null;
 
     // Validate all numeric values
-    const principal = typeof formValues.principal === 'number' && !isNaN(formValues.principal) 
-      ? formValues.principal 
-      : 0;
+    const principal =
+      typeof formValues.principal === 'number' && !isNaN(formValues.principal)
+        ? formValues.principal
+        : 0;
     if (principal <= 0) return null;
 
-    const annualRate = typeof formValues.annualRate === 'number' && !isNaN(formValues.annualRate)
-      ? formValues.annualRate
-      : 0;
-    const monthlyPayment = typeof formValues.monthlyPayment === 'number' && !isNaN(formValues.monthlyPayment)
-      ? formValues.monthlyPayment
-      : 0;
-    const termMonths = typeof formValues.termMonths === 'number' && !isNaN(formValues.termMonths)
-      ? formValues.termMonths
-      : 0;
+    const annualRate =
+      typeof formValues.annualRate === 'number' && !isNaN(formValues.annualRate)
+        ? formValues.annualRate
+        : 0;
+    const monthlyPayment =
+      typeof formValues.monthlyPayment === 'number' && !isNaN(formValues.monthlyPayment)
+        ? formValues.monthlyPayment
+        : 0;
+    const termMonths =
+      typeof formValues.termMonths === 'number' && !isNaN(formValues.termMonths)
+        ? formValues.termMonths
+        : 0;
 
     try {
       return quickCalculateLoanData({
@@ -236,7 +246,8 @@ export default function NewLoanScreen() {
         feeSetup: formValues.feeSetup ?? 0,
         feeMonthly: formValues.feeMonthly ?? 0,
         insuranceMonthly: formValues.insuranceMonthly ?? 0,
-        balloonAmount: formValues.loanType === 'interest_only' ? formValues.balloonAmount : undefined,
+        balloonAmount:
+          formValues.loanType === 'interest_only' ? formValues.balloonAmount : undefined,
         calculationMode: formValues.calculationMode,
       });
     } catch (error) {
@@ -264,14 +275,10 @@ export default function NewLoanScreen() {
 
   const handleCancel = () => {
     if (isDirty) {
-      Alert.alert(
-        'Neuložené zmeny',
-        'Máte neuložené zmeny. Naozaj chcete odísť?',
-        [
-          { text: 'Zostať', style: 'cancel' },
-          { text: 'Odísť', style: 'destructive', onPress: () => router.back() },
-        ]
-      );
+      Alert.alert('Neuložené zmeny', 'Máte neuložené zmeny. Naozaj chcete odísť?', [
+        { text: 'Zostať', style: 'cancel' },
+        { text: 'Odísť', style: 'destructive', onPress: () => router.back() },
+      ]);
     } else {
       router.back();
     }
@@ -317,39 +324,49 @@ export default function NewLoanScreen() {
         fixedMonthlyPayment: data.loanType !== 'fixed_principal' ? finalPayment : undefined,
       });
 
-      // Link to vehicle if selected
+      // Link to vehicle if selected (úver je už uložený – chybu len reportujeme)
+      let linkFailed = false;
       if (data.vehicleId && result.loan?.id) {
         try {
           await linkLoanToAsset(result.loan.id, data.vehicleId);
         } catch (linkError) {
-          // Log but don't fail - loan was created successfully
+          linkFailed = true;
+          const linkMsg =
+            linkError instanceof Error ? linkError.message : 'Naviazanie na vozidlo zlyhalo';
           console.warn('Failed to link loan to vehicle:', linkError);
+          showToast(
+            `Úver bol vytvorený, ale prepojenie s vozidlom zlyhalo: ${linkMsg}. Skús ho prepojiť manuálne v detaile úveru.`,
+            'error'
+          );
         }
       }
 
-      showToast('Úver bol úspešne vytvorený', 'success');
+      if (!linkFailed) {
+        showToast('Úver bol úspešne vytvorený', 'success');
+      }
       // Navigate to the newly created loan detail, or to loans list as fallback
-      setTimeout(() => {
-        if (result.loan?.id) {
-          router.replace(`/(tabs)/loans/${result.loan.id}`);
-        } else {
-          router.replace('/(tabs)/loans');
-        }
-      }, 1000);
-    } catch (error) {
-      showToast(
-        error instanceof Error ? error.message : 'Nepodarilo sa vytvoriť úver',
-        'error'
+      // (link issue je viditeľný v toaste – používateľ vie pokračovať a doplniť prepojenie ručne)
+      setTimeout(
+        () => {
+          if (result.loan?.id) {
+            router.replace(`/(tabs)/loans/${result.loan.id}`);
+          } else {
+            router.replace('/(tabs)/loans');
+          }
+        },
+        linkFailed ? 2500 : 1000
       );
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Nepodarilo sa vytvoriť úver', 'error');
     }
   };
 
   const getLoanTypeLabel = (value: LoanType): string => {
-    return LOAN_TYPE_OPTIONS.find(t => t.value === value)?.label || value;
+    return LOAN_TYPE_OPTIONS.find((t) => t.value === value)?.label || value;
   };
 
   const getRateTypeLabel = (value: string): string => {
-    return RATE_TYPE_OPTIONS.find(t => t.value === value)?.label || value;
+    return RATE_TYPE_OPTIONS.find((t) => t.value === value)?.label || value;
   };
 
   const loanTypeInfo = LOAN_TYPE_INFO[formValues.loanType];
@@ -385,8 +402,8 @@ export default function NewLoanScreen() {
                 maxLength={200}
               />
 
-            {/* Vehicle selection (optional) */}
-            {Array.isArray(vehicles) && vehicles.length > 0 && (
+              {/* Vehicle selection (optional) */}
+              {Array.isArray(vehicles) && vehicles.length > 0 && (
                 <Controller
                   control={control}
                   name="vehicleId"
@@ -488,20 +505,14 @@ export default function NewLoanScreen() {
                   />
                 )}
               />
-              {errors.principal && (
-                <Text style={styles.errorText}>{errors.principal.message}</Text>
-              )}
+              {errors.principal && <Text style={styles.errorText}>{errors.principal.message}</Text>}
 
               {/* Calculation Mode */}
               <Controller
                 control={control}
                 name="calculationMode"
                 render={({ field: { onChange, value } }) => (
-                  <LoanModeSelector
-                    value={value}
-                    onChange={onChange}
-                    disabled={loading}
-                  />
+                  <LoanModeSelector value={value} onChange={onChange} disabled={loading} />
                 )}
               />
 
@@ -640,7 +651,8 @@ export default function NewLoanScreen() {
                       Celkový úrok: {formatCurrency(calculatedData.totalInterest)}
                     </Text>
                     <Text style={styles.infoSubtext}>
-                      ({((calculatedData.totalInterest / formValues.principal) * 100).toFixed(1)}% z istiny)
+                      ({((calculatedData.totalInterest / formValues.principal) * 100).toFixed(1)}% z
+                      istiny)
                     </Text>
                   </View>
                 </View>
@@ -789,7 +801,9 @@ export default function NewLoanScreen() {
                 }}
               >
                 <View style={styles.pickerItemContent}>
-                  <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>
+                  <Text
+                    style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}
+                  >
                     {type.label}
                   </Text>
                   <Text style={styles.pickerItemDescription}>{info.description}</Text>

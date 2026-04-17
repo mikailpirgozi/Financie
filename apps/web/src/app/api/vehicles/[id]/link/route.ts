@@ -10,14 +10,13 @@ export const dynamic = 'force-dynamic';
  * POST /api/vehicles/[id]/link
  * Link existing loans, insurances, documents, etc. to a vehicle
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: vehicleId } = await params;
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -119,7 +118,9 @@ export async function POST(
           .eq('id', insuranceId);
 
         if (updateError) {
-          results.insurances.errors.push(`Failed to link insurance ${insuranceId}: ${updateError.message}`);
+          results.insurances.errors.push(
+            `Failed to link insurance ${insuranceId}: ${updateError.message}`
+          );
         } else {
           results.insurances.linked++;
         }
@@ -173,7 +174,9 @@ export async function POST(
         }
 
         if (record.household_id !== vehicle.household_id) {
-          results.serviceRecords.errors.push(`Service record ${recordId} belongs to different household`);
+          results.serviceRecords.errors.push(
+            `Service record ${recordId} belongs to different household`
+          );
           continue;
         }
 
@@ -183,7 +186,9 @@ export async function POST(
           .eq('id', recordId);
 
         if (updateError) {
-          results.serviceRecords.errors.push(`Failed to link service record ${recordId}: ${updateError.message}`);
+          results.serviceRecords.errors.push(
+            `Failed to link service record ${recordId}: ${updateError.message}`
+          );
         } else {
           results.serviceRecords.linked++;
         }
@@ -238,37 +243,46 @@ export async function POST(
       request,
     });
 
-    // Update asset-loan metrics if loans were linked
+    // Update asset-loan metrics if loans were linked (zalogujeme prípadnú chybu)
+    let metricsWarning: string | undefined;
     if (results.loans.linked > 0) {
-      await supabase.rpc('update_asset_loan_metrics', {
+      const { error: metricsError } = await supabase.rpc('update_asset_loan_metrics', {
         p_household_id: vehicle.household_id,
       });
+      if (metricsError) {
+        console.error('update_asset_loan_metrics failed after vehicles/link:', metricsError);
+        metricsWarning = 'LTV/equity sa neaktualizovali, skús neskôr.';
+      }
     }
 
-    const totalLinked = 
-      results.loans.linked + 
-      results.insurances.linked + 
-      results.documents.linked + 
-      results.serviceRecords.linked + 
+    const totalLinked =
+      results.loans.linked +
+      results.insurances.linked +
+      results.documents.linked +
+      results.serviceRecords.linked +
       results.fines.linked;
 
-    const totalErrors = 
-      results.loans.errors.length + 
-      results.insurances.errors.length + 
-      results.documents.errors.length + 
-      results.serviceRecords.errors.length + 
+    const totalErrors =
+      results.loans.errors.length +
+      results.insurances.errors.length +
+      results.documents.errors.length +
+      results.serviceRecords.errors.length +
       results.fines.errors.length;
 
     return NextResponse.json({
       success: true,
       message: `Successfully linked ${totalLinked} records to vehicle${totalErrors > 0 ? `, ${totalErrors} failed` : ''}`,
       results,
+      metricsWarning,
     });
   } catch (error) {
     console.error('POST /api/vehicles/[id]/link error:', error);
-    
+
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Validation failed', details: error.issues },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json(
@@ -289,7 +303,9 @@ export async function DELETE(
   try {
     const { id: vehicleId } = await params;
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -395,9 +411,22 @@ export async function DELETE(
       request,
     });
 
+    // Refresh asset-loan metrics if any loans were unlinked
+    let metricsWarning: string | undefined;
+    if (results.loans.unlinked > 0) {
+      const { error: metricsError } = await supabase.rpc('update_asset_loan_metrics', {
+        p_household_id: vehicle.household_id,
+      });
+      if (metricsError) {
+        console.error('update_asset_loan_metrics failed after vehicles/unlink:', metricsError);
+        metricsWarning = 'LTV/equity sa neaktualizovali, skús neskôr.';
+      }
+    }
+
     return NextResponse.json({
       success: true,
       results,
+      metricsWarning,
     });
   } catch (error) {
     console.error('DELETE /api/vehicles/[id]/link error:', error);

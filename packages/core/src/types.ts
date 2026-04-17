@@ -1,5 +1,10 @@
 // Loan types
-export type LoanType = 'annuity' | 'fixed_principal' | 'interest_only' | 'auto_loan' | 'graduated_payment';
+export type LoanType =
+  | 'annuity'
+  | 'fixed_principal'
+  | 'interest_only'
+  | 'auto_loan'
+  | 'graduated_payment';
 export type RateType = 'fixed' | 'variable';
 export type DayCountConvention = '30E/360' | 'ACT/360' | 'ACT/365';
 export type LoanStatus = 'active' | 'paid_off' | 'defaulted';
@@ -8,32 +13,46 @@ export type LoanStatus = 'active' | 'paid_off' | 'defaulted';
 export type CategoryKind = 'income' | 'expense' | 'loan' | 'asset';
 
 // Asset types
-export type AssetKind = 'real_estate' | 'vehicle' | 'business' | 'loan_receivable' | 'bank_account' | 'other';
+export type AssetKind =
+  | 'real_estate'
+  | 'vehicle'
+  | 'business'
+  | 'loan_receivable'
+  | 'bank_account'
+  | 'other';
 export type AssetStatus = 'owned' | 'rented_out' | 'for_sale' | 'sold';
-export type AssetCashFlowType = 
-  | 'rental_income' 
-  | 'dividend' 
-  | 'interest' 
-  | 'sale_income' 
-  | 'expense' 
-  | 'maintenance' 
-  | 'tax' 
-  | 'insurance' 
+export type AssetCashFlowType =
+  | 'rental_income'
+  | 'dividend'
+  | 'interest'
+  | 'sale_income'
+  | 'expense'
+  | 'maintenance'
+  | 'tax'
+  | 'insurance'
   | 'other';
 
 // Vehicle-specific types
-export type VehicleBodyType = 'sedan' | 'suv' | 'hatchback' | 'wagon' | 'coupe' | 'van' | 'pickup' | 'other';
+export type VehicleBodyType =
+  | 'sedan'
+  | 'suv'
+  | 'hatchback'
+  | 'wagon'
+  | 'coupe'
+  | 'van'
+  | 'pickup'
+  | 'other';
 export type VehicleFuelType = 'petrol' | 'diesel' | 'electric' | 'hybrid' | 'lpg' | 'cng';
 export type VehicleTransmission = 'manual' | 'automatic';
 export type VehicleDriveType = 'fwd' | 'rwd' | 'awd';
 
 // Loan purpose types
-export type LoanPurpose = 
-  | 'property_purchase' 
-  | 'vehicle_purchase' 
-  | 'business_loan' 
-  | 'consumer_loan' 
-  | 'refinancing' 
+export type LoanPurpose =
+  | 'property_purchase'
+  | 'vehicle_purchase'
+  | 'business_loan'
+  | 'consumer_loan'
+  | 'refinancing'
   | 'other';
 
 // Household member roles
@@ -226,25 +245,25 @@ export interface AssetROI {
 
 export interface PortfolioOverview {
   householdId: string;
-  
+
   // Assets
   totalAssetsValue: number;
   productiveAssetsValue: number;
   nonProductiveAssetsValue: number;
   totalAssetsCount: number;
   productiveAssetsCount: number;
-  
+
   // Cash flow
   monthlyIncomeFromAssets: number;
   monthlyExpensesFromAssets: number;
   netCashFlowFromAssets: number;
-  
+
   // Loans
   totalLoansCount: number;
   totalOriginalPrincipal: number;
   totalDebt: number;
   nextMonthLoanPayment: number;
-  
+
   // Portfolio metrics
   netWorth: number;
   debtToAssetRatio: number;
@@ -263,7 +282,7 @@ export interface AssetWithMetrics {
   monthlyIncome: number;
   monthlyExpenses: number;
   assetStatus: AssetStatus;
-  
+
   // Prepojený úver
   linkedLoan?: {
     id: string;
@@ -271,14 +290,14 @@ export interface AssetWithMetrics {
     currentBalance: number;
     monthlyPayment: number;
   };
-  
+
   // Metriky
   metrics?: {
     ltvRatio: number;
     equity: number;
     netMonthlyCashFlow: number;
   };
-  
+
   // ROI
   roi?: AssetROI;
 }
@@ -289,6 +308,14 @@ export interface LoanCalendarEntry {
   lender: string;
   linkedAssetId?: string;
   linkedAssetName?: string;
+  linkedAssetKind?:
+    | 'vehicle'
+    | 'real_estate'
+    | 'bank_account'
+    | 'investment'
+    | 'cash'
+    | 'other'
+    | null;
   dueDate: Date;
   installmentNo: number;
   principalDue: number;
@@ -356,20 +383,27 @@ export interface Vehicle extends Asset {
 /** Vehicle with all linked data summary */
 export interface VehicleSummary extends Vehicle {
   // Loan summary
-  loanCount: number;
+  loanCount: number; // all linked loans (active + historical)
+  activeLoanCount?: number;
+  historicalLoanCount?: number;
   totalLoanPaid: number;
   totalLoanBalance: number;
   // Insurance summary
   insuranceCount: number;
   activeInsuranceCount: number;
   totalInsuranceCost: number;
-  nearestInsuranceExpiry?: string;
+  nearestInsuranceExpiry?: string | null;
+  latestInsuranceExpiry?: string | null;
   // Document summary (STK, EK, vignettes)
   documentCount: number;
   validDocumentCount: number;
   totalDocumentCost: number;
-  stkExpiry?: string;
-  ekExpiry?: string;
+  stkExpiry?: string | null;
+  ekExpiry?: string | null;
+  vignetteExpiry?: string | null;
+  latestStkExpiry?: string | null;
+  latestEkExpiry?: string | null;
+  latestVignetteExpiry?: string | null;
   // Service summary
   serviceCount: number;
   totalServiceCost: number;
@@ -382,10 +416,16 @@ export interface VehicleSummary extends Vehicle {
   unpaidFineAmount: number;
   // TCO
   totalCostOfOwnership: number;
-  // Alerts
+  // Alerts (currently valid but expiring within 30 days)
   stkExpiringSoon: boolean;
   ekExpiringSoon: boolean;
+  vignetteExpiringSoon?: boolean;
   insuranceExpiringSoon: boolean;
+  // Expired flags (latest known is in the past)
+  stkExpired?: boolean;
+  ekExpired?: boolean;
+  vignetteExpired?: boolean;
+  insuranceExpired?: boolean;
 }
 
 /** Vehicle list stats */
@@ -394,6 +434,7 @@ export interface VehicleStats {
   totalValue: number;
   totalAcquisitionValue: number;
   expiringSoonCount: number; // Vehicles with expiring docs/insurance
+  expiredCount?: number; // Vehicles with already expired docs/insurance
   withActiveLoansCount: number;
   totalLoanBalance: number;
   totalTco: number;
@@ -447,4 +488,3 @@ export interface VehicleLinkedItems {
 export interface VehicleDetail extends VehicleSummary {
   linkedItems: VehicleLinkedItems;
 }
-

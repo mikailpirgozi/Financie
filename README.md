@@ -19,6 +19,7 @@
 ## ✨ Hlavné funkcionality
 
 ### 💰 Úvery
+
 - Plán splátok s rozpadom istina/úrok/poplatky
 - 3 typy úverov: **anuita**, **fixná istina**, **interest-only + balón**
 - Automatický výpočet zostatkov a RPMN
@@ -27,16 +28,19 @@
 - Day-count konvencie: **30E/360**, **ACT/360**, **ACT/365**
 
 ### 📊 Výdavky & Príjmy
+
 - Kategórie (osobné, domácnosť/rodina)
 - Tagy a pravidlá automatickej kategorizácie
 - Variabilné mesačné príjmy podľa zdroja
 
 ### 🏠 Majetok
+
 - Nákupná vs. aktuálna hodnota
 - Ručné preceňovanie + voliteľný index nárastu/poklesu (napr. +10% p.a.)
 - História oceňovania
 
 ### 📅 Mesačné vyúčtovanie
+
 - Príjmy vs. výdavky
 - Rozpad kategórií
 - Splatená istina vs. úroky
@@ -44,11 +48,13 @@
 - Čistá hodnota (net worth)
 
 ### 🔔 Notifikácie
+
 - Push notifikácie po dátume splatnosti (D+1, D+5)
 - Mesačný sumár po uzávierke
 - E-mail notifikácie (voliteľné)
 
 ### 👥 Multi-user
+
 - Účty a domácnosti (households)
 - Pozvánky pre partnera
 - Role: owner, member
@@ -75,17 +81,17 @@ finapp/
 
 ### Tech Stack
 
-| Vrstva | Technológia | Účel |
-|--------|-------------|------|
-| **Frontend Web** | Next.js 14 (App Router) | Webová aplikácia |
-| **Frontend Mobile** | Expo (React Native) | iOS & Android |
-| **Backend** | Supabase | Postgres + Auth + Edge Functions |
-| **UI** | Tailwind CSS + shadcn/ui | Moderný dizajn systém |
-| **State** | Zustand + React Hook Form | State management |
-| **Validation** | Zod | Type-safe schemas |
-| **Notifications** | Expo Push Notifications | Mobile push |
-| **Deployment** | Vercel + Expo EAS | Production hosting |
-| **CI/CD** | GitHub Actions | Automated testing & deployment |
+| Vrstva              | Technológia               | Účel                             |
+| ------------------- | ------------------------- | -------------------------------- |
+| **Frontend Web**    | Next.js 14 (App Router)   | Webová aplikácia                 |
+| **Frontend Mobile** | Expo (React Native)       | iOS & Android                    |
+| **Backend**         | Supabase                  | Postgres + Auth + Edge Functions |
+| **UI**              | Tailwind CSS + shadcn/ui  | Moderný dizajn systém            |
+| **State**           | Zustand + React Hook Form | State management                 |
+| **Validation**      | Zod                       | Type-safe schemas                |
+| **Notifications**   | Expo Push Notifications   | Mobile push                      |
+| **Deployment**      | Vercel + Expo EAS         | Production hosting               |
+| **CI/CD**           | GitHub Actions            | Automated testing & deployment   |
 
 ---
 
@@ -110,6 +116,7 @@ monthly_summaries     → Mesačné agregácie
 ```
 
 ### Kľúčové vlastnosti
+
 - ✅ **RLS (Row Level Security)** na všetkých tabuľkách
 - ✅ Všetky tabuľky majú `household_id` pre multi-user support
 - ✅ Indexy pre optimálny výkon
@@ -232,8 +239,21 @@ pnpm typecheck
 - ✅ **Unit testy** – Loan Engine výpočty (anuita, fixná istina, interest-only)
 - ✅ **Day-count testy** – 30E/360, ACT/360, ACT/365
 - ✅ **Payment processor testy** – platby, predčasné splatenie, penalizácie
+- ✅ **E2E testy (web)** – Playwright (`pnpm --filter @finapp/web e2e`)
 - 🔄 **Integration testy** – API endpoints, RLS policies (TODO)
-- 🔄 **E2E testy** – User flows (TODO)
+
+### Quality Gates
+
+```bash
+pnpm format         # Prettier write
+pnpm format:check   # Prettier check (CI)
+pnpm lint           # ESLint všade
+pnpm typecheck      # TS strict
+pnpm db:types:check # Supabase schema drift
+```
+
+Pre-commit hook (Husky + lint-staged) automaticky formátuje a lintuje
+zmenené súbory. Konfig: `.lintstagedrc.json`, `.husky/pre-commit`.
 
 ---
 
@@ -264,13 +284,16 @@ supabase functions deploy loan-due-reminder
 supabase functions deploy generate-loan-schedule
 ```
 
-Viac info v [DEPLOYMENT.md](DEPLOYMENT.md).
+Viac info v [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), high-level dizajn
+v [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), architektonické rozhodnutia
+v [`docs/adr/`](docs/adr/).
 
 ---
 
 ## 🗺️ Roadmap
 
 ### ✅ Fáza 1: MVP (HOTOVO)
+
 - [x] Monorepo setup (pnpm workspace)
 - [x] Loan Engine (3 typy úverov)
 - [x] Databázová schéma + RLS policies
@@ -281,6 +304,7 @@ Viac info v [DEPLOYMENT.md](DEPLOYMENT.md).
 - [x] Unit testy pre Loan Engine
 
 ### 🔄 Fáza 2: Core Features (V PROGRESE)
+
 - [ ] API Route Handlers (úvery, výdavky, príjmy, majetok)
 - [ ] UI komponenty (Dashboard, Loans, Expenses, Incomes, Assets)
 - [ ] Autentifikácia a registrácia
@@ -289,6 +313,7 @@ Viac info v [DEPLOYMENT.md](DEPLOYMENT.md).
 - [ ] Push notifikácie (Expo)
 
 ### 📅 Fáza 3: Advanced Features
+
 - [ ] Predčasné splatenie úverov
 - [ ] Simulácie (čo ak scenáre)
 - [ ] Grafy a vizualizácie (Recharts)
@@ -296,6 +321,7 @@ Viac info v [DEPLOYMENT.md](DEPLOYMENT.md).
 - [ ] Pravidlá automatickej kategorizácie
 
 ### 🎨 Fáza 4: UX Enhancements
+
 - [ ] Tmavý režim
 - [ ] Responsive design optimalizácia
 - [ ] Onboarding flow
@@ -303,6 +329,7 @@ Viac info v [DEPLOYMENT.md](DEPLOYMENT.md).
 - [ ] Multi-language support (SK/EN)
 
 ### 👥 Fáza 5: Multi-user & Monetization
+
 - [ ] Household pozvánky (partner)
 - [ ] Role management (owner/member)
 - [ ] Predplatné (Stripe)
@@ -323,10 +350,14 @@ Viac info v [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## 📊 Monitorovanie
 
+- **Sentry** – error monitoring + performance (web, mobile, edge runtime)
 - **Supabase Dashboard** – DB metrics, API usage, Edge Functions logs
 - **Vercel Analytics** – Web performance, build logs
 - **Expo Dashboard** – Build status, crash reports
 - **PostHog** (voliteľné) – User analytics, funnels, retention
+
+Konfigurácia DSN: viď [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) a
+[`apps/mobile/EAS_SECRETS.md`](apps/mobile/EAS_SECRETS.md).
 
 ---
 

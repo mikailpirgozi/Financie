@@ -45,73 +45,62 @@ export async function middleware(request: NextRequest) {
   // They will validate the token themselves
   const authHeader = request.headers.get('authorization');
   const hasBearerToken = authHeader?.startsWith('Bearer ');
-  
+
   if (request.nextUrl.pathname.startsWith('/api/') && hasBearerToken) {
     // Let API routes handle bearer token authentication
     return response;
   }
 
-  const supabase = createServerClient(
-    SUPABASE_URL,
-    SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
-        },
+  const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    cookies: {
+      get(name: string) {
+        return request.cookies.get(name)?.value;
       },
-    }
-  );
+      set(name: string, value: string, options: CookieOptions) {
+        request.cookies.set({
+          name,
+          value,
+          ...options,
+        });
+        response = NextResponse.next({
+          request: {
+            headers: request.headers,
+          },
+        });
+        response.cookies.set({
+          name,
+          value,
+          ...options,
+        });
+      },
+      remove(name: string, options: CookieOptions) {
+        request.cookies.set({
+          name,
+          value: '',
+          ...options,
+        });
+        response = NextResponse.next({
+          request: {
+            headers: request.headers,
+          },
+        });
+        response.cookies.set({
+          name,
+          value: '',
+          ...options,
+        });
+      },
+    },
+  });
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   const isAuthPage = request.nextUrl.pathname.startsWith('/auth');
-  const isDashboard = request.nextUrl.pathname.startsWith('/dashboard') || 
-                      request.nextUrl.pathname.startsWith('/expenses') ||
-                      request.nextUrl.pathname.startsWith('/incomes') ||
-                      request.nextUrl.pathname.startsWith('/loans') ||
-                      request.nextUrl.pathname.startsWith('/assets') ||
-                      request.nextUrl.pathname.startsWith('/categories') ||
-                      request.nextUrl.pathname.startsWith('/summaries') ||
-                      request.nextUrl.pathname.startsWith('/rules') ||
-                      request.nextUrl.pathname.startsWith('/household') ||
-                      request.nextUrl.pathname.startsWith('/subscription');
+  // All protected pages live under /dashboard. Historical top-level routes
+  // (/expenses, /loans, ...) were removed when the app was consolidated.
+  const isDashboard = request.nextUrl.pathname.startsWith('/dashboard');
 
   // Redirect unauthenticated users from protected pages to login
   if (!user && isDashboard) {
@@ -127,9 +116,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 };
-
-

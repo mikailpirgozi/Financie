@@ -140,12 +140,8 @@ export function LoanCard({ loan, className }: LoanCardProps) {
         {/* Header Row */}
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            {status === 'overdue' && (
-              <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
-            )}
-            {status === 'due_soon' && (
-              <Clock className="h-4 w-4 text-orange-500 shrink-0" />
-            )}
+            {status === 'overdue' && <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />}
+            {status === 'due_soon' && <Clock className="h-4 w-4 text-orange-500 shrink-0" />}
             <span className="font-semibold text-foreground truncate">
               {loan.name || loan.lender}
             </span>
@@ -155,9 +151,7 @@ export function LoanCard({ loan, className }: LoanCardProps) {
 
         {/* Subtitle with loan type and rate */}
         <div className="flex items-center gap-2 mb-3">
-          {loan.name && (
-            <span className="text-xs text-muted-foreground">{loan.lender}</span>
-          )}
+          {loan.name && <span className="text-xs text-muted-foreground">{loan.lender}</span>}
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-muted">
             <TypeIcon className="h-3 w-3 text-muted-foreground" />
             <span className="text-[10px] font-medium text-muted-foreground">
@@ -165,9 +159,7 @@ export function LoanCard({ loan, className }: LoanCardProps) {
             </span>
           </div>
           <div className="px-2 py-0.5 rounded bg-primary/10">
-            <span className="text-[10px] font-semibold text-primary">
-              {annualRate.toFixed(1)}%
-            </span>
+            <span className="text-[10px] font-semibold text-primary">{annualRate.toFixed(1)}%</span>
           </div>
         </div>
 
@@ -203,7 +195,7 @@ export function LoanCard({ loan, className }: LoanCardProps) {
         </div>
 
         {/* Info Row */}
-        <div className="flex items-center gap-3 mb-2">
+        <div className="flex items-center flex-wrap gap-3 mb-2">
           {nextInstallment && status !== 'paid_off' && (
             <div className="flex items-center gap-1">
               <Calendar className={cn('h-3 w-3', getDaysUntilColor(daysUntil))} />
@@ -215,14 +207,25 @@ export function LoanCard({ loan, className }: LoanCardProps) {
           {remainingInstallments > 0 && status !== 'paid_off' && (
             <div className="flex items-center gap-1">
               <Hash className="h-3 w-3 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">
-                {remainingInstallments} spl.
-              </span>
+              <span className="text-xs text-muted-foreground">{remainingInstallments} spl.</span>
             </div>
           )}
           {status === 'paid_off' && (
             <span className="px-2 py-0.5 rounded bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400 text-xs font-semibold">
               Splatený
+            </span>
+          )}
+          {loan.linked_asset_id && (
+            <span
+              className="flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs font-medium"
+              title={loan.linked_asset_name ?? undefined}
+            >
+              {loan.linked_asset_kind === 'real_estate' ? (
+                <Home className="h-3 w-3" />
+              ) : (
+                <Car className="h-3 w-3" />
+              )}
+              {loan.linked_asset_license_plate || loan.linked_asset_name || 'Naviazané'}
             </span>
           )}
         </div>
@@ -241,7 +244,8 @@ export function LoanCard({ loan, className }: LoanCardProps) {
           <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900">
             <Clock className="h-3 w-3 text-orange-600 dark:text-orange-400" />
             <span className="text-xs font-medium text-orange-700 dark:text-orange-400">
-              Splatnosť {daysUntil === 0 ? 'dnes' : daysUntil === 1 ? 'zajtra' : `za ${daysUntil} dní`}
+              Splatnosť{' '}
+              {daysUntil === 0 ? 'dnes' : daysUntil === 1 ? 'zajtra' : `za ${daysUntil} dní`}
             </span>
           </div>
         )}

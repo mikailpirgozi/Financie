@@ -1,0 +1,13 @@
+{
+  "*.{ts,tsx,js,jsx}": ["prettier --write"],
+  "*.{json,md,yml,yaml}": ["prettier --write"],
+  "apps/web/src/**/*.{ts,tsx}": [
+    "bash -c 'pnpm --filter @finapp/web lint --max-warnings=0 --no-warn-ignored'"
+  ],
+  "apps/mobile/{app,src}/**/*.{ts,tsx}": [
+    "bash -c 'pnpm --filter @finapp/mobile lint --max-warnings=0 --no-warn-ignored'"
+  ],
+  "packages/core/src/**/*.{ts,tsx}": [
+    "bash -c 'pnpm --filter @finapp/core lint --max-warnings=0 --no-warn-ignored'"
+  ]
+}

@@ -17,7 +17,9 @@ export async function GET(
   try {
     const { id } = await params;
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -47,50 +49,79 @@ export async function GET(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // Get linked loans
+    // Get linked loans (left join schedules so loans without schedules still show)
     const { data: loans } = await supabase
       .from('loans')
-      .select(`
-        id, name, lender, principal, status,
-        loan_schedules!inner(
+      .select(
+        `
+        id, name, lender, principal, status, loan_type, annual_rate, term_months, start_date,
+        loan_schedules(
+          installment_no,
           principal_balance_after,
           total_due,
           status
         )
-      `)
+      `
+      )
       .eq('linked_asset_id', id)
       .order('created_at', { ascending: false });
 
-    // Get linked insurances
+    // Get linked insurances (full set of fields for mobile/web parity)
     const { data: insurances } = await supabase
       .from('insurances')
-      .select('id, type, policy_number, company, valid_to, price, file_paths, notes')
+      .select(
+        `
+        id, type, policy_number, company, broker_company,
+        valid_from, valid_to, price, payment_frequency, paid_date,
+        green_card_valid_from, green_card_valid_to, km_state,
+        coverage_amount, deductible_amount, deductible_percentage,
+        last_extended_date, extension_count, file_paths, notes,
+        created_at, updated_at
+      `
+      )
       .eq('asset_id', id)
-      .order('valid_to', { ascending: true });
+      .order('valid_to', { ascending: false });
 
     // Get vehicle documents (STK, EK, vignettes, technical certificates)
     const { data: documents } = await supabase
       .from('vehicle_documents')
-      .select('id, document_type, valid_from, valid_to, price, file_paths, notes')
+      .select(
+        `
+        id, document_type, valid_from, valid_to, document_number,
+        broker_company, price, country, is_required, km_state,
+        paid_date, last_extended_date, extension_count, file_paths,
+        notes, created_at, updated_at
+      `
+      )
       .eq('asset_id', id)
-      .order('valid_to', { ascending: true });
+      .order('valid_to', { ascending: false });
 
     // Get service records
     const { data: serviceRecords } = await supabase
       .from('service_records')
-      .select('id, service_date, service_type, price, km_state, description, file_paths, notes')
+      .select(
+        `
+        id, service_date, service_provider, service_type, price,
+        km_state, description, notes, file_paths, created_at, updated_at
+      `
+      )
       .eq('asset_id', id)
       .order('service_date', { ascending: false });
 
     // Get fines
     const { data: fines } = await supabase
       .from('fines')
-      .select('id, fine_date, fine_amount, is_paid, description, file_paths, notes')
+      .select(
+        `
+        id, fine_date, fine_amount, is_paid, description, country,
+        enforcement_company, file_paths, notes, created_at, updated_at
+      `
+      )
       .eq('asset_id', id)
       .order('fine_date', { ascending: false });
 
     // Get loan documents for linked loans
-    const loanIds = (loans || []).map(l => l.id);
+    const loanIds = (loans || []).map((l) => l.id);
     let loanDocuments: Array<{
       id: string;
       loan_id: string;
@@ -102,11 +133,13 @@ export async function GET(
       notes?: string;
       created_at: string;
     }> = [];
-    
+
     if (loanIds.length > 0) {
       const { data: loanDocs } = await supabase
         .from('loan_documents')
-        .select('id, loan_id, document_type, name, file_path, file_size, mime_type, notes, created_at')
+        .select(
+          'id, loan_id, document_type, name, file_path, file_size, mime_type, notes, created_at'
+        )
         .in('loan_id', loanIds)
         .order('created_at', { ascending: false });
       loanDocuments = loanDocs || [];
@@ -149,12 +182,17 @@ export async function GET(
     };
 
     // Transform linked items
-    const linkedLoans = (loans || []).map(loan => {
+    const linkedLoans = (loans || []).map((loan) => {
       const schedules = loan.loan_schedules || [];
       const pendingSchedules = schedules.filter((s: { status: string }) => s.status !== 'paid');
-      const currentBalance = pendingSchedules.length > 0 
-        ? Math.min(...pendingSchedules.map((s: { principal_balance_after: number }) => s.principal_balance_after))
-        : 0;
+      const currentBalance =
+        pendingSchedules.length > 0
+          ? Math.min(
+              ...pendingSchedules.map(
+                (s: { principal_balance_after: number }) => s.principal_balance_after
+              )
+            )
+          : 0;
       const monthlyPayment = schedules.length > 0 ? schedules[0].total_due : 0;
 
       return {
@@ -168,51 +206,82 @@ export async function GET(
       };
     });
 
-    const linkedInsurances = (insurances || []).map(ins => ({
+    const linkedInsurances = (insurances || []).map((ins) => ({
       id: ins.id,
       type: ins.type,
       policyNumber: ins.policy_number,
       company: ins.company,
+      brokerCompany: ins.broker_company,
+      validFrom: ins.valid_from,
       validTo: ins.valid_to,
       price: Number(ins.price),
+      paymentFrequency: ins.payment_frequency,
+      paidDate: ins.paid_date,
+      greenCardValidFrom: ins.green_card_valid_from,
+      greenCardValidTo: ins.green_card_valid_to,
+      kmState: ins.km_state,
+      coverageAmount: ins.coverage_amount ? Number(ins.coverage_amount) : null,
+      deductibleAmount: ins.deductible_amount ? Number(ins.deductible_amount) : null,
+      deductiblePercentage: ins.deductible_percentage ? Number(ins.deductible_percentage) : null,
+      lastExtendedDate: ins.last_extended_date,
+      extensionCount: ins.extension_count,
       filePaths: ins.file_paths,
       notes: ins.notes,
+      createdAt: ins.created_at,
+      updatedAt: ins.updated_at,
       isActive: new Date(ins.valid_to) >= now,
     }));
 
-    const linkedDocuments = (documents || []).map(doc => ({
+    const linkedDocuments = (documents || []).map((doc) => ({
       id: doc.id,
       documentType: doc.document_type,
       validFrom: doc.valid_from,
       validTo: doc.valid_to,
+      documentNumber: doc.document_number,
+      brokerCompany: doc.broker_company,
       price: doc.price ? Number(doc.price) : undefined,
+      country: doc.country,
+      isRequired: doc.is_required,
+      kmState: doc.km_state,
+      paidDate: doc.paid_date,
+      lastExtendedDate: doc.last_extended_date,
+      extensionCount: doc.extension_count,
       filePaths: doc.file_paths,
       notes: doc.notes,
+      createdAt: doc.created_at,
+      updatedAt: doc.updated_at,
       isValid: new Date(doc.valid_to) >= now,
     }));
 
-    const linkedServiceRecords = (serviceRecords || []).map(sr => ({
+    const linkedServiceRecords = (serviceRecords || []).map((sr) => ({
       id: sr.id,
       serviceDate: sr.service_date,
+      serviceProvider: sr.service_provider,
       serviceType: sr.service_type,
       price: sr.price ? Number(sr.price) : undefined,
       kmState: sr.km_state,
       description: sr.description,
-      filePaths: sr.file_paths,
       notes: sr.notes,
+      filePaths: sr.file_paths,
+      createdAt: sr.created_at,
+      updatedAt: sr.updated_at,
     }));
 
-    const linkedFines = (fines || []).map(f => ({
+    const linkedFines = (fines || []).map((f) => ({
       id: f.id,
       fineDate: f.fine_date,
       fineAmount: Number(f.fine_amount),
       isPaid: f.is_paid,
       description: f.description,
+      country: f.country,
+      enforcementCompany: f.enforcement_company,
       filePaths: f.file_paths,
       notes: f.notes,
+      createdAt: f.created_at,
+      updatedAt: f.updated_at,
     }));
 
-    const linkedLoanDocuments = loanDocuments.map(ld => ({
+    const linkedLoanDocuments = loanDocuments.map((ld) => ({
       id: ld.id,
       loanId: ld.loan_id,
       documentType: ld.document_type,
@@ -238,7 +307,7 @@ export async function GET(
     const allFiles: UnifiedFile[] = [];
 
     // Vehicle documents with files
-    linkedDocuments.forEach(doc => {
+    linkedDocuments.forEach((doc) => {
       if (doc.filePaths && Array.isArray(doc.filePaths)) {
         doc.filePaths.forEach((fp: string, idx: number) => {
           allFiles.push({
@@ -255,7 +324,7 @@ export async function GET(
     });
 
     // Insurance files
-    linkedInsurances.forEach(ins => {
+    linkedInsurances.forEach((ins) => {
       if (ins.filePaths && Array.isArray(ins.filePaths)) {
         ins.filePaths.forEach((fp: string, idx: number) => {
           allFiles.push({
@@ -272,7 +341,7 @@ export async function GET(
     });
 
     // Service record files
-    linkedServiceRecords.forEach(sr => {
+    linkedServiceRecords.forEach((sr) => {
       if (sr.filePaths && Array.isArray(sr.filePaths)) {
         sr.filePaths.forEach((fp: string, idx: number) => {
           allFiles.push({
@@ -289,7 +358,7 @@ export async function GET(
     });
 
     // Fine files
-    linkedFines.forEach(f => {
+    linkedFines.forEach((f) => {
       if (f.filePaths && Array.isArray(f.filePaths)) {
         f.filePaths.forEach((fp: string, idx: number) => {
           allFiles.push({
@@ -306,7 +375,7 @@ export async function GET(
     });
 
     // Loan document files
-    linkedLoanDocuments.forEach(ld => {
+    linkedLoanDocuments.forEach((ld) => {
       if (ld.filePath) {
         allFiles.push({
           id: `loan-${ld.id}`,
@@ -328,9 +397,31 @@ export async function GET(
     const totalServiceCost = linkedServiceRecords.reduce((sum, s) => sum + (s.price || 0), 0);
     const totalFineAmount = linkedFines.reduce((sum, f) => sum + f.fineAmount, 0);
 
-    const stkDoc = linkedDocuments.find(d => d.documentType === 'stk' && d.isValid);
-    const ekDoc = linkedDocuments.find(d => d.documentType === 'ek' && d.isValid);
-    const nearestInsurance = linkedInsurances.find(i => i.isActive);
+    // Sort documents by valid_to descending to find latest of each type
+    const sortByValidToDesc = <T extends { validTo: string }>(arr: T[]) =>
+      [...arr].sort((a, b) => (b.validTo || '').localeCompare(a.validTo || ''));
+
+    const stkDocs = sortByValidToDesc(linkedDocuments.filter((d) => d.documentType === 'stk'));
+    const ekDocs = sortByValidToDesc(linkedDocuments.filter((d) => d.documentType === 'ek'));
+    const vignetteDocs = sortByValidToDesc(
+      linkedDocuments.filter((d) => d.documentType === 'vignette')
+    );
+
+    // Latest known of each type (regardless of validity)
+    const latestStk = stkDocs[0];
+    const latestEk = ekDocs[0];
+    const latestVignette = vignetteDocs[0];
+
+    // Currently valid (used for "expiring soon" alerts)
+    const stkDoc = stkDocs.find((d) => d.isValid);
+    const ekDoc = ekDocs.find((d) => d.isValid);
+    const vignetteDoc = vignetteDocs.find((d) => d.isValid);
+
+    const sortedInsurances = sortByValidToDesc(linkedInsurances);
+    const latestInsurance = sortedInsurances[0];
+    const nearestInsurance = sortedInsurances
+      .filter((i) => i.isActive)
+      .sort((a, b) => (a.validTo || '').localeCompare(b.validTo || ''))[0];
 
     const response = {
       ...vehicleData,
@@ -339,27 +430,48 @@ export async function GET(
       totalLoanPaid,
       totalLoanBalance,
       insuranceCount: linkedInsurances.length,
-      activeInsuranceCount: linkedInsurances.filter(i => i.isActive).length,
+      activeInsuranceCount: linkedInsurances.filter((i) => i.isActive).length,
       totalInsuranceCost,
       nearestInsuranceExpiry: nearestInsurance?.validTo,
+      latestInsuranceExpiry: latestInsurance?.validTo ?? null,
       documentCount: linkedDocuments.length,
-      validDocumentCount: linkedDocuments.filter(d => d.isValid).length,
+      validDocumentCount: linkedDocuments.filter((d) => d.isValid).length,
       totalDocumentCost,
-      stkExpiry: stkDoc?.validTo,
-      ekExpiry: ekDoc?.validTo,
+      // Currently valid expiry (null when expired)
+      stkExpiry: stkDoc?.validTo ?? null,
+      ekExpiry: ekDoc?.validTo ?? null,
+      vignetteExpiry: vignetteDoc?.validTo ?? null,
+      // Latest known expiry – used by UI to render "expired Xth" state
+      latestStkExpiry: latestStk?.validTo ?? null,
+      latestEkExpiry: latestEk?.validTo ?? null,
+      latestVignetteExpiry: latestVignette?.validTo ?? null,
       serviceCount: linkedServiceRecords.length,
       totalServiceCost,
       lastServiceDate: linkedServiceRecords[0]?.serviceDate,
       lastServiceKm: linkedServiceRecords[0]?.kmState,
       fineCount: linkedFines.length,
-      unpaidFineCount: linkedFines.filter(f => !f.isPaid).length,
+      unpaidFineCount: linkedFines.filter((f) => !f.isPaid).length,
       totalFineAmount,
-      unpaidFineAmount: linkedFines.filter(f => !f.isPaid).reduce((sum, f) => sum + f.fineAmount, 0),
-      totalCostOfOwnership: totalLoanPaid + totalInsuranceCost + totalDocumentCost + totalServiceCost + totalFineAmount,
-      // Alerts
+      unpaidFineAmount: linkedFines
+        .filter((f) => !f.isPaid)
+        .reduce((sum, f) => sum + f.fineAmount, 0),
+      totalCostOfOwnership:
+        totalLoanPaid + totalInsuranceCost + totalDocumentCost + totalServiceCost + totalFineAmount,
+      // Alerts (only valid docs trigger "expiring soon")
       stkExpiringSoon: stkDoc ? new Date(stkDoc.validTo) <= thirtyDaysFromNow : false,
       ekExpiringSoon: ekDoc ? new Date(ekDoc.validTo) <= thirtyDaysFromNow : false,
-      insuranceExpiringSoon: nearestInsurance ? new Date(nearestInsurance.validTo) <= thirtyDaysFromNow : false,
+      vignetteExpiringSoon: vignetteDoc
+        ? new Date(vignetteDoc.validTo) <= thirtyDaysFromNow
+        : false,
+      insuranceExpiringSoon: nearestInsurance
+        ? new Date(nearestInsurance.validTo) <= thirtyDaysFromNow
+        : false,
+      // Expired flags (latest known is in the past)
+      stkExpired: latestStk ? new Date(latestStk.validTo) < now : false,
+      ekExpired: latestEk ? new Date(latestEk.validTo) < now : false,
+      vignetteExpired: latestVignette ? new Date(latestVignette.validTo) < now : false,
+      insuranceExpired:
+        !nearestInsurance && latestInsurance ? new Date(latestInsurance.validTo) < now : false,
       // Linked items
       linkedItems: {
         loans: linkedLoans,
@@ -393,7 +505,9 @@ export async function PUT(
   try {
     const { id } = await params;
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -432,27 +546,37 @@ export async function PUT(
     };
 
     if (validatedInput.name !== undefined) updateData.name = validatedInput.name;
-    if (validatedInput.currentValue !== undefined) updateData.current_value = validatedInput.currentValue;
-    if (validatedInput.licensePlate !== undefined) updateData.license_plate = validatedInput.licensePlate;
+    if (validatedInput.currentValue !== undefined)
+      updateData.current_value = validatedInput.currentValue;
+    if (validatedInput.licensePlate !== undefined)
+      updateData.license_plate = validatedInput.licensePlate;
     if (validatedInput.vin !== undefined) updateData.vin = validatedInput.vin;
-    if (validatedInput.registeredCompany !== undefined) updateData.registered_company = validatedInput.registeredCompany;
+    if (validatedInput.registeredCompany !== undefined)
+      updateData.registered_company = validatedInput.registeredCompany;
     if (validatedInput.make !== undefined) updateData.make = validatedInput.make;
     if (validatedInput.model !== undefined) updateData.model = validatedInput.model;
     if (validatedInput.year !== undefined) updateData.year = validatedInput.year;
     if (validatedInput.color !== undefined) updateData.color = validatedInput.color;
     if (validatedInput.bodyType !== undefined) updateData.body_type = validatedInput.bodyType;
     if (validatedInput.fuelType !== undefined) updateData.fuel_type = validatedInput.fuelType;
-    if (validatedInput.engineCapacity !== undefined) updateData.engine_capacity = validatedInput.engineCapacity;
-    if (validatedInput.enginePower !== undefined) updateData.engine_power = validatedInput.enginePower;
-    if (validatedInput.transmission !== undefined) updateData.transmission = validatedInput.transmission;
+    if (validatedInput.engineCapacity !== undefined)
+      updateData.engine_capacity = validatedInput.engineCapacity;
+    if (validatedInput.enginePower !== undefined)
+      updateData.engine_power = validatedInput.enginePower;
+    if (validatedInput.transmission !== undefined)
+      updateData.transmission = validatedInput.transmission;
     if (validatedInput.driveType !== undefined) updateData.drive_type = validatedInput.driveType;
     if (validatedInput.mileage !== undefined) updateData.mileage = validatedInput.mileage;
     if (validatedInput.seats !== undefined) updateData.seats = validatedInput.seats;
     if (validatedInput.doors !== undefined) updateData.doors = validatedInput.doors;
-    if (validatedInput.isIncomeGenerating !== undefined) updateData.is_income_generating = validatedInput.isIncomeGenerating;
-    if (validatedInput.monthlyIncome !== undefined) updateData.monthly_income = validatedInput.monthlyIncome;
-    if (validatedInput.monthlyExpenses !== undefined) updateData.monthly_expenses = validatedInput.monthlyExpenses;
-    if (validatedInput.assetStatus !== undefined) updateData.asset_status = validatedInput.assetStatus;
+    if (validatedInput.isIncomeGenerating !== undefined)
+      updateData.is_income_generating = validatedInput.isIncomeGenerating;
+    if (validatedInput.monthlyIncome !== undefined)
+      updateData.monthly_income = validatedInput.monthlyIncome;
+    if (validatedInput.monthlyExpenses !== undefined)
+      updateData.monthly_expenses = validatedInput.monthlyExpenses;
+    if (validatedInput.assetStatus !== undefined)
+      updateData.asset_status = validatedInput.assetStatus;
 
     const { data, error } = await supabase
       .from('assets')
@@ -516,9 +640,12 @@ export async function PUT(
     return NextResponse.json({ data: vehicle });
   } catch (error) {
     console.error('PUT /api/vehicles/[id] error:', error);
-    
+
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Validation failed', details: error.issues },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json(
@@ -539,7 +666,9 @@ export async function DELETE(
   try {
     const { id } = await params;
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -566,13 +695,13 @@ export async function DELETE(
       .single();
 
     if (!membership || membership.role !== 'owner') {
-      return NextResponse.json({ error: 'Only household owners can delete vehicles' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Only household owners can delete vehicles' },
+        { status: 403 }
+      );
     }
 
-    const { error } = await supabase
-      .from('assets')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.from('assets').delete().eq('id', id);
 
     if (error) {
       console.error('Error deleting vehicle:', error);

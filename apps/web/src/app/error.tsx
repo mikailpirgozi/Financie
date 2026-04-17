@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import * as Sentry from '@sentry/nextjs';
 import { Button } from '@finapp/ui';
 
 export default function Error({
@@ -11,7 +12,7 @@ export default function Error({
   reset: () => void;
 }): React.JSX.Element {
   useEffect(() => {
-    // Log error to error reporting service (e.g., Sentry)
+    Sentry.captureException(error);
     console.error('Global error:', error);
   }, [error]);
 
@@ -37,4 +38,3 @@ export default function Error({
     </div>
   );
 }
-

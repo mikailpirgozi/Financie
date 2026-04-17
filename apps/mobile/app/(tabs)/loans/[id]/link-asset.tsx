@@ -29,6 +29,8 @@ interface Loan {
   id: string;
   lender: string;
   linked_asset_id: string | null;
+  loan_type: string | null;
+  loan_purpose: string | null;
 }
 
 const ASSET_ICONS: Record<string, string> = {
@@ -53,7 +55,11 @@ export default function LinkAssetToLoanScreen() {
   const [loading, setLoading] = useState(true);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loan, setLoan] = useState<Loan | null>(null);
-  const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
+  const [toast, setToast] = useState<{
+    visible: boolean;
+    message: string;
+    type: 'success' | 'error';
+  }>({
     visible: false,
     message: '',
     type: 'success',
@@ -62,11 +68,8 @@ export default function LinkAssetToLoanScreen() {
   const linkMutation = useLinkLoanToAsset();
   const unlinkMutation = useUnlinkLoanFromAsset();
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
+    if (!loanId) return;
     try {
       setLoading(true);
 
@@ -76,19 +79,29 @@ export default function LinkAssetToLoanScreen() {
       // Load loan
       const { data: loanData, error: loanError } = await supabase
         .from('loans')
-        .select('id, lender, linked_asset_id')
+        .select('id, lender, linked_asset_id, loan_type, loan_purpose')
         .eq('id', loanId)
         .single();
 
       if (loanError) throw loanError;
       setLoan(loanData);
 
-      // Load assets
-      const { data: assetsData, error: assetsError } = await supabase
+      // Load assets – when the loan is clearly a vehicle loan, only show vehicles.
+      // Otherwise show all assets so user can link to real_estate, business, etc.
+      const isVehicleLoan =
+        loanData?.loan_purpose === 'vehicle_purchase' || loanData?.loan_type === 'auto_loan';
+
+      let query = supabase
         .from('assets')
         .select('id, name, kind, current_value, acquisition_value')
         .eq('household_id', household.id)
         .order('name', { ascending: true });
+
+      if (isVehicleLoan) {
+        query = query.eq('kind', 'vehicle');
+      }
+
+      const { data: assetsData, error: assetsError } = await query;
 
       if (assetsError) throw assetsError;
       setAssets(assetsData || []);
@@ -98,14 +111,18 @@ export default function LinkAssetToLoanScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loanId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleLinkAsset = async (assetId: string) => {
     try {
       await linkMutation.mutateAsync({ loanId: loanId!, assetId });
       showToast('Úver bol prepojený s majetkom', 'success');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      
+
       // Reload loan
       await loadData();
     } catch (error) {
@@ -116,31 +133,27 @@ export default function LinkAssetToLoanScreen() {
   };
 
   const handleUnlinkAsset = async () => {
-    Alert.alert(
-      'Odpojiť majetok',
-      'Naozaj chcete odpojiť tento majetok od úveru?',
-      [
-        { text: 'Zrušiť', style: 'cancel' },
-        {
-          text: 'Odpojiť',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await unlinkMutation.mutateAsync(loanId!);
-              showToast('Majetok bol odpojený', 'success');
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              
-              // Reload loan
-              await loadData();
-            } catch (error) {
-              console.error('Failed to unlink asset:', error);
-              showToast('Nepodarilo sa odpojiť majetok', 'error');
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            }
-          },
+    Alert.alert('Odpojiť majetok', 'Naozaj chcete odpojiť tento majetok od úveru?', [
+      { text: 'Zrušiť', style: 'cancel' },
+      {
+        text: 'Odpojiť',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await unlinkMutation.mutateAsync(loanId!);
+            showToast('Majetok bol odpojený', 'success');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            // Reload loan
+            await loadData();
+          } catch (error) {
+            console.error('Failed to unlink asset:', error);
+            showToast('Nepodarilo sa odpojiť majetok', 'error');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const showToast = (message: string, type: 'success' | 'error') => {
@@ -191,9 +204,7 @@ export default function LinkAssetToLoanScreen() {
               <Card>
                 <View style={styles.assetRow}>
                   <View style={styles.assetLeft}>
-                    <Text style={styles.assetIcon}>
-                      {ASSET_ICONS[currentAsset.kind] || '📦'}
-                    </Text>
+                    <Text style={styles.assetIcon}>{ASSET_ICONS[currentAsset.kind] || '📦'}</Text>
                     <View style={styles.assetInfo}>
                       <Text style={styles.assetName}>{currentAsset.name}</Text>
                       <Text style={styles.assetKind}>
@@ -231,10 +242,7 @@ export default function LinkAssetToLoanScreen() {
                   <Text style={styles.emptyText}>
                     Nemáte žiadny majetok. Najprv vytvorte majetok.
                   </Text>
-                  <Button
-                    onPress={() => router.push('/(screens)/assets/new')}
-                    variant="primary"
-                  >
+                  <Button onPress={() => router.push('/(screens)/assets/new')} variant="primary">
                     Pridať majetok
                   </Button>
                 </View>
@@ -251,9 +259,7 @@ export default function LinkAssetToLoanScreen() {
                     <Card style={styles.assetCard}>
                       <View style={styles.assetRow}>
                         <View style={styles.assetLeft}>
-                          <Text style={styles.assetIcon}>
-                            {ASSET_ICONS[asset.kind] || '📦'}
-                          </Text>
+                          <Text style={styles.assetIcon}>{ASSET_ICONS[asset.kind] || '📦'}</Text>
                           <View style={styles.assetInfo}>
                             <Text style={styles.assetName}>{asset.name}</Text>
                             <Text style={styles.assetKind}>
@@ -376,4 +382,3 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 });
-

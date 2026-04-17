@@ -10,6 +10,7 @@ interface CalendarEntry {
   lender: string;
   linkedAssetId: string | null;
   linkedAssetName: string | null;
+  linkedAssetKind: string | null;
   dueDate: string;
   installmentNo: number;
   principalDue: number;
@@ -36,7 +37,9 @@ interface MonthlyCalendarEntry {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -44,8 +47,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const householdId = searchParams.get('householdId');
-    const startMonth = searchParams.get('startMonth') || 
-      new Date().toISOString().slice(0, 7); // YYYY-MM
+    const startMonth = searchParams.get('startMonth') || new Date().toISOString().slice(0, 7); // YYYY-MM
     const monthsCount = parseInt(searchParams.get('monthsCount') || '6', 10);
 
     if (!householdId) {
@@ -79,25 +81,25 @@ export async function GET(request: NextRequest) {
     // Získaj všetky úvery domácnosti
     const { data: loans, error: loansError } = await supabase
       .from('loans')
-      .select(`
+      .select(
+        `
         id,
         lender,
         loan_type,
         linked_asset_id,
         assets:linked_asset_id (
           id,
-          name
+          name,
+          kind
         )
-      `)
+      `
+      )
       .eq('household_id', validatedInput.householdId)
       .eq('status', 'active');
 
     if (loansError) {
       console.error('Loans error:', loansError);
-      return NextResponse.json(
-        { error: 'Failed to fetch loans' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to fetch loans' }, { status: 500 });
     }
 
     if (!loans || loans.length === 0) {
@@ -117,27 +119,27 @@ export async function GET(request: NextRequest) {
     const { data: schedules, error: schedulesError } = await supabase
       .from('loan_schedules')
       .select('*')
-      .in('loan_id', loans.map(l => l.id))
+      .in(
+        'loan_id',
+        loans.map((l) => l.id)
+      )
       .gte('due_date', startDate.toISOString().split('T')[0])
       .lt('due_date', endDate.toISOString().split('T')[0])
       .order('due_date', { ascending: true });
 
     if (schedulesError) {
       console.error('Schedules error:', schedulesError);
-      return NextResponse.json(
-        { error: 'Failed to fetch loan schedules' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to fetch loan schedules' }, { status: 500 });
     }
 
     // Zoskup splátky podľa mesiacov
     const monthlyCalendar = new Map<string, MonthlyCalendarEntry>();
 
-    schedules?.forEach(schedule => {
+    schedules?.forEach((schedule) => {
       const dueDate = new Date(schedule.due_date);
       const monthKey = dueDate.toISOString().slice(0, 7); // YYYY-MM
 
-      const loan = loans.find(l => l.id === schedule.loan_id);
+      const loan = loans.find((l) => l.id === schedule.loan_id);
       if (!loan) return;
 
       const entry: CalendarEntry = {
@@ -145,7 +147,14 @@ export async function GET(request: NextRequest) {
         loanName: loan.lender,
         lender: loan.lender,
         linkedAssetId: loan.linked_asset_id,
-        linkedAssetName: (loan.assets && typeof loan.assets === 'object' && 'name' in loan.assets) ? (loan.assets as { name: string }).name : null,
+        linkedAssetName:
+          loan.assets && typeof loan.assets === 'object' && 'name' in loan.assets
+            ? (loan.assets as { name: string }).name
+            : null,
+        linkedAssetKind:
+          loan.assets && typeof loan.assets === 'object' && 'kind' in loan.assets
+            ? (loan.assets as { kind: string }).kind
+            : null,
         dueDate: schedule.due_date,
         installmentNo: schedule.installment_no,
         principalDue: Number(schedule.principal_due),
@@ -176,7 +185,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Konvertuj na pole a zoraď
-    const calendar = Array.from(monthlyCalendar.values()).sort((a, b) => 
+    const calendar = Array.from(monthlyCalendar.values()).sort((a, b) =>
       a.month.localeCompare(b.month)
     );
 
@@ -200,7 +209,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('GET /api/loans/calendar error:', error);
-    
+
     if (error instanceof Error && error.message.includes('validation')) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
@@ -211,4 +220,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

@@ -30,6 +30,7 @@ const LOAN_TYPES = [
   { value: 'fixed_principal', label: 'Fixný istina' },
   { value: 'interest_only', label: 'Iba úrok' },
   { value: 'auto_loan', label: 'Auto úver' },
+  { value: 'graduated_payment', label: 'Stupňované splátky' },
 ] as const;
 
 const RATE_TYPES = [
@@ -39,7 +40,7 @@ const RATE_TYPES = [
 
 type FormData = {
   lender: string;
-  loanType: 'annuity' | 'fixed_principal' | 'interest_only' | 'auto_loan';
+  loanType: 'annuity' | 'fixed_principal' | 'interest_only' | 'auto_loan' | 'graduated_payment';
   principal: number;
   annualRate: number;
   rateType: 'fixed' | 'variable';
@@ -60,7 +61,11 @@ export default function EditLoanScreen() {
   const [showLoanTypePicker, setShowLoanTypePicker] = useState(false);
   const [showRateTypePicker, setShowRateTypePicker] = useState(false);
   const [hasPayments, setHasPayments] = useState(false);
-  const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
+  const [toast, setToast] = useState<{
+    visible: boolean;
+    message: string;
+    type: 'success' | 'error';
+  }>({
     visible: false,
     message: '',
     type: 'success',
@@ -74,9 +79,7 @@ export default function EditLoanScreen() {
     watch,
     reset,
   } = useForm<FormData>({
-    resolver: zodResolver(
-      createLoanSchema.omit({ householdId: true, dayCountConvention: true })
-    ),
+    resolver: zodResolver(createLoanSchema.omit({ householdId: true, dayCountConvention: true })),
   });
 
   const selectedLoanType = watch('loanType');
@@ -117,7 +120,12 @@ export default function EditLoanScreen() {
       // Populate form
       reset({
         lender: loanData.lender,
-        loanType: loanData.loan_type as 'annuity' | 'fixed_principal' | 'interest_only' | 'auto_loan',
+        loanType: loanData.loan_type as
+          | 'annuity'
+          | 'fixed_principal'
+          | 'interest_only'
+          | 'auto_loan'
+          | 'graduated_payment',
         principal: loanData.principal,
         annualRate: loanData.rate,
         rateType: (loanData.rate_type ?? 'fixed') as 'fixed' | 'variable',
@@ -127,10 +135,7 @@ export default function EditLoanScreen() {
         feeMonthly: loanData.fee_monthly || 0,
       });
     } catch (error) {
-      showToast(
-        error instanceof Error ? error.message : 'Nepodarilo sa načítať úver',
-        'error'
-      );
+      showToast(error instanceof Error ? error.message : 'Nepodarilo sa načítať úver', 'error');
     } finally {
       setInitialLoading(false);
     }
@@ -167,12 +172,14 @@ export default function EditLoanScreen() {
   const submitForm = async (data: FormData) => {
     setSaving(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const response = await fetch(`${env.EXPO_PUBLIC_API_URL}/api/loans/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
           lender: data.lender,
@@ -198,10 +205,7 @@ export default function EditLoanScreen() {
         router.replace(`/(tabs)/loans/${id}`);
       }, 1500);
     } catch (error) {
-      showToast(
-        error instanceof Error ? error.message : 'Nepodarilo sa upraviť úver',
-        'error'
-      );
+      showToast(error instanceof Error ? error.message : 'Nepodarilo sa upraviť úver', 'error');
     } finally {
       setSaving(false);
     }
@@ -270,15 +274,10 @@ export default function EditLoanScreen() {
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>Typ úveru *</Text>
               <TouchableOpacity
-                style={[
-                  styles.pickerButton,
-                  errors.loanType && styles.pickerButtonError,
-                ]}
+                style={[styles.pickerButton, errors.loanType && styles.pickerButtonError]}
                 onPress={() => setShowLoanTypePicker(true)}
               >
-                <Text style={styles.pickerButtonText}>
-                  {getLoanTypeLabel(selectedLoanType)}
-                </Text>
+                <Text style={styles.pickerButtonText}>{getLoanTypeLabel(selectedLoanType)}</Text>
                 <Text style={styles.chevron}>▼</Text>
               </TouchableOpacity>
               {errors.loanType && (
@@ -286,11 +285,7 @@ export default function EditLoanScreen() {
               )}
             </View>
 
-            <CurrencyInput
-              control={control}
-              name="principal"
-              label="Výška úveru (€) *"
-            />
+            <CurrencyInput control={control} name="principal" label="Výška úveru (€) *" />
 
             <FormInput
               control={control}
@@ -303,15 +298,10 @@ export default function EditLoanScreen() {
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>Typ sadzby *</Text>
               <TouchableOpacity
-                style={[
-                  styles.pickerButton,
-                  errors.rateType && styles.pickerButtonError,
-                ]}
+                style={[styles.pickerButton, errors.rateType && styles.pickerButtonError]}
                 onPress={() => setShowRateTypePicker(true)}
               >
-                <Text style={styles.pickerButtonText}>
-                  {getRateTypeLabel(selectedRateType)}
-                </Text>
+                <Text style={styles.pickerButtonText}>{getRateTypeLabel(selectedRateType)}</Text>
                 <Text style={styles.chevron}>▼</Text>
               </TouchableOpacity>
               {errors.rateType && (
@@ -336,25 +326,12 @@ export default function EditLoanScreen() {
 
             <Text style={styles.sectionTitle}>Voliteľné poplatky</Text>
 
-            <CurrencyInput
-              control={control}
-              name="feeSetup"
-              label="Administratívny poplatok (€)"
-            />
+            <CurrencyInput control={control} name="feeSetup" label="Administratívny poplatok (€)" />
 
-            <CurrencyInput
-              control={control}
-              name="feeMonthly"
-              label="Mesačný poplatok (€)"
-            />
+            <CurrencyInput control={control} name="feeMonthly" label="Mesačný poplatok (€)" />
 
             <View style={styles.buttons}>
-              <Button
-                onPress={handleSubmit(onSubmit)}
-                loading={saving}
-                disabled={saving}
-                fullWidth
-              >
+              <Button onPress={handleSubmit(onSubmit)} loading={saving} disabled={saving} fullWidth>
                 Uložiť zmeny
               </Button>
               <Button
@@ -398,9 +375,7 @@ export default function EditLoanScreen() {
               >
                 {type.label}
               </Text>
-              {selectedLoanType === type.value && (
-                <Text style={styles.checkmark}>✓</Text>
-              )}
+              {selectedLoanType === type.value && <Text style={styles.checkmark}>✓</Text>}
             </TouchableOpacity>
           ))}
         </View>
@@ -433,9 +408,7 @@ export default function EditLoanScreen() {
               >
                 {type.label}
               </Text>
-              {selectedRateType === type.value && (
-                <Text style={styles.checkmark}>✓</Text>
-              )}
+              {selectedRateType === type.value && <Text style={styles.checkmark}>✓</Text>}
             </TouchableOpacity>
           ))}
         </View>
@@ -600,4 +573,3 @@ const styles = StyleSheet.create({
     color: '#8b5cf6',
   },
 });
-

@@ -38,6 +38,7 @@ interface LinkedLoan {
   currentBalance: number;
   monthlyPayment: number;
   status: string;
+  annualRate?: number;
 }
 
 interface LinkedInsurance {
@@ -100,17 +101,24 @@ interface VehicleData {
   acquisitionDate: string;
   // Summaries
   loanCount: number;
+  activeLoanCount?: number;
+  historicalLoanCount?: number;
   totalLoanPaid: number;
   totalLoanBalance: number;
   insuranceCount: number;
   activeInsuranceCount: number;
   totalInsuranceCost: number;
   nearestInsuranceExpiry?: string;
+  latestInsuranceExpiry?: string;
   documentCount: number;
   validDocumentCount: number;
   totalDocumentCost: number;
   stkExpiry?: string;
   ekExpiry?: string;
+  vignetteExpiry?: string;
+  latestStkExpiry?: string;
+  latestEkExpiry?: string;
+  latestVignetteExpiry?: string;
   serviceCount: number;
   totalServiceCost: number;
   lastServiceDate?: string;
@@ -120,10 +128,16 @@ interface VehicleData {
   totalFineAmount: number;
   unpaidFineAmount: number;
   totalCostOfOwnership: number;
-  // Alerts
+  // Alerts (expiring soon)
   stkExpiringSoon: boolean;
   ekExpiringSoon: boolean;
+  vignetteExpiringSoon?: boolean;
   insuranceExpiringSoon: boolean;
+  // Alerts (already expired)
+  stkExpired?: boolean;
+  ekExpired?: boolean;
+  vignetteExpired?: boolean;
+  insuranceExpired?: boolean;
   // Linked items
   linkedItems: {
     loans: LinkedLoan[];
@@ -222,25 +236,31 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps): Reac
     router.push('/dashboard/vehicles');
   };
 
-  const hasAlerts = vehicle.stkExpiringSoon || vehicle.ekExpiringSoon || vehicle.insuranceExpiringSoon;
+  const hasExpired =
+    vehicle.stkExpired || vehicle.ekExpired || vehicle.vignetteExpired || vehicle.insuranceExpired;
+  const hasExpiringSoon =
+    vehicle.stkExpiringSoon ||
+    vehicle.ekExpiringSoon ||
+    vehicle.vignetteExpiringSoon ||
+    vehicle.insuranceExpiringSoon;
+  const hasAlerts = hasExpired || hasExpiringSoon;
   const equity = vehicle.currentValue - vehicle.totalLoanBalance;
-  const ltvRatio = vehicle.currentValue > 0 
-    ? (vehicle.totalLoanBalance / vehicle.currentValue) * 100 
-    : 0;
+  const ltvRatio =
+    vehicle.currentValue > 0 ? (vehicle.totalLoanBalance / vehicle.currentValue) * 100 : 0;
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <Link href="/dashboard/vehicles" className="text-sm text-muted-foreground hover:underline">
+          <Link
+            href="/dashboard/vehicles"
+            className="text-sm text-muted-foreground hover:underline"
+          >
             ← Späť na vozidlá
           </Link>
           <h1 className="text-3xl font-bold mt-2">
-            {vehicle.make && vehicle.model 
-              ? `${vehicle.make} ${vehicle.model}`
-              : vehicle.name
-            }
+            {vehicle.make && vehicle.model ? `${vehicle.make} ${vehicle.model}` : vehicle.name}
           </h1>
           <p className="text-muted-foreground flex items-center gap-2 mt-1">
             {vehicle.licensePlate && (
@@ -279,21 +299,80 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps): Reac
 
       {/* Alerts */}
       {hasAlerts && (
-        <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700">
+        <Card
+          className={
+            hasExpired
+              ? 'border-red-300 bg-red-50 dark:bg-red-950/20 dark:border-red-700'
+              : 'border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700'
+          }
+        >
           <CardContent className="py-4">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <AlertTriangle
+                className={`h-5 w-5 shrink-0 mt-0.5 ${hasExpired ? 'text-red-600' : 'text-amber-600'}`}
+              />
               <div>
-                <h3 className="font-medium text-amber-800 dark:text-amber-200">Upozornenia</h3>
-                <ul className="text-sm text-amber-700 dark:text-amber-300 mt-1 space-y-1">
-                  {vehicle.stkExpiringSoon && (
-                    <li>STK končí {formatDate(vehicle.stkExpiry)} ({getDaysUntil(vehicle.stkExpiry)} dní)</li>
+                <h3
+                  className={`font-medium ${hasExpired ? 'text-red-800 dark:text-red-200' : 'text-amber-800 dark:text-amber-200'}`}
+                >
+                  Upozornenia
+                </h3>
+                <ul
+                  className={`text-sm mt-1 space-y-1 ${hasExpired ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'}`}
+                >
+                  {vehicle.stkExpired && (
+                    <li>
+                      STK je expirovaná
+                      {vehicle.latestStkExpiry
+                        ? ` (od ${formatDate(vehicle.latestStkExpiry)})`
+                        : ''}
+                    </li>
                   )}
-                  {vehicle.ekExpiringSoon && (
-                    <li>Emisná kontrola končí {formatDate(vehicle.ekExpiry)} ({getDaysUntil(vehicle.ekExpiry)} dní)</li>
+                  {!vehicle.stkExpired && vehicle.stkExpiringSoon && (
+                    <li>
+                      STK končí {formatDate(vehicle.stkExpiry)} ({getDaysUntil(vehicle.stkExpiry)}{' '}
+                      dní)
+                    </li>
                   )}
-                  {vehicle.insuranceExpiringSoon && (
-                    <li>Poistenie končí {formatDate(vehicle.nearestInsuranceExpiry)} ({getDaysUntil(vehicle.nearestInsuranceExpiry)} dní)</li>
+                  {vehicle.ekExpired && (
+                    <li>
+                      Emisná kontrola je expirovaná
+                      {vehicle.latestEkExpiry ? ` (od ${formatDate(vehicle.latestEkExpiry)})` : ''}
+                    </li>
+                  )}
+                  {!vehicle.ekExpired && vehicle.ekExpiringSoon && (
+                    <li>
+                      Emisná kontrola končí {formatDate(vehicle.ekExpiry)} (
+                      {getDaysUntil(vehicle.ekExpiry)} dní)
+                    </li>
+                  )}
+                  {vehicle.vignetteExpired && (
+                    <li>
+                      Diaľničná známka je expirovaná
+                      {vehicle.latestVignetteExpiry
+                        ? ` (od ${formatDate(vehicle.latestVignetteExpiry)})`
+                        : ''}
+                    </li>
+                  )}
+                  {!vehicle.vignetteExpired && vehicle.vignetteExpiringSoon && (
+                    <li>
+                      Diaľničná známka končí {formatDate(vehicle.vignetteExpiry)} (
+                      {getDaysUntil(vehicle.vignetteExpiry)} dní)
+                    </li>
+                  )}
+                  {vehicle.insuranceExpired && (
+                    <li>
+                      Poistenie je expirované
+                      {vehicle.latestInsuranceExpiry
+                        ? ` (od ${formatDate(vehicle.latestInsuranceExpiry)})`
+                        : ''}
+                    </li>
+                  )}
+                  {!vehicle.insuranceExpired && vehicle.insuranceExpiringSoon && (
+                    <li>
+                      Poistenie končí {formatDate(vehicle.nearestInsuranceExpiry)} (
+                      {getDaysUntil(vehicle.nearestInsuranceExpiry)} dní)
+                    </li>
                   )}
                 </ul>
               </div>
@@ -327,9 +406,7 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps): Reac
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(vehicle.totalLoanBalance)}</div>
             {vehicle.loanCount > 0 && (
-              <p className="text-xs text-muted-foreground mt-1">
-                LTV: {ltvRatio.toFixed(1)}%
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">LTV: {ltvRatio.toFixed(1)}%</p>
             )}
           </CardContent>
         </Card>
@@ -344,9 +421,7 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps): Reac
             <div className={`text-2xl font-bold ${equity < 0 ? 'text-red-600' : 'text-green-600'}`}>
               {formatCurrency(equity)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              hodnota - úver
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">hodnota - úver</p>
           </CardContent>
         </Card>
 
@@ -358,9 +433,7 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps): Reac
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(vehicle.totalCostOfOwnership)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              všetky zaznamenané náklady
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">všetky zaznamenané náklady</p>
           </CardContent>
         </Card>
       </div>
@@ -369,21 +442,11 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps): Reac
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Prehľad</TabsTrigger>
-          <TabsTrigger value="loans">
-            Úvery ({vehicle.loanCount})
-          </TabsTrigger>
-          <TabsTrigger value="insurance">
-            Poistenie ({vehicle.insuranceCount})
-          </TabsTrigger>
-          <TabsTrigger value="documents">
-            Dokumenty ({vehicle.documentCount})
-          </TabsTrigger>
-          <TabsTrigger value="service">
-            Servis ({vehicle.serviceCount})
-          </TabsTrigger>
-          <TabsTrigger value="fines">
-            Pokuty ({vehicle.fineCount})
-          </TabsTrigger>
+          <TabsTrigger value="loans">Úvery ({vehicle.loanCount})</TabsTrigger>
+          <TabsTrigger value="insurance">Poistenie ({vehicle.insuranceCount})</TabsTrigger>
+          <TabsTrigger value="documents">Dokumenty ({vehicle.documentCount})</TabsTrigger>
+          <TabsTrigger value="service">Servis ({vehicle.serviceCount})</TabsTrigger>
+          <TabsTrigger value="fines">Pokuty ({vehicle.fineCount})</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -420,7 +483,9 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps): Reac
                   {vehicle.bodyType && (
                     <div>
                       <dt className="text-muted-foreground">Karoséria</dt>
-                      <dd className="font-medium">{BODY_TYPE_LABELS[vehicle.bodyType] || vehicle.bodyType}</dd>
+                      <dd className="font-medium">
+                        {BODY_TYPE_LABELS[vehicle.bodyType] || vehicle.bodyType}
+                      </dd>
                     </div>
                   )}
                   {vehicle.color && (
@@ -444,25 +509,33 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps): Reac
                   {vehicle.engineCapacity && (
                     <div>
                       <dt className="text-muted-foreground">Objem motora</dt>
-                      <dd className="font-medium">{vehicle.engineCapacity.toLocaleString('sk-SK')} cm³</dd>
+                      <dd className="font-medium">
+                        {vehicle.engineCapacity.toLocaleString('sk-SK')} cm³
+                      </dd>
                     </div>
                   )}
                   {vehicle.enginePower && (
                     <div>
                       <dt className="text-muted-foreground">Výkon</dt>
-                      <dd className="font-medium">{vehicle.enginePower} kW ({Math.round(vehicle.enginePower * 1.36)} HP)</dd>
+                      <dd className="font-medium">
+                        {vehicle.enginePower} kW ({Math.round(vehicle.enginePower * 1.36)} HP)
+                      </dd>
                     </div>
                   )}
                   {vehicle.transmission && (
                     <div>
                       <dt className="text-muted-foreground">Prevodovka</dt>
-                      <dd className="font-medium">{TRANSMISSION_LABELS[vehicle.transmission] || vehicle.transmission}</dd>
+                      <dd className="font-medium">
+                        {TRANSMISSION_LABELS[vehicle.transmission] || vehicle.transmission}
+                      </dd>
                     </div>
                   )}
                   {vehicle.driveType && (
                     <div>
                       <dt className="text-muted-foreground">Pohon</dt>
-                      <dd className="font-medium">{DRIVE_TYPE_LABELS[vehicle.driveType] || vehicle.driveType}</dd>
+                      <dd className="font-medium">
+                        {DRIVE_TYPE_LABELS[vehicle.driveType] || vehicle.driveType}
+                      </dd>
                     </div>
                   )}
                   {vehicle.doors && (
@@ -557,7 +630,9 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps): Reac
                       <Shield className="h-4 w-4 text-blue-600" />
                       <span>Poistenie</span>
                     </div>
-                    <span className="font-medium">{formatCurrency(vehicle.totalInsuranceCost)}</span>
+                    <span className="font-medium">
+                      {formatCurrency(vehicle.totalInsuranceCost)}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -609,10 +684,11 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps): Reac
             </Card>
           ) : (
             <div className="space-y-4">
-              {vehicle.linkedItems.loans.map(loan => {
-                const progress = loan.principal > 0 
-                  ? ((loan.principal - loan.currentBalance) / loan.principal) * 100 
-                  : 0;
+              {vehicle.linkedItems.loans.map((loan) => {
+                const progress =
+                  loan.principal > 0
+                    ? ((loan.principal - loan.currentBalance) / loan.principal) * 100
+                    : 0;
                 return (
                   <Card key={loan.id}>
                     <CardContent className="py-4">
@@ -665,20 +741,27 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps): Reac
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {vehicle.linkedItems.insurances.map(ins => {
+              {vehicle.linkedItems.insurances.map((ins) => {
                 const daysUntil = getDaysUntil(ins.validTo);
                 const isExpiring = daysUntil !== null && daysUntil <= 30;
                 const isExpired = daysUntil !== null && daysUntil < 0;
-                
+
                 return (
-                  <Card key={ins.id} className={isExpired ? 'border-red-300' : isExpiring ? 'border-amber-300' : ''}>
+                  <Card
+                    key={ins.id}
+                    className={isExpired ? 'border-red-300' : isExpiring ? 'border-amber-300' : ''}
+                  >
                     <CardContent className="py-4">
                       <div className="flex items-center justify-between mb-2">
                         <Badge variant={ins.isActive ? 'default' : 'secondary'}>
                           {INSURANCE_TYPE_LABELS[ins.type] || ins.type}
                         </Badge>
                         {isExpired && <Badge variant="destructive">Expirovaná</Badge>}
-                        {isExpiring && !isExpired && <Badge variant="outline" className="border-amber-500 text-amber-600">Končí</Badge>}
+                        {isExpiring && !isExpired && (
+                          <Badge variant="outline" className="border-amber-500 text-amber-600">
+                            Končí
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground">
                         {ins.company} • {ins.policyNumber}
@@ -714,20 +797,27 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps): Reac
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-3">
-              {vehicle.linkedItems.documents.map(doc => {
+              {vehicle.linkedItems.documents.map((doc) => {
                 const daysUntil = getDaysUntil(doc.validTo);
                 const isExpiring = daysUntil !== null && daysUntil <= 30;
                 const isExpired = daysUntil !== null && daysUntil < 0;
-                
+
                 return (
-                  <Card key={doc.id} className={isExpired ? 'border-red-300' : isExpiring ? 'border-amber-300' : ''}>
+                  <Card
+                    key={doc.id}
+                    className={isExpired ? 'border-red-300' : isExpiring ? 'border-amber-300' : ''}
+                  >
                     <CardContent className="py-4">
                       <div className="flex items-center justify-between mb-2">
                         <Badge variant={doc.isValid ? 'default' : 'secondary'}>
                           {DOCUMENT_TYPE_LABELS[doc.documentType] || doc.documentType}
                         </Badge>
                         {isExpired && <Badge variant="destructive">Exp.</Badge>}
-                        {isExpiring && !isExpired && <Badge variant="outline" className="border-amber-500 text-amber-600">Končí</Badge>}
+                        {isExpiring && !isExpired && (
+                          <Badge variant="outline" className="border-amber-500 text-amber-600">
+                            Končí
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm">Platný do: {formatDate(doc.validTo)}</p>
                       {daysUntil !== null && daysUntil >= 0 && (
@@ -763,7 +853,7 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps): Reac
             </Card>
           ) : (
             <div className="space-y-2">
-              {vehicle.linkedItems.serviceRecords.map(record => (
+              {vehicle.linkedItems.serviceRecords.map((record) => (
                 <Card key={record.id}>
                   <CardContent className="py-3">
                     <div className="flex items-center justify-between">
@@ -780,7 +870,9 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps): Reac
                           <p className="text-sm text-muted-foreground">{record.description}</p>
                         )}
                         {record.kmState && (
-                          <p className="text-xs text-muted-foreground">Pri {record.kmState.toLocaleString('sk-SK')} km</p>
+                          <p className="text-xs text-muted-foreground">
+                            Pri {record.kmState.toLocaleString('sk-SK')} km
+                          </p>
                         )}
                       </div>
                       {record.price && (
@@ -810,7 +902,10 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps): Reac
               <CardContent className="py-3">
                 <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
                   <AlertTriangle className="h-4 w-4" />
-                  <span className="font-medium">{vehicle.unpaidFineCount} nezaplatených pokút ({formatCurrency(vehicle.unpaidFineAmount)})</span>
+                  <span className="font-medium">
+                    {vehicle.unpaidFineCount} nezaplatených pokút (
+                    {formatCurrency(vehicle.unpaidFineAmount)})
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -823,7 +918,7 @@ export function VehicleDetailClient({ vehicle }: VehicleDetailClientProps): Reac
             </Card>
           ) : (
             <div className="space-y-2">
-              {vehicle.linkedItems.fines.map(fine => (
+              {vehicle.linkedItems.fines.map((fine) => (
                 <Card key={fine.id} className={!fine.isPaid ? 'border-red-300' : ''}>
                   <CardContent className="py-3">
                     <div className="flex items-center justify-between">

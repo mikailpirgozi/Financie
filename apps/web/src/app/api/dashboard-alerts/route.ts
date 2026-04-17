@@ -47,6 +47,7 @@ interface VehicleStats {
   totalValue: number;
   loanBalance: number;
   expiringDocsCount: number;
+  expiredDocsCount: number;
 }
 
 interface FinanceStats {
@@ -85,7 +86,9 @@ function calculateDaysUntil(dateStr: string): number {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -109,21 +112,17 @@ export async function GET(request: NextRequest) {
       overdueRpcResult,
     ] = await Promise.all([
       getLoans(householdId),
-      supabase
-        .from('insurances')
-        .select('id, valid_to, type')
-        .eq('household_id', householdId),
+      supabase.from('insurances').select('id, valid_to, type').eq('household_id', householdId),
       supabase
         .from('vehicle_documents')
         .select('id, valid_to, document_type')
         .eq('household_id', householdId),
-      supabase
-        .from('fines')
-        .select('id, fine_amount, is_paid')
-        .eq('household_id', householdId),
+      supabase.from('fines').select('id, fine_amount, is_paid').eq('household_id', householdId),
       supabase
         .from('vehicle_tco_summary')
-        .select('id, current_value, total_loan_balance, stk_expiring_soon, ek_expiring_soon, insurance_expiring_soon')
+        .select(
+          'id, current_value, total_loan_balance, stk_expiring_soon, ek_expiring_soon, insurance_expiring_soon, vignette_expiring_soon, stk_expired, ek_expired, insurance_expired, vignette_expired'
+        )
         .eq('household_id', householdId),
       supabase
         .from('monthly_summaries')
@@ -138,8 +137,8 @@ export async function GET(request: NextRequest) {
     const thirtyDaysFromNow = new Date(now.getTime() + THIRTY_DAYS_MS);
 
     // Process Loans
-    const activeLoans = loansData.filter(l => l.status === 'active');
-    const paidOffLoans = loansData.filter(l => l.status === 'paid_off');
+    const activeLoans = loansData.filter((l) => l.status === 'active');
+    const paidOffLoans = loansData.filter((l) => l.status === 'paid_off');
     const totalDebt = activeLoans.reduce((sum, l) => sum + parseAmount(l.current_balance), 0);
     const totalPrincipal = loansData.reduce((sum, l) => sum + parseAmount(l.principal), 0);
     const totalPaid = loansData.reduce((sum, l) => sum + parseAmount(l.paid_principal), 0);
@@ -149,7 +148,7 @@ export async function GET(request: NextRequest) {
     let totalMonthlyPayment = 0;
     let totalInterestPaid = 0;
     let totalInterestRemaining = 0;
-    
+
     for (const loan of loansData) {
       if (loan.next_installment) {
         totalMonthlyPayment += parseAmount(loan.next_installment.total_due);
@@ -158,7 +157,8 @@ export async function GET(request: NextRequest) {
       const paidAmount = parseAmount(loan.paid_amount);
       const paidPrincipal = parseAmount(loan.paid_principal);
       totalInterestPaid += Math.max(0, paidAmount - paidPrincipal);
-      totalInterestRemaining += parseAmount(loan.total_interest) - Math.max(0, paidAmount - paidPrincipal);
+      totalInterestRemaining +=
+        parseAmount(loan.total_interest) - Math.max(0, paidAmount - paidPrincipal);
     }
 
     // Find next payment
@@ -182,20 +182,20 @@ export async function GET(request: NextRequest) {
     // Process Documents
     const insurances = insurancesResult.data || [];
     const vehicleDocuments = vehicleDocumentsResult.data || [];
-    
+
     const allDocs: Array<{ type: string; validTo: string }> = [
-      ...insurances.map(i => ({ type: 'insurance', validTo: i.valid_to })),
-      ...vehicleDocuments.map(d => ({ type: d.document_type, validTo: d.valid_to })),
+      ...insurances.map((i) => ({ type: 'insurance', validTo: i.valid_to })),
+      ...vehicleDocuments.map((d) => ({ type: d.document_type, validTo: d.valid_to })),
     ];
 
     // Count expired documents (validTo < now)
-    const expiredDocs = allDocs.filter(doc => {
+    const expiredDocs = allDocs.filter((doc) => {
       const validTo = new Date(doc.validTo);
       return validTo < now;
     });
 
     // Count documents expiring within 30 days
-    const expiringDocs = allDocs.filter(doc => {
+    const expiringDocs = allDocs.filter((doc) => {
       const validTo = new Date(doc.validTo);
       return validTo >= now && validTo <= thirtyDaysFromNow;
     });
@@ -217,17 +217,28 @@ export async function GET(request: NextRequest) {
 
     // Process Fines
     const fines = finesResult.data || [];
-    const unpaidFines = fines.filter(f => !f.is_paid);
+    const unpaidFines = fines.filter((f) => !f.is_paid);
     const unpaidFinesTotal = unpaidFines.reduce((sum, f) => sum + parseAmount(f.fine_amount), 0);
 
-    // Process Vehicles
+    // Process Vehicles (vignette + expired flags vrátane)
     const vehicles = vehiclesResult.data || [];
-    const vehicleStats = {
+    const vehicleStats: VehicleStats = {
       totalCount: vehicles.length,
       totalValue: vehicles.reduce((sum, v) => sum + parseAmount(v.current_value), 0),
       loanBalance: vehicles.reduce((sum, v) => sum + parseAmount(v.total_loan_balance), 0),
-      expiringDocsCount: vehicles.filter(v => 
-        v.stk_expiring_soon || v.ek_expiring_soon || v.insurance_expiring_soon
+      expiringDocsCount: vehicles.filter(
+        (v) =>
+          v.stk_expiring_soon ||
+          v.ek_expiring_soon ||
+          v.insurance_expiring_soon ||
+          v.vignette_expiring_soon ||
+          v.stk_expired ||
+          v.ek_expired ||
+          v.insurance_expired ||
+          v.vignette_expired
+      ).length,
+      expiredDocsCount: vehicles.filter(
+        (v) => v.stk_expired || v.ek_expired || v.insurance_expired || v.vignette_expired
       ).length,
     };
 
@@ -238,13 +249,17 @@ export async function GET(request: NextRequest) {
 
     const financeStats: FinanceStats = {
       netWorth: parseAmount(currentMonth?.net_worth),
-      netWorthChange: currentMonth && previousMonth
-        ? parseAmount(currentMonth.net_worth) - parseAmount(previousMonth.net_worth)
-        : parseAmount(currentMonth?.net_worth_change),
+      netWorthChange:
+        currentMonth && previousMonth
+          ? parseAmount(currentMonth.net_worth) - parseAmount(previousMonth.net_worth)
+          : parseAmount(currentMonth?.net_worth_change),
       totalIncome: parseAmount(currentMonth?.total_income),
       totalExpenses: parseAmount(currentMonth?.total_expenses),
-      netCashFlow: parseAmount(currentMonth?.total_income) - parseAmount(currentMonth?.total_expenses),
-      month: currentMonth?.month || new Date().toLocaleDateString('sk-SK', { year: 'numeric', month: 'long' }),
+      netCashFlow:
+        parseAmount(currentMonth?.total_income) - parseAmount(currentMonth?.total_expenses),
+      month:
+        currentMonth?.month ||
+        new Date().toLocaleDateString('sk-SK', { year: 'numeric', month: 'long' }),
     };
 
     const response: DashboardAlertsResponse = {

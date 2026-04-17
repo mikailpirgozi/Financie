@@ -7,6 +7,12 @@ import { Button } from '@finapp/ui';
 import { Input } from '@finapp/ui';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@finapp/ui';
 
+interface VehicleOption {
+  id: string;
+  name: string;
+  licensePlate?: string | null;
+}
+
 export default function EditLoanPage(): React.JSX.Element {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -14,7 +20,9 @@ export default function EditLoanPage(): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+  const [linkSaving, setLinkSaving] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+
   const [lender, setLender] = useState('');
   const [loanType, setLoanType] = useState('annuity');
   const [principal, setPrincipal] = useState('');
@@ -22,15 +30,18 @@ export default function EditLoanPage(): React.JSX.Element {
   const [termMonths, setTermMonths] = useState('');
   const [startDate, setStartDate] = useState('');
   const [status, setStatus] = useState('active');
+  const [vehicles, setVehicles] = useState<VehicleOption[]>([]);
+  const [linkedAssetId, setLinkedAssetId] = useState<string>('');
+  const [initialLinkedAssetId, setInitialLinkedAssetId] = useState<string>('');
 
   useEffect(() => {
     async function loadLoan() {
       try {
         const response = await fetch(`/api/loans/${loanId}`);
         if (!response.ok) throw new Error('Nepodarilo sa načítať úver');
-        
+
         const { loan } = await response.json();
-        
+
         setLender(loan.lender);
         setLoanType(loan.loan_type);
         setPrincipal(loan.principal.toString());
@@ -38,6 +49,29 @@ export default function EditLoanPage(): React.JSX.Element {
         setTermMonths(loan.term_months.toString());
         setStartDate(loan.start_date);
         setStatus(loan.status);
+        const linked = loan.linked_asset_id || '';
+        setLinkedAssetId(linked);
+        setInitialLinkedAssetId(linked);
+
+        if (loan.household_id) {
+          try {
+            const vRes = await fetch(`/api/vehicles?householdId=${loan.household_id}`);
+            if (vRes.ok) {
+              const vJson = await vRes.json();
+              setVehicles(
+                (vJson.data || []).map(
+                  (v: { id: string; name: string; licensePlate?: string | null }) => ({
+                    id: v.id,
+                    name: v.name,
+                    licensePlate: v.licensePlate,
+                  })
+                )
+              );
+            }
+          } catch {
+            // non-fatal: vehicles list optional
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Chyba pri načítaní');
       } finally {
@@ -73,12 +107,67 @@ export default function EditLoanPage(): React.JSX.Element {
         throw new Error(data.error || 'Nepodarilo sa uložiť');
       }
 
+      // Sync linked asset (separate endpoint, ignoruj ak nezmenené)
+      if (linkedAssetId !== initialLinkedAssetId) {
+        if (linkedAssetId) {
+          const linkRes = await fetch(`/api/loans/${loanId}/link-asset`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assetId: linkedAssetId }),
+          });
+          if (!linkRes.ok) {
+            const data = await linkRes.json().catch(() => ({}));
+            throw new Error(data.error || 'Nepodarilo sa naviazať vozidlo');
+          }
+        } else {
+          const unlinkRes = await fetch(`/api/loans/${loanId}/link-asset`, {
+            method: 'DELETE',
+          });
+          if (!unlinkRes.ok) {
+            const data = await unlinkRes.json().catch(() => ({}));
+            throw new Error(data.error || 'Nepodarilo sa odpojiť vozidlo');
+          }
+        }
+      }
+
       router.push(`/dashboard/loans/${loanId}`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Chyba pri ukladaní');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleQuickLinkChange = async (newAssetId: string) => {
+    setLinkSaving(true);
+    setLinkError(null);
+    try {
+      if (newAssetId) {
+        const res = await fetch(`/api/loans/${loanId}/link-asset`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ assetId: newAssetId }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Naviazanie zlyhalo');
+        }
+      } else {
+        const res = await fetch(`/api/loans/${loanId}/link-asset`, {
+          method: 'DELETE',
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Odpojenie zlyhalo');
+        }
+      }
+      setLinkedAssetId(newAssetId);
+      setInitialLinkedAssetId(newAssetId);
+    } catch (err) {
+      setLinkError(err instanceof Error ? err.message : 'Chyba pri prepájaní');
+    } finally {
+      setLinkSaving(false);
     }
   };
 
@@ -109,16 +198,10 @@ export default function EditLoanPage(): React.JSX.Element {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
-                {error}
-              </div>
-            )}
+            {error && <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">{error}</div>}
 
             <div>
-              <label className="block text-sm font-medium mb-1">
-                Veriteľ *
-              </label>
+              <label className="block text-sm font-medium mb-1">Veriteľ *</label>
               <Input
                 type="text"
                 value={lender}
@@ -129,9 +212,7 @@ export default function EditLoanPage(): React.JSX.Element {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
-                Typ úveru *
-              </label>
+              <label className="block text-sm font-medium mb-1">Typ úveru *</label>
               <select
                 value={loanType}
                 onChange={(e) => setLoanType(e.target.value)}
@@ -146,9 +227,7 @@ export default function EditLoanPage(): React.JSX.Element {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Istina (€) *
-                </label>
+                <label className="block text-sm font-medium mb-1">Istina (€) *</label>
                 <Input
                   type="number"
                   step="0.01"
@@ -160,9 +239,7 @@ export default function EditLoanPage(): React.JSX.Element {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Úrok (% p.a.) *
-                </label>
+                <label className="block text-sm font-medium mb-1">Úrok (% p.a.) *</label>
                 <Input
                   type="number"
                   step="0.01"
@@ -177,9 +254,7 @@ export default function EditLoanPage(): React.JSX.Element {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Doba splácania (mesiace) *
-                </label>
+                <label className="block text-sm font-medium mb-1">Doba splácania (mesiace) *</label>
                 <Input
                   type="number"
                   min="1"
@@ -190,9 +265,7 @@ export default function EditLoanPage(): React.JSX.Element {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Dátum začiatku *
-                </label>
+                <label className="block text-sm font-medium mb-1">Dátum začiatku *</label>
                 <Input
                   type="date"
                   value={startDate}
@@ -203,9 +276,39 @@ export default function EditLoanPage(): React.JSX.Element {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
-                Status *
-              </label>
+              <label className="block text-sm font-medium mb-1">Naviazané vozidlo</label>
+              <div className="flex gap-2">
+                <select
+                  value={linkedAssetId}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setLinkedAssetId(v);
+                    void handleQuickLinkChange(v);
+                  }}
+                  className="w-full border rounded-md px-3 py-2"
+                  disabled={linkSaving || vehicles.length === 0}
+                >
+                  <option value="">— Žiadne (nenaviazaný úver) —</option>
+                  {vehicles.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                      {v.licensePlate ? ` · ${v.licensePlate}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {vehicles.length === 0
+                  ? 'V tejto domácnosti zatiaľ nemáš žiadne vozidlá.'
+                  : linkSaving
+                    ? 'Synchronizujem prepojenie…'
+                    : 'Zmena sa uloží okamžite a aktualizuje LTV/equity metriky.'}
+              </p>
+              {linkError && <p className="text-xs text-red-600 mt-1">{linkError}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Status *</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
@@ -234,4 +337,3 @@ export default function EditLoanPage(): React.JSX.Element {
     </div>
   );
 }
-

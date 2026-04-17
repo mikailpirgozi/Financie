@@ -8,17 +8,23 @@ export const nonNegativeNumberSchema = z.number().nonnegative();
 export const percentageSchema = z.number().min(0).max(100);
 
 // Loan schemas
-export const loanTypeSchema = z.enum(['annuity', 'fixed_principal', 'interest_only', 'auto_loan', 'graduated_payment']);
+export const loanTypeSchema = z.enum([
+  'annuity',
+  'fixed_principal',
+  'interest_only',
+  'auto_loan',
+  'graduated_payment',
+]);
 export const rateTypeSchema = z.enum(['fixed', 'variable']);
 export const dayCountConventionSchema = z.enum(['30E/360', 'ACT/360', 'ACT/365']);
 export const loanStatusSchema = z.enum(['active', 'paid_off', 'defaulted']);
 export const loanPurposeSchema = z.enum([
-  'property_purchase', 
-  'vehicle_purchase', 
-  'business_loan', 
-  'consumer_loan', 
-  'refinancing', 
-  'other'
+  'property_purchase',
+  'vehicle_purchase',
+  'business_loan',
+  'consumer_loan',
+  'refinancing',
+  'other',
 ]);
 
 /**
@@ -33,46 +39,49 @@ export const graduatedConfigSchema = z.object({
 /**
  * Schema for loan calculation input
  * Used by the loan calculator engine
- * 
+ *
  * Supports:
  * - annualRate: 0-200% (0% is valid for interest-free loans, high rates for payday loans)
  * - termMonths: 1-600 months (up to 50 years)
  * - All day count conventions (30E/360, ACT/360, ACT/365)
  * - All loan types including graduated payment
  */
-export const loanCalculationInputSchema = z.object({
-  loanType: loanTypeSchema,
-  principal: positiveNumberSchema,
-  annualRate: z.number().min(0).max(200), // Allow up to 200% for payday loans
-  termMonths: z.number().int().min(1).max(600), // 1 month to 50 years
-  startDate: dateSchema,
-  dayCountConvention: dayCountConventionSchema,
-  feeSetup: nonNegativeNumberSchema.optional(),
-  feeMonthly: nonNegativeNumberSchema.optional(),
-  insuranceMonthly: nonNegativeNumberSchema.optional(),
-  balloonAmount: nonNegativeNumberSchema.optional(),
-  fixedMonthlyPayment: positiveNumberSchema.optional(),
-  fixedPrincipalPayment: positiveNumberSchema.optional(),
-  graduatedConfig: graduatedConfigSchema.optional(),
-}).refine(
-  (data) => {
-    // For interest_only, balloonAmount should not exceed principal + 50%
-    if (data.loanType === 'interest_only' && data.balloonAmount !== undefined) {
-      return data.balloonAmount <= data.principal * 1.5;
-    }
-    return true;
-  },
-  { message: 'Balloon amount should not exceed 150% of principal' }
-).refine(
-  (data) => {
-    // For graduated_payment, graduation period should not exceed term
-    if (data.loanType === 'graduated_payment' && data.graduatedConfig) {
-      return data.graduatedConfig.graduationPeriodMonths < data.termMonths;
-    }
-    return true;
-  },
-  { message: 'Graduation period must be less than loan term' }
-);
+export const loanCalculationInputSchema = z
+  .object({
+    loanType: loanTypeSchema,
+    principal: positiveNumberSchema,
+    annualRate: z.number().min(0).max(200), // Allow up to 200% for payday loans
+    termMonths: z.number().int().min(1).max(600), // 1 month to 50 years
+    startDate: dateSchema,
+    dayCountConvention: dayCountConventionSchema,
+    feeSetup: nonNegativeNumberSchema.optional(),
+    feeMonthly: nonNegativeNumberSchema.optional(),
+    insuranceMonthly: nonNegativeNumberSchema.optional(),
+    balloonAmount: nonNegativeNumberSchema.optional(),
+    fixedMonthlyPayment: positiveNumberSchema.optional(),
+    fixedPrincipalPayment: positiveNumberSchema.optional(),
+    graduatedConfig: graduatedConfigSchema.optional(),
+  })
+  .refine(
+    (data) => {
+      // For interest_only, balloonAmount should not exceed principal + 50%
+      if (data.loanType === 'interest_only' && data.balloonAmount !== undefined) {
+        return data.balloonAmount <= data.principal * 1.5;
+      }
+      return true;
+    },
+    { message: 'Balloon amount should not exceed 150% of principal' }
+  )
+  .refine(
+    (data) => {
+      // For graduated_payment, graduation period should not exceed term
+      if (data.loanType === 'graduated_payment' && data.graduatedConfig) {
+        return data.graduatedConfig.graduationPeriodMonths < data.termMonths;
+      }
+      return true;
+    },
+    { message: 'Graduation period must be less than loan term' }
+  );
 
 export const createLoanSchema = z.object({
   householdId: uuidSchema,
@@ -157,24 +166,88 @@ export const createIncomeFromTemplateSchema = z.object({
   note: z.string().max(500).optional(),
 });
 
+// Recurring transaction schemas
+export const recurringKindSchema = z.enum(['expense', 'income']);
+export const recurringFrequencySchema = z.enum([
+  'daily',
+  'weekly',
+  'monthly',
+  'quarterly',
+  'yearly',
+]);
+
+export const createRecurringTransactionSchema = z.object({
+  householdId: uuidSchema,
+  kind: recurringKindSchema,
+  categoryId: uuidSchema,
+  amount: positiveNumberSchema,
+  currency: z.string().length(3).default('EUR'),
+  frequency: recurringFrequencySchema,
+  startDate: dateSchema,
+  endDate: dateSchema.optional(),
+  merchant: z.string().max(200).optional(),
+  source: z.string().max(200).optional(),
+  note: z.string().max(500).optional(),
+  isActive: z.boolean().default(true),
+});
+
+export const updateRecurringTransactionSchema = z.object({
+  amount: positiveNumberSchema.optional(),
+  categoryId: uuidSchema.optional(),
+  frequency: recurringFrequencySchema.optional(),
+  endDate: dateSchema.nullable().optional(),
+  merchant: z.string().max(200).nullable().optional(),
+  source: z.string().max(200).nullable().optional(),
+  note: z.string().max(500).nullable().optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const materializeRecurringSchema = z.object({
+  householdId: uuidSchema,
+  until: dateSchema.optional(),
+});
+
 // Asset schemas
-export const assetKindSchema = z.enum(['real_estate', 'vehicle', 'business', 'loan_receivable', 'bank_account', 'other']);
+export const assetKindSchema = z.enum([
+  'real_estate',
+  'vehicle',
+  'business',
+  'loan_receivable',
+  'bank_account',
+  'other',
+]);
 export const assetStatusSchema = z.enum(['owned', 'rented_out', 'for_sale', 'sold']);
 export const assetCashFlowTypeSchema = z.enum([
-  'rental_income', 
-  'dividend', 
-  'interest', 
-  'sale_income', 
-  'expense', 
-  'maintenance', 
-  'tax', 
-  'insurance', 
-  'other'
+  'rental_income',
+  'dividend',
+  'interest',
+  'sale_income',
+  'expense',
+  'maintenance',
+  'tax',
+  'insurance',
+  'other',
 ]);
 
 // Vehicle-specific schemas
-export const vehicleBodyTypeSchema = z.enum(['sedan', 'suv', 'hatchback', 'wagon', 'coupe', 'van', 'pickup', 'other']);
-export const vehicleFuelTypeSchema = z.enum(['petrol', 'diesel', 'electric', 'hybrid', 'lpg', 'cng']);
+export const vehicleBodyTypeSchema = z.enum([
+  'sedan',
+  'suv',
+  'hatchback',
+  'wagon',
+  'coupe',
+  'van',
+  'pickup',
+  'other',
+]);
+export const vehicleFuelTypeSchema = z.enum([
+  'petrol',
+  'diesel',
+  'electric',
+  'hybrid',
+  'lpg',
+  'cng',
+]);
 export const vehicleTransmissionSchema = z.enum(['manual', 'automatic']);
 export const vehicleDriveTypeSchema = z.enum(['fwd', 'rwd', 'awd']);
 
@@ -189,10 +262,12 @@ export const createAssetSchema = z.object({
   monthlyIncome: nonNegativeNumberSchema.default(0),
   monthlyExpenses: nonNegativeNumberSchema.default(0),
   assetStatus: assetStatusSchema.default('owned'),
-  indexRule: z.object({
-    enabled: z.boolean(),
-    annualPercentage: z.number().min(-100).max(100),
-  }).optional(),
+  indexRule: z
+    .object({
+      enabled: z.boolean(),
+      annualPercentage: z.number().min(-100).max(100),
+    })
+    .optional(),
 });
 
 export const updateAssetValueSchema = z.object({
@@ -371,6 +446,11 @@ export type PayLoanInput = z.infer<typeof payLoanSchema>;
 export type EarlyRepaymentInput = z.infer<typeof earlyRepaymentSchema>;
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
 export type CreateIncomeInput = z.infer<typeof createIncomeSchema>;
+export type CreateRecurringTransactionInput = z.infer<typeof createRecurringTransactionSchema>;
+export type UpdateRecurringTransactionInput = z.infer<typeof updateRecurringTransactionSchema>;
+export type MaterializeRecurringInput = z.infer<typeof materializeRecurringSchema>;
+export type RecurringFrequency = z.infer<typeof recurringFrequencySchema>;
+export type RecurringKind = z.infer<typeof recurringKindSchema>;
 export type CreateIncomeTemplateInput = z.infer<typeof createIncomeTemplateSchema>;
 export type UpdateIncomeTemplateInput = z.infer<typeof updateIncomeTemplateSchema>;
 export type CreateIncomeFromTemplateInput = z.infer<typeof createIncomeFromTemplateSchema>;
@@ -391,4 +471,3 @@ export type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
 export type UpdateVehicleInput = z.infer<typeof updateVehicleSchema>;
 export type LinkToVehicleInput = z.infer<typeof linkToVehicleSchema>;
 export type GetVehiclesQueryInput = z.infer<typeof getVehiclesQuerySchema>;
-

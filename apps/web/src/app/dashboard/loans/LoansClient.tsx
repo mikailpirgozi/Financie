@@ -47,15 +47,9 @@ export function LoansClient({ loans, summary }: LoansClientProps): React.JSX.Ele
       0
     );
 
-    const totalPrincipal = loans.reduce(
-      (sum, l) => sum + parseAmount(l.principal),
-      0
-    );
+    const totalPrincipal = loans.reduce((sum, l) => sum + parseAmount(l.principal), 0);
 
-    const totalPaid = loans.reduce(
-      (sum, l) => sum + parseAmount(l.paid_principal),
-      0
-    );
+    const totalPaid = loans.reduce((sum, l) => sum + parseAmount(l.paid_principal), 0);
 
     const totalProgress = totalPrincipal > 0 ? (totalPaid / totalPrincipal) * 100 : 0;
 
@@ -72,7 +66,8 @@ export function LoansClient({ loans, summary }: LoansClientProps): React.JSX.Ele
       const paidAmount = parseAmount(loan.paid_amount);
       const paidPrincipal = parseAmount(loan.paid_principal);
       totalInterestPaid += Math.max(0, paidAmount - paidPrincipal);
-      totalInterestRemaining += parseAmount(loan.total_interest) - Math.max(0, paidAmount - paidPrincipal);
+      totalInterestRemaining +=
+        parseAmount(loan.total_interest) - Math.max(0, paidAmount - paidPrincipal);
     }
 
     // Find next payment
@@ -137,7 +132,9 @@ export function LoansClient({ loans, summary }: LoansClientProps): React.JSX.Ele
       result = result.filter(
         (loan) =>
           loan.name?.toLowerCase().includes(query) ||
-          loan.lender.toLowerCase().includes(query)
+          loan.lender.toLowerCase().includes(query) ||
+          loan.linked_asset_name?.toLowerCase().includes(query) ||
+          loan.linked_asset_license_plate?.toLowerCase().includes(query)
       );
     }
 
@@ -189,7 +186,8 @@ export function LoansClient({ loans, summary }: LoansClientProps): React.JSX.Ele
             </div>
             <div className="ml-3">
               <h3 className="text-sm font-medium text-red-800 dark:text-red-300">
-                URGENTNÉ: {summary.overdueCount} {summary.overdueCount === 1 ? 'splátka' : 'splátky'} po splatnosti!
+                URGENTNÉ: {summary.overdueCount}{' '}
+                {summary.overdueCount === 1 ? 'splátka' : 'splátky'} po splatnosti!
               </h3>
               <p className="text-sm text-red-700 dark:text-red-400 mt-1">
                 Prosím uhraďte omeškané splátky čo najskôr, aby ste sa vyhli ďalším poplatkom.
@@ -203,11 +201,7 @@ export function LoansClient({ loans, summary }: LoansClientProps): React.JSX.Ele
       <div className="flex flex-col gap-4">
         {/* Segment Control */}
         <div className="overflow-x-auto pb-1">
-          <SegmentControl
-            options={filterOptions}
-            value={filterStatus}
-            onChange={setFilterStatus}
-          />
+          <SegmentControl options={filterOptions} value={filterStatus} onChange={setFilterStatus} />
         </div>
 
         {/* Search */}
@@ -231,7 +225,8 @@ export function LoansClient({ loans, summary }: LoansClientProps): React.JSX.Ele
 
         {/* Results count */}
         <div className="text-sm text-muted-foreground">
-          {filteredLoans.length} {filteredLoans.length === 1 ? 'úver' : filteredLoans.length < 5 ? 'úvery' : 'úverov'}
+          {filteredLoans.length}{' '}
+          {filteredLoans.length === 1 ? 'úver' : filteredLoans.length < 5 ? 'úvery' : 'úverov'}
           {searchQuery && ` pre "${searchQuery}"`}
         </div>
       </div>
@@ -257,8 +252,21 @@ export function LoansClient({ loans, summary }: LoansClientProps): React.JSX.Ele
                   <thead>
                     <tr className="border-b">
                       <th className="text-left p-2">Úver</th>
-                      <th className="text-right p-2">Suma<br/><span className="text-xs font-normal text-muted-foreground">Pôv → Zost</span></th>
-                      <th className="text-right p-2">Splátka mesačne<br/><span className="text-xs font-normal text-muted-foreground">Celkom (Ist/Úrok)</span></th>
+                      <th className="text-left p-2">Naviazané</th>
+                      <th className="text-right p-2">
+                        Suma
+                        <br />
+                        <span className="text-xs font-normal text-muted-foreground">
+                          Pôv → Zost
+                        </span>
+                      </th>
+                      <th className="text-right p-2">
+                        Splátka mesačne
+                        <br />
+                        <span className="text-xs font-normal text-muted-foreground">
+                          Celkom (Ist/Úrok)
+                        </span>
+                      </th>
                       <th className="text-left p-2">Splatené</th>
                       <th className="text-center p-2">Ďalšia</th>
                       <th className="text-center p-2">Akcie</th>
@@ -266,9 +274,10 @@ export function LoansClient({ loans, summary }: LoansClientProps): React.JSX.Ele
                   </thead>
                   <tbody>
                     {filteredLoans.map((loan) => {
-                      const progress = loan.total_installments > 0
-                        ? (loan.paid_count / loan.total_installments) * 100
-                        : 0;
+                      const progress =
+                        loan.total_installments > 0
+                          ? (loan.paid_count / loan.total_installments) * 100
+                          : 0;
 
                       // Determine next installment status display
                       let nextStatus = '✅';
@@ -292,14 +301,14 @@ export function LoansClient({ loans, summary }: LoansClientProps): React.JSX.Ele
                       }
 
                       // Get monthly payment details from next_installment
-                      const monthlyPayment = loan.next_installment 
-                        ? Number(loan.next_installment.total_due) 
+                      const monthlyPayment = loan.next_installment
+                        ? Number(loan.next_installment.total_due)
                         : 0;
-                      const principalDue = loan.next_installment?.principal_due 
-                        ? Number(loan.next_installment.principal_due) 
+                      const principalDue = loan.next_installment?.principal_due
+                        ? Number(loan.next_installment.principal_due)
                         : 0;
-                      const interestDue = loan.next_installment?.interest_due 
-                        ? Number(loan.next_installment.interest_due) 
+                      const interestDue = loan.next_installment?.interest_due
+                        ? Number(loan.next_installment.interest_due)
                         : 0;
 
                       return (
@@ -313,15 +322,40 @@ export function LoansClient({ loans, summary }: LoansClientProps): React.JSX.Ele
                               {loan.loan_type === 'interest_only' && 'Len úrok'}
                             </div>
                           </td>
+                          <td className="p-2">
+                            {loan.linked_asset_id ? (
+                              <Link
+                                href={
+                                  loan.linked_asset_kind === 'real_estate'
+                                    ? `/dashboard/real-estate/${loan.linked_asset_id}`
+                                    : `/dashboard/vehicles/${loan.linked_asset_id}`
+                                }
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                              >
+                                <span className="inline-flex items-center gap-1">
+                                  {loan.linked_asset_kind === 'real_estate' ? '🏠' : '🚗'}
+                                  {loan.linked_asset_license_plate ||
+                                    loan.linked_asset_name ||
+                                    'Naviazané'}
+                                </span>
+                              </Link>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </td>
                           <td className="text-right p-2">
                             <div className="font-medium">
-                              {formatCurrency(loan.principal)} → {formatCurrency(loan.current_balance)}
+                              {formatCurrency(loan.principal)} →{' '}
+                              {formatCurrency(loan.current_balance)}
                             </div>
                           </td>
                           <td className="text-right p-2">
-                            <div className="font-medium">{formatCurrency(monthlyPayment.toFixed(2))}</div>
+                            <div className="font-medium">
+                              {formatCurrency(monthlyPayment.toFixed(2))}
+                            </div>
                             <div className="text-xs text-muted-foreground">
-                              ({formatCurrency(principalDue.toFixed(2))}/{formatCurrency(interestDue.toFixed(2))})
+                              ({formatCurrency(principalDue.toFixed(2))}/
+                              {formatCurrency(interestDue.toFixed(2))})
                             </div>
                           </td>
                           <td className="p-2">
@@ -341,7 +375,9 @@ export function LoansClient({ loans, summary }: LoansClientProps): React.JSX.Ele
                             </div>
                           </td>
                           <td className={cn('text-center p-2', nextClass)}>
-                            <div>{nextStatus} {nextText}</div>
+                            <div>
+                              {nextStatus} {nextText}
+                            </div>
                           </td>
                           <td className="text-center p-2">
                             <div className="flex gap-1 justify-center">
@@ -387,8 +423,8 @@ export function LoansClient({ loans, summary }: LoansClientProps): React.JSX.Ele
               {searchQuery
                 ? 'Skúste zmeniť vyhľadávanie alebo filter'
                 : filterStatus !== 'all'
-                ? `Nemáte žiadne ${filterStatus === 'active' ? 'aktívne' : filterStatus === 'paid_off' ? 'splatené' : 'omeškané'} úvery`
-                : 'Zatiaľ nemáte vytvorený žiadny úver'}
+                  ? `Nemáte žiadne ${filterStatus === 'active' ? 'aktívne' : filterStatus === 'paid_off' ? 'splatené' : 'omeškané'} úvery`
+                  : 'Zatiaľ nemáte vytvorený žiadny úver'}
             </p>
             {!searchQuery && filterStatus === 'all' && (
               <Link href="/dashboard/loans/new">

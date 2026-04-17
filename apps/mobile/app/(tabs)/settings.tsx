@@ -36,6 +36,7 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@/lib/supabase';
+import { clearHouseholdCache } from '@/lib/api';
 import { Toast } from '@/components/ui/Toast';
 import { useBiometricAuth } from '@/hooks';
 import { useTheme } from '../../src/contexts';
@@ -97,10 +98,7 @@ function MenuItem({
         onPress={handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        style={[
-          styles.menuItem,
-          { borderBottomColor: colors.borderLight },
-        ]}
+        style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
       >
         <View style={[styles.menuIconContainer, { backgroundColor: colors.primaryLight }]}>
           {icon}
@@ -108,15 +106,11 @@ function MenuItem({
         <View style={styles.menuContent}>
           <Text style={[styles.menuLabel, { color: colors.text }]}>{label}</Text>
           {sublabel && (
-            <Text style={[styles.menuSublabel, { color: colors.textMuted }]}>
-              {sublabel}
-            </Text>
+            <Text style={[styles.menuSublabel, { color: colors.textMuted }]}>{sublabel}</Text>
           )}
         </View>
         {rightContent}
-        {showChevron && !rightContent && (
-          <ChevronRight size={20} color={colors.textMuted} />
-        )}
+        {showChevron && !rightContent && <ChevronRight size={20} color={colors.textMuted} />}
       </Pressable>
     </Animated.View>
   );
@@ -128,10 +122,14 @@ export default function SettingsScreen() {
   const queryClient = useQueryClient();
   const { theme, themeMode, setThemeMode, isDark } = useTheme();
   const colors = theme.colors;
-  
+
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
+  const [toast, setToast] = useState<{
+    visible: boolean;
+    message: string;
+    type: 'success' | 'error';
+  }>({
     visible: false,
     message: '',
     type: 'success',
@@ -152,7 +150,9 @@ export default function SettingsScreen() {
     try {
       setLoading(true);
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error('Nie ste prihlaseny');
 
       const { data: profileData } = await supabase
@@ -168,10 +168,7 @@ export default function SettingsScreen() {
         avatar_url: profileData?.avatar_url || null,
       });
     } catch (error) {
-      showToast(
-        error instanceof Error ? error.message : 'Nepodarilo sa nacitat profil',
-        'error'
-      );
+      showToast(error instanceof Error ? error.message : 'Nepodarilo sa nacitat profil', 'error');
     } finally {
       setLoading(false);
     }
@@ -207,27 +204,39 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Odhlasit sa',
-      'Naozaj sa chcete odhlasit?',
-      [
-        { text: 'Zrusit', style: 'cancel' },
-        {
-          text: 'Odhlasit',
-          style: 'destructive',
-          onPress: async () => {
+    Alert.alert('Odhlasit sa', 'Naozaj sa chcete odhlasit?', [
+      { text: 'Zrusit', style: 'cancel' },
+      {
+        text: 'Odhlasit',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            // Clear cached state BEFORE signing out so the next user on
+            // this device cannot inherit the previous user's household
+            // cache or query results.
+            clearHouseholdCache();
+            await queryClient.cancelQueries();
+            queryClient.clear();
+
             try {
-              await supabase.auth.signOut();
-              showToast('Boli ste uspesne odhlaseny', 'success');
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            } catch (error) {
-              showToast('Nepodarilo sa odhlasit', 'error');
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              const { logoutSubscriptionUser } = require('@/lib/subscriptions');
+              await logoutSubscriptionUser();
+            } catch {
+              // optional - subscriptions module may not be configured
             }
-          },
+
+            await supabase.auth.signOut();
+
+            showToast('Boli ste uspesne odhlaseny', 'success');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          } catch (error) {
+            showToast('Nepodarilo sa odhlasit', 'error');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleBiometricToggle = async () => {
@@ -289,9 +298,7 @@ export default function SettingsScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.loadingContainer]}>
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Nacitavam...
-          </Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Nacitavam...</Text>
         </View>
       </View>
     );
@@ -326,22 +333,16 @@ export default function SettingsScreen() {
             ]}
           >
             <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-              <Text style={[styles.avatarText, { color: colors.textInverse }]}>
-                {initials}
-              </Text>
+              <Text style={[styles.avatarText, { color: colors.textInverse }]}>{initials}</Text>
             </View>
             <Text style={[styles.name, { color: colors.text }]}>
               {profile?.full_name || 'Pouzivatel'}
             </Text>
-            <Text style={[styles.email, { color: colors.textSecondary }]}>
-              {profile?.email}
-            </Text>
+            <Text style={[styles.email, { color: colors.textSecondary }]}>{profile?.email}</Text>
           </View>
 
           {/* Features Section */}
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-            Dalsie funkcie
-          </Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Dalsie funkcie</Text>
           <View
             style={[
               styles.menuCard,
@@ -403,9 +404,7 @@ export default function SettingsScreen() {
           </View>
 
           {/* Settings Section */}
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-            Nastavenia
-          </Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Nastavenia</Text>
           <View
             style={[
               styles.menuCard,
@@ -429,7 +428,13 @@ export default function SettingsScreen() {
               onPress={() => router.push('/(tabs)/settings/language')}
             />
             <MenuItem
-              icon={isDark ? <Moon size={20} color={colors.primary} /> : <Sun size={20} color={colors.primary} />}
+              icon={
+                isDark ? (
+                  <Moon size={20} color={colors.primary} />
+                ) : (
+                  <Sun size={20} color={colors.primary} />
+                )
+              }
               label="Tema"
               sublabel={getThemeLabel()}
               onPress={handleThemeChange}
@@ -437,9 +442,7 @@ export default function SettingsScreen() {
           </View>
 
           {/* Subscription Section */}
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-            Predplatne
-          </Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Predplatne</Text>
           <View
             style={[
               styles.menuCard,
@@ -450,16 +453,14 @@ export default function SettingsScreen() {
               icon={<Crown size={20} color={colors.warning} />}
               label="Upgrade na Premium"
               sublabel="Free"
-              onPress={() => router.push('/(tabs)/settings/subscription')}
+              onPress={() => router.push('/(screens)/paywall')}
             />
           </View>
 
           {/* Security Section */}
           {biometricAvailable && (
             <>
-              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                Bezpecnost
-              </Text>
+              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Bezpecnost</Text>
               <View
                 style={[
                   styles.menuCard,
@@ -467,7 +468,9 @@ export default function SettingsScreen() {
                 ]}
               >
                 <View style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}>
-                  <View style={[styles.menuIconContainer, { backgroundColor: colors.primaryLight }]}>
+                  <View
+                    style={[styles.menuIconContainer, { backgroundColor: colors.primaryLight }]}
+                  >
                     <Fingerprint size={20} color={colors.primary} />
                   </View>
                   <View style={styles.menuContent}>
@@ -490,9 +493,7 @@ export default function SettingsScreen() {
           )}
 
           {/* Advanced Section */}
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-            Pokrocile
-          </Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Pokrocile</Text>
           <View
             style={[
               styles.menuCard,
@@ -507,9 +508,7 @@ export default function SettingsScreen() {
           </View>
 
           {/* Info Section */}
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-            Informacie
-          </Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Informacie</Text>
           <View
             style={[
               styles.menuCard,
@@ -542,16 +541,12 @@ export default function SettingsScreen() {
             onPress={handleLogout}
           >
             <LogOut size={20} color={colors.danger} />
-            <Text style={[styles.logoutText, { color: colors.danger }]}>
-              Odhlasit sa
-            </Text>
+            <Text style={[styles.logoutText, { color: colors.danger }]}>Odhlasit sa</Text>
           </TouchableOpacity>
 
           {/* Version */}
           <View style={styles.versionSection}>
-            <Text style={[styles.versionText, { color: colors.textMuted }]}>
-              Verzia 1.0.0
-            </Text>
+            <Text style={[styles.versionText, { color: colors.textMuted }]}>Verzia 1.0.0</Text>
             <Text style={[styles.versionSubtext, { color: colors.textMuted }]}>
               © 2024 Financie App
             </Text>

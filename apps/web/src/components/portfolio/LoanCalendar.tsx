@@ -48,7 +48,7 @@ export function LoanCalendar({ calendar, summary }: LoanCalendarProps): React.JS
   };
 
   const toggleMonth = (month: string) => {
-    setExpandedMonths(prev => {
+    setExpandedMonths((prev) => {
       const next = new Set(prev);
       if (next.has(month)) {
         next.delete(month);
@@ -60,7 +60,7 @@ export function LoanCalendar({ calendar, summary }: LoanCalendarProps): React.JS
   };
 
   const expandAll = () => {
-    setExpandedMonths(new Set(calendar.map(m => m.month)));
+    setExpandedMonths(new Set(calendar.map((m) => m.month)));
   };
 
   const collapseAll = () => {
@@ -130,7 +130,7 @@ export function LoanCalendar({ calendar, summary }: LoanCalendarProps): React.JS
           const isCurrentMonth = monthData.month === new Date().toISOString().slice(0, 7);
 
           return (
-            <Card 
+            <Card
               key={monthData.month}
               className={isCurrentMonth ? 'border-blue-500 border-2' : ''}
             >
@@ -141,12 +141,11 @@ export function LoanCalendar({ calendar, summary }: LoanCalendarProps): React.JS
                     <div>
                       <CardTitle className="flex items-center gap-2">
                         {formatMonth(monthData.month)}
-                        {isCurrentMonth && (
-                          <Badge variant="default">Aktuálny mesiac</Badge>
-                        )}
+                        {isCurrentMonth && <Badge variant="default">Aktuálny mesiac</Badge>}
                       </CardTitle>
                       <CardDescription>
-                        {monthData.entries.length} {monthData.entries.length === 1 ? 'splátka' : 'splátky'}
+                        {monthData.entries.length}{' '}
+                        {monthData.entries.length === 1 ? 'splátka' : 'splátky'}
                       </CardDescription>
                     </div>
                   </div>
@@ -155,8 +154,8 @@ export function LoanCalendar({ calendar, summary }: LoanCalendarProps): React.JS
                       {formatCurrency(monthData.totalPayments)}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Istina: {formatCurrency(monthData.totalPrincipal)} • 
-                      Úroky: {formatCurrency(monthData.totalInterest)}
+                      Istina: {formatCurrency(monthData.totalPrincipal)} • Úroky:{' '}
+                      {formatCurrency(monthData.totalInterest)}
                     </p>
                   </div>
                 </div>
@@ -166,39 +165,45 @@ export function LoanCalendar({ calendar, summary }: LoanCalendarProps): React.JS
                 <CardContent>
                   <div className="space-y-3">
                     {monthData.entries.map((entry) => (
-                      <div 
+                      <div
                         key={`${entry.loanId}-${entry.installmentNo}`}
                         className="flex items-center justify-between p-4 rounded-lg border hover:bg-gray-50"
                       >
                         <div className="flex items-center gap-4 flex-1">
                           <span className="text-2xl">
-                            {LOAN_TYPE_ICONS[entry.loanType] || '💰'}
+                            {entry.linkedAssetKind === 'vehicle'
+                              ? '🚗'
+                              : entry.linkedAssetKind === 'real_estate'
+                                ? '🏠'
+                                : LOAN_TYPE_ICONS[entry.loanType] || '💰'}
                           </span>
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <span className="font-semibold">{entry.loanName}</span>
-                              <Badge 
+                              <Badge
                                 variant="outline"
-                                style={{ 
+                                style={{
                                   borderColor: STATUS_COLORS[entry.status],
                                   color: STATUS_COLORS[entry.status],
                                 }}
                               >
-                                {entry.status === 'paid' ? 'Zaplatené' : 
-                                 entry.status === 'overdue' ? 'Po splatnosti' : 'Čaká'}
+                                {entry.status === 'paid'
+                                  ? 'Zaplatené'
+                                  : entry.status === 'overdue'
+                                    ? 'Po splatnosti'
+                                    : 'Čaká'}
                               </Badge>
                             </div>
                             <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                              <span>
-                                {new Date(entry.dueDate).toLocaleDateString('sk-SK')}
-                              </span>
+                              <span>{new Date(entry.dueDate).toLocaleDateString('sk-SK')}</span>
                               <span>•</span>
                               <span>Splátka #{entry.installmentNo}</span>
                               {entry.linkedAssetName && (
                                 <>
                                   <span>•</span>
                                   <span className="flex items-center gap-1">
-                                    🏠 {entry.linkedAssetName}
+                                    {entry.linkedAssetKind === 'vehicle' ? '🚗' : '🏠'}{' '}
+                                    {entry.linkedAssetName}
                                   </span>
                                 </>
                               )}
@@ -207,9 +212,7 @@ export function LoanCalendar({ calendar, summary }: LoanCalendarProps): React.JS
                         </div>
 
                         <div className="text-right">
-                          <div className="text-lg font-bold">
-                            {formatCurrency(entry.totalDue)}
-                          </div>
+                          <div className="text-lg font-bold">{formatCurrency(entry.totalDue)}</div>
                           <div className="text-xs text-muted-foreground space-y-0.5">
                             <div>Istina: {formatCurrency(entry.principalDue)}</div>
                             <div>Úrok: {formatCurrency(entry.interestDue)}</div>
@@ -227,15 +230,21 @@ export function LoanCalendar({ calendar, summary }: LoanCalendarProps): React.JS
                     <div className="grid grid-cols-4 gap-4 text-sm">
                       <div>
                         <span className="text-muted-foreground">Celkom:</span>
-                        <div className="font-semibold">{formatCurrency(monthData.totalPayments)}</div>
+                        <div className="font-semibold">
+                          {formatCurrency(monthData.totalPayments)}
+                        </div>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Istina:</span>
-                        <div className="font-semibold">{formatCurrency(monthData.totalPrincipal)}</div>
+                        <div className="font-semibold">
+                          {formatCurrency(monthData.totalPrincipal)}
+                        </div>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Úroky:</span>
-                        <div className="font-semibold">{formatCurrency(monthData.totalInterest)}</div>
+                        <div className="font-semibold">
+                          {formatCurrency(monthData.totalInterest)}
+                        </div>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Poplatky:</span>
@@ -252,4 +261,3 @@ export function LoanCalendar({ calendar, summary }: LoanCalendarProps): React.JS
     </div>
   );
 }
-

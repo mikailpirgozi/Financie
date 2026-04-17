@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/server';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import Stripe from 'stripe';
 
 export const dynamic = 'force-dynamic';
@@ -9,20 +9,14 @@ const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 export async function POST(request: NextRequest) {
   if (!stripe || !webhookSecret) {
-    return NextResponse.json(
-      { error: 'Stripe is not configured' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 });
   }
 
   const body = await request.text();
   const signature = request.headers.get('stripe-signature');
 
   if (!signature) {
-    return NextResponse.json(
-      { error: 'Missing stripe-signature header' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 });
   }
 
   let event: Stripe.Event;
@@ -31,19 +25,28 @@ export async function POST(request: NextRequest) {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
     console.error('Webhook signature verification failed:', err);
-    return NextResponse.json(
-      { error: 'Invalid signature' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  // Use service-role client. Webhook has no user session, and the Stripe
+  // signature has already been verified above. RLS would block updates to
+  // arbitrary profiles otherwise.
+  let supabase;
+  try {
+    supabase = createAdminClient();
+  } catch (err) {
+    console.error('Stripe webhook: missing service role key', err);
+    return NextResponse.json(
+      { error: 'Server misconfiguration: SUPABASE_SERVICE_ROLE_KEY is required' },
+      { status: 500 }
+    );
+  }
 
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-        
+
         if (session.mode === 'subscription' && session.customer && session.subscription) {
           const customerId = session.customer as string;
           const subscriptionId = session.subscription as string;
@@ -59,9 +62,10 @@ export async function POST(request: NextRequest) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
           // Update user profile with subscription info
-          const currentPeriodEnd = 'current_period_end' in subscription 
-            ? new Date((subscription.current_period_end as number) * 1000).toISOString()
-            : new Date().toISOString();
+          const currentPeriodEnd =
+            'current_period_end' in subscription
+              ? new Date((subscription.current_period_end as number) * 1000).toISOString()
+              : new Date().toISOString();
 
           const { error: updateError } = await supabase
             .from('profiles')
@@ -103,9 +107,10 @@ export async function POST(request: NextRequest) {
         const planId = determinePlanFromSubscription(subscription);
 
         // Update subscription status
-        const currentPeriodEnd = 'current_period_end' in subscription 
-          ? new Date((subscription.current_period_end as number) * 1000).toISOString()
-          : new Date().toISOString();
+        const currentPeriodEnd =
+          'current_period_end' in subscription
+            ? new Date((subscription.current_period_end as number) * 1000).toISOString()
+            : new Date().toISOString();
 
         const { error: updateError } = await supabase
           .from('profiles')
@@ -200,10 +205,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error('Error processing webhook:', error);
-    return NextResponse.json(
-      { error: 'Webhook processing failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
   }
 }
 
@@ -222,4 +224,3 @@ function determinePlanFromSubscription(subscription: Stripe.Subscription): strin
 
   return 'free';
 }
-

@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  Linking,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Linking } from 'react-native';
 import { FileText, Image, Trash2, ExternalLink } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -19,6 +12,14 @@ interface DocumentListItemProps {
   filePath: string;
   fileSize?: number;
   mimeType?: string;
+  /** Optional secondary date shown next to size (e.g. expiry, service date, ...) */
+  secondaryDate?: string;
+  /** Label rendered before the secondary date (e.g. "Platnosť do", "Servis"). Defaults to no label. */
+  secondaryDateLabel?: string;
+  /**
+   * @deprecated Use `secondaryDate` + `secondaryDateLabel` instead.
+   * Kept for backwards compatibility – behaves like passing `secondaryDate`.
+   */
   createdAt?: string;
   onDelete?: (id: string) => void;
   onView?: (filePath: string) => void;
@@ -54,6 +55,8 @@ export function DocumentListItem({
   filePath,
   fileSize,
   mimeType,
+  secondaryDate,
+  secondaryDateLabel,
   createdAt,
   onDelete,
   onView,
@@ -62,10 +65,12 @@ export function DocumentListItem({
   const { theme } = useTheme();
   const colors = theme.colors;
   const iconType = getFileIcon(mimeType);
+  const dateToShow = secondaryDate ?? createdAt;
+  const dateLabel = secondaryDateLabel ?? '';
 
   const handleView = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
+
     if (onView) {
       onView(filePath);
       return;
@@ -93,23 +98,19 @@ export function DocumentListItem({
 
   const handleDelete = () => {
     if (!onDelete) return;
-    
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(
-      'Zmazať dokument',
-      `Naozaj chcete zmazať "${name}"?`,
-      [
-        { text: 'Zrušiť', style: 'cancel' },
-        {
-          text: 'Zmazať',
-          style: 'destructive',
-          onPress: () => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            onDelete(id);
-          },
+    Alert.alert('Zmazať dokument', `Naozaj chcete zmazať "${name}"?`, [
+      { text: 'Zrušiť', style: 'cancel' },
+      {
+        text: 'Zmazať',
+        style: 'destructive',
+        onPress: () => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          onDelete(id);
         },
-      ]
-    );
+      },
+    ]);
   };
 
   return (
@@ -134,18 +135,17 @@ export function DocumentListItem({
         </Text>
         <View style={styles.metaRow}>
           {showType && (
-            <Text style={[styles.type, { color: colors.textSecondary }]}>
-              {documentTypeLabel}
-            </Text>
+            <Text style={[styles.type, { color: colors.textSecondary }]}>{documentTypeLabel}</Text>
           )}
           {fileSize && (
             <Text style={[styles.size, { color: colors.textMuted }]}>
               {formatFileSize(fileSize)}
             </Text>
           )}
-          {createdAt && (
+          {dateToShow && (
             <Text style={[styles.date, { color: colors.textMuted }]}>
-              {formatDate(createdAt)}
+              {dateLabel ? `${dateLabel}: ` : ''}
+              {formatDate(dateToShow)}
             </Text>
           )}
         </View>
@@ -159,7 +159,7 @@ export function DocumentListItem({
         >
           <ExternalLink size={16} color={colors.primary} />
         </TouchableOpacity>
-        
+
         {onDelete && (
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: colors.error + '15' }]}

@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+// TODO: pass <Database> generic to createClient once
+// packages/core/src/database.types.ts is regenerated via `pnpm db:types`.
 import { env } from './env';
 
 // Create a custom storage adapter for AsyncStorage
@@ -40,4 +42,3 @@ export const supabase = createClient(
     },
   }
 );
-

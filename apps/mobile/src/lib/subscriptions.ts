@@ -43,7 +43,7 @@ export async function initializeSubscriptions(): Promise<void> {
 export async function getSubscriptionOfferings(): Promise<PurchasesOfferings | null> {
   try {
     const offerings = await Purchases.getOfferings();
-    
+
     if (offerings.current === null) {
       console.warn('No offerings available');
       return null;
@@ -59,9 +59,7 @@ export async function getSubscriptionOfferings(): Promise<PurchasesOfferings | n
 /**
  * Purchase a subscription package
  */
-export async function purchasePackage(
-  pkg: PurchasesPackage
-): Promise<CustomerInfo | null> {
+export async function purchasePackage(pkg: PurchasesPackage): Promise<CustomerInfo | null> {
   try {
     const { customerInfo } = await Purchases.purchasePackage(pkg);
     return customerInfo;
@@ -72,10 +70,7 @@ export async function purchasePackage(
     }
 
     console.error('Failed to purchase package:', error);
-    Alert.alert(
-      'Chyba pri nákupe',
-      'Nepodarilo sa dokončiť nákup. Skúste to prosím znova.'
-    );
+    Alert.alert('Chyba pri nákupe', 'Nepodarilo sa dokončiť nákup. Skúste to prosím znova.');
     return null;
   }
 }
@@ -86,26 +81,17 @@ export async function purchasePackage(
 export async function restorePurchases(): Promise<CustomerInfo | null> {
   try {
     const customerInfo = await Purchases.restorePurchases();
-    
+
     if (Object.keys(customerInfo.entitlements.active).length > 0) {
-      Alert.alert(
-        'Úspech',
-        'Vaše nákupy boli úspešne obnovené'
-      );
+      Alert.alert('Úspech', 'Vaše nákupy boli úspešne obnovené');
     } else {
-      Alert.alert(
-        'Info',
-        'Nenašli sa žiadne predošlé nákupy'
-      );
+      Alert.alert('Info', 'Nenašli sa žiadne predošlé nákupy');
     }
 
     return customerInfo;
   } catch (error) {
     console.error('Failed to restore purchases:', error);
-    Alert.alert(
-      'Chyba',
-      'Nepodarilo sa obnoviť nákupy. Skúste to prosím znova.'
-    );
+    Alert.alert('Chyba', 'Nepodarilo sa obnoviť nákupy. Skúste to prosím znova.');
     return null;
   }
 }
@@ -129,17 +115,47 @@ export async function getCustomerInfo(): Promise<CustomerInfo | null> {
 export async function hasActiveSubscription(entitlementId: string = 'premium'): Promise<boolean> {
   try {
     const customerInfo = await getCustomerInfo();
-    
+
     if (!customerInfo) {
       return false;
     }
 
-    return (
-      typeof customerInfo.entitlements.active[entitlementId] !== 'undefined'
-    );
+    return typeof customerInfo.entitlements.active[entitlementId] !== 'undefined';
   } catch (error) {
     console.error('Failed to check subscription status:', error);
     return false;
+  }
+}
+
+/**
+ * Identify the current user with RevenueCat. Call after login so server-side
+ * webhooks can match purchases to your auth user id. Safe to call even when
+ * the SDK is not configured — does nothing in that case.
+ */
+export async function identifySubscriptionUser(userId: string): Promise<void> {
+  try {
+    const isConfigured =
+      Platform.OS === 'ios'
+        ? !!env.EXPO_PUBLIC_REVENUECAT_IOS_KEY
+        : Platform.OS === 'android'
+          ? !!env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY
+          : false;
+    if (!isConfigured) return;
+    await Purchases.logIn(userId);
+  } catch (error) {
+    console.warn('[Subscriptions] identify failed:', error);
+  }
+}
+
+/**
+ * Reset RevenueCat identity (call from logout). Subsequent purchases get a
+ * fresh anonymous app user id until next identifySubscriptionUser().
+ */
+export async function logoutSubscriptionUser(): Promise<void> {
+  try {
+    await Purchases.logOut();
+  } catch {
+    // No-op when not initialised yet.
   }
 }
 
@@ -174,4 +190,3 @@ export function formatPrice(price: number, currencyCode: string): string {
     minimumFractionDigits: 2,
   }).format(price);
 }
-

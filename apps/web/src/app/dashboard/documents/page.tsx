@@ -7,10 +7,12 @@ export const dynamic = 'force-dynamic';
 
 export default async function DocumentsPage(): Promise<ReactNode> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/login');
+    redirect('/auth/login');
   }
 
   // Get user's household
@@ -21,7 +23,9 @@ export default async function DocumentsPage(): Promise<ReactNode> {
     .single();
 
   if (!membership) {
-    redirect('/onboarding');
+    // No onboarding flow exists yet - redirect back to dashboard which
+    // shows the empty-state for users without a household.
+    redirect('/dashboard');
   }
 
   // Fetch assets (vehicles) for filters
@@ -31,10 +35,5 @@ export default async function DocumentsPage(): Promise<ReactNode> {
     .eq('household_id', membership.household_id)
     .order('name');
 
-  return (
-    <DocumentsClient 
-      householdId={membership.household_id}
-      assets={assets || []}
-    />
-  );
+  return <DocumentsClient householdId={membership.household_id} assets={assets || []} />;
 }

@@ -12,9 +12,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#8B5CF6"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.finapps.app",
@@ -55,7 +53,10 @@
         }
       ],
       "expo-apple-authentication",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-image"
     ],
     "scheme": "finapp",
     "extra": {

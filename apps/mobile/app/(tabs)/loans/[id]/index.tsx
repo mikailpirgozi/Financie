@@ -22,6 +22,9 @@ import {
   PieChart,
   Target,
   Info,
+  Car,
+  ChevronRight,
+  Link2,
 } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import {
@@ -104,7 +107,11 @@ export default function LoanDetailScreen() {
   // Local state for optimistic updates and UI
   const [optimisticSchedule, setOptimisticSchedule] = useState<LoanScheduleEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
+  const [toast, setToast] = useState<{
+    visible: boolean;
+    message: string;
+    type: 'success' | 'error';
+  }>({
     visible: false,
     message: '',
     type: 'success',
@@ -119,9 +126,7 @@ export default function LoanDetailScreen() {
 
   // Sync optimistic schedule with actual schedule when data changes
   useEffect(() => {
-    const scheduleSignature = schedule
-      .map((entry) => `${entry.id}:${entry.status}`)
-      .join(',');
+    const scheduleSignature = schedule.map((entry) => `${entry.id}:${entry.status}`).join(',');
 
     if (scheduleSignature !== prevScheduleSignatureRef.current) {
       prevScheduleSignatureRef.current = scheduleSignature;
@@ -130,7 +135,11 @@ export default function LoanDetailScreen() {
   }, [schedule]);
 
   // Convert query error to string
-  const error = queryError ? (queryError instanceof Error ? queryError.message : 'Nepodarilo sa načítať úver') : null;
+  const error = queryError
+    ? queryError instanceof Error
+      ? queryError.message
+      : 'Nepodarilo sa načítať úver'
+    : null;
 
   // Notes state
   const [notes, setNotes] = useState<LoanNote[]>([]);
@@ -146,7 +155,9 @@ export default function LoanDetailScreen() {
 
   // Load household on mount
   useEffect(() => {
-    getCurrentHousehold().then((h) => setHouseholdId(h.id)).catch(console.error);
+    getCurrentHousehold()
+      .then((h) => setHouseholdId(h.id))
+      .catch(console.error);
   }, []);
 
   // Load notes and documents when id changes
@@ -163,7 +174,9 @@ export default function LoanDetailScreen() {
 
     setNotesLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const response = await fetch(`${env.EXPO_PUBLIC_API_URL}/api/loans/${id}/notes`, {
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
@@ -223,7 +236,9 @@ export default function LoanDetailScreen() {
       formData.append('folder', 'loans');
       formData.append('recordId', id);
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
       const uploadResponse = await fetch(`${env.EXPO_PUBLIC_API_URL}/api/files/upload`, {
         method: 'POST',
@@ -282,7 +297,9 @@ export default function LoanDetailScreen() {
     is_pinned: boolean;
   }) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
       const url = editingNote
         ? `${env.EXPO_PUBLIC_API_URL}/api/loans/${id}/notes/${editingNote.id}`
@@ -307,10 +324,7 @@ export default function LoanDetailScreen() {
       setEditingNote(null);
       await loadNotes();
 
-      showToast(
-        editingNote ? 'Poznámka bola upravená' : 'Poznámka bola pridaná',
-        'success'
-      );
+      showToast(editingNote ? 'Poznámka bola upravená' : 'Poznámka bola pridaná', 'success');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error('Failed to save note:', err);
@@ -322,27 +336,24 @@ export default function LoanDetailScreen() {
   // Handle note status toggle
   const handleToggleNoteStatus = async (noteId: string, newStatus: 'pending' | 'completed') => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      const response = await fetch(
-        `${env.EXPO_PUBLIC_API_URL}/api/loans/${id}/notes/${noteId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({ status: newStatus }),
-        }
-      );
+      const response = await fetch(`${env.EXPO_PUBLIC_API_URL}/api/loans/${id}/notes/${noteId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
 
       if (!response.ok) {
         throw new Error('Failed to update note');
       }
 
-      setNotes((prev) =>
-        prev.map((n) => (n.id === noteId ? { ...n, status: newStatus } : n))
-      );
+      setNotes((prev) => prev.map((n) => (n.id === noteId ? { ...n, status: newStatus } : n)));
     } catch (err) {
       console.error('Failed to toggle note status:', err);
       showToast('Nepodarilo sa aktualizovať poznámku', 'error');
@@ -352,19 +363,18 @@ export default function LoanDetailScreen() {
   // Handle note pin toggle
   const handleToggleNotePin = async (noteId: string, isPinned: boolean) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      const response = await fetch(
-        `${env.EXPO_PUBLIC_API_URL}/api/loans/${id}/notes/${noteId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({ is_pinned: isPinned }),
-        }
-      );
+      const response = await fetch(`${env.EXPO_PUBLIC_API_URL}/api/loans/${id}/notes/${noteId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ is_pinned: isPinned }),
+      });
 
       if (!response.ok) {
         throw new Error('Failed to update note');
@@ -379,44 +389,42 @@ export default function LoanDetailScreen() {
 
   // Handle note delete
   const handleDeleteNote = async (noteId: string) => {
-    Alert.alert(
-      'Zmazať poznámku',
-      'Naozaj chcete zmazať túto poznámku?',
-      [
-        { text: 'Zrušiť', style: 'cancel' },
-        {
-          text: 'Zmazať',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { data: { session } } = await supabase.auth.getSession();
+    Alert.alert('Zmazať poznámku', 'Naozaj chcete zmazať túto poznámku?', [
+      { text: 'Zrušiť', style: 'cancel' },
+      {
+        text: 'Zmazať',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
 
-              const response = await fetch(
-                `${env.EXPO_PUBLIC_API_URL}/api/loans/${id}/notes/${noteId}`,
-                {
-                  method: 'DELETE',
-                  headers: {
-                    Authorization: `Bearer ${session?.access_token}`,
-                  },
-                }
-              );
-
-              if (!response.ok) {
-                throw new Error('Failed to delete note');
+            const response = await fetch(
+              `${env.EXPO_PUBLIC_API_URL}/api/loans/${id}/notes/${noteId}`,
+              {
+                method: 'DELETE',
+                headers: {
+                  Authorization: `Bearer ${session?.access_token}`,
+                },
               }
+            );
 
-              setNotes((prev) => prev.filter((n) => n.id !== noteId));
-              showToast('Poznámka bola zmazaná', 'success');
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            } catch (err) {
-              console.error('Failed to delete note:', err);
-              showToast('Nepodarilo sa zmazať poznámku', 'error');
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            if (!response.ok) {
+              throw new Error('Failed to delete note');
             }
-          },
+
+            setNotes((prev) => prev.filter((n) => n.id !== noteId));
+            showToast('Poznámka bola zmazaná', 'success');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          } catch (err) {
+            console.error('Failed to delete note:', err);
+            showToast('Nepodarilo sa zmazať poznámku', 'error');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   // Handle edit note
@@ -471,8 +479,7 @@ export default function LoanDetailScreen() {
 
     const pendingCount = schedule.filter(
       (entry) =>
-        (entry.status === 'pending' || entry.status === 'overdue') &&
-        entry.due_date <= today
+        (entry.status === 'pending' || entry.status === 'overdue') && entry.due_date <= today
     ).length;
 
     if (pendingCount === 0) {
@@ -493,7 +500,10 @@ export default function LoanDetailScreen() {
               {
                 onSuccess: () => {
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                  showToast(`${pendingCount} ${pendingCount === 1 ? 'splátka označená' : 'splátok označených'}!`, 'success');
+                  showToast(
+                    `${pendingCount} ${pendingCount === 1 ? 'splátka označená' : 'splátok označených'}!`,
+                    'success'
+                  );
                 },
                 onError: () => {
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -508,38 +518,31 @@ export default function LoanDetailScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      'Zmazať úver',
-      'Naozaj chcete zmazať tento úver?',
-      [
-        { text: 'Zrušiť', style: 'cancel' },
-        {
-          text: 'Zmazať',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error: deleteError } = await supabase
-                .from('loans')
-                .delete()
-                .eq('id', id);
+    Alert.alert('Zmazať úver', 'Naozaj chcete zmazať tento úver?', [
+      { text: 'Zrušiť', style: 'cancel' },
+      {
+        text: 'Zmazať',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const { error: deleteError } = await supabase.from('loans').delete().eq('id', id);
 
-              if (deleteError) throw deleteError;
+            if (deleteError) throw deleteError;
 
-              showToast('Úver bol zmazaný', 'success');
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            showToast('Úver bol zmazaný', 'success');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-              // Navigate to loans list explicitly after delete
-              setTimeout(() => {
-                router.replace('/(tabs)/loans');
-              }, 1500);
-            } catch {
-              showToast('Nepodarilo sa zmazať úver', 'error');
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            }
-          },
+            // Navigate to loans list explicitly after delete
+            setTimeout(() => {
+              router.replace('/(tabs)/loans');
+            }, 1500);
+          } catch {
+            showToast('Nepodarilo sa zmazať úver', 'error');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const showToast = (message: string, type: 'success' | 'error') => {
@@ -566,8 +569,12 @@ export default function LoanDetailScreen() {
   };
 
   const calculateProgress = (loanItem: Loan): number => {
-    const principal = typeof loanItem.principal === 'string' ? parseFloat(loanItem.principal) : loanItem.principal;
-    const amountPaid = typeof loanItem.amount_paid === 'string' ? parseFloat(loanItem.amount_paid) : loanItem.amount_paid;
+    const principal =
+      typeof loanItem.principal === 'string' ? parseFloat(loanItem.principal) : loanItem.principal;
+    const amountPaid =
+      typeof loanItem.amount_paid === 'string'
+        ? parseFloat(loanItem.amount_paid)
+        : loanItem.amount_paid;
     if (principal === 0 || isNaN(principal) || isNaN(amountPaid)) return 0;
     return (amountPaid / principal) * 100;
   };
@@ -631,7 +638,9 @@ export default function LoanDetailScreen() {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={[styles.errorText, { color: colors.danger }]}>{error || 'Úver nebol nájdený'}</Text>
+          <Text style={[styles.errorText, { color: colors.danger }]}>
+            {error || 'Úver nebol nájdený'}
+          </Text>
           <Button onPress={() => router.replace('/(tabs)/loans')} variant="outline">
             Späť na úvery
           </Button>
@@ -654,9 +663,7 @@ export default function LoanDetailScreen() {
   const today = new Date().toISOString().split('T')[0];
   const overdueCount = optimisticSchedule.filter((entry) => entry.status === 'overdue').length;
   const pendingUntilTodayCount = optimisticSchedule.filter(
-    (entry) =>
-      (entry.status === 'pending' || entry.status === 'overdue') &&
-      entry.due_date <= today
+    (entry) => (entry.status === 'pending' || entry.status === 'overdue') && entry.due_date <= today
   ).length;
 
   // Menu options
@@ -746,11 +753,65 @@ export default function LoanDetailScreen() {
         />
       )}
 
+      {/* Linked Vehicle Card */}
+      {loan.linked_asset_id && loan.linked_asset_kind === 'vehicle' ? (
+        <TouchableOpacity
+          style={[
+            styles.linkedAssetCard,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+          onPress={() => router.push(`/(tabs)/vehicles/${loan.linked_asset_id}`)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.linkedAssetIcon, { backgroundColor: colors.primaryLight }]}>
+            <Car size={20} color={colors.primary} />
+          </View>
+          <View style={styles.linkedAssetContent}>
+            <Text style={[styles.linkedAssetLabel, { color: colors.textMuted }]}>
+              Naviazané vozidlo
+            </Text>
+            <Text style={[styles.linkedAssetName, { color: colors.text }]} numberOfLines={1}>
+              {loan.linked_asset_name || 'Vozidlo'}
+            </Text>
+            {loan.linked_asset_license_plate && (
+              <Text
+                style={[styles.linkedAssetSub, { color: colors.textSecondary }]}
+                numberOfLines={1}
+              >
+                ŠPZ: {loan.linked_asset_license_plate}
+              </Text>
+            )}
+          </View>
+          <ChevronRight size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={[
+            styles.linkedAssetCard,
+            styles.linkedAssetCardEmpty,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+          onPress={() => router.push(`/(tabs)/loans/${id}/link-asset`)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.linkedAssetIcon, { backgroundColor: colors.surfacePressed }]}>
+            <Link2 size={20} color={colors.textSecondary} />
+          </View>
+          <View style={styles.linkedAssetContent}>
+            <Text style={[styles.linkedAssetName, { color: colors.text }]}>Naviazať vozidlo</Text>
+            <Text
+              style={[styles.linkedAssetSub, { color: colors.textSecondary }]}
+              numberOfLines={2}
+            >
+              Tento úver zatiaľ nie je prepojený s vozidlom
+            </Text>
+          </View>
+          <ChevronRight size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+      )}
+
       {/* Collapsible Sections */}
-      <CollapsibleSection
-        title="Detaily úveru"
-        icon={<Info size={18} color={colors.primary} />}
-      >
+      <CollapsibleSection title="Detaily úveru" icon={<Info size={18} color={colors.primary} />}>
         <View style={styles.detailsGrid}>
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Úroková sadzba</Text>
@@ -762,20 +823,28 @@ export default function LoanDetailScreen() {
           </View>
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Mesačná splátka</Text>
-            <Text style={[styles.detailValue, { color: colors.text }]}>{formatCurrency(loan.monthly_payment)}</Text>
+            <Text style={[styles.detailValue, { color: colors.text }]}>
+              {formatCurrency(loan.monthly_payment)}
+            </Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Zaplatené</Text>
-            <Text style={[styles.detailValue, { color: colors.text }]}>{formatCurrency(loan.amount_paid)}</Text>
+            <Text style={[styles.detailValue, { color: colors.text }]}>
+              {formatCurrency(loan.amount_paid)}
+            </Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Začiatok úveru</Text>
-            <Text style={[styles.detailValue, { color: colors.text }]}>{formatDate(loan.start_date)}</Text>
+            <Text style={[styles.detailValue, { color: colors.text }]}>
+              {formatDate(loan.start_date)}
+            </Text>
           </View>
           {loan.end_date && (
             <View style={styles.detailRow}>
               <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Koniec úveru</Text>
-              <Text style={[styles.detailValue, { color: colors.text }]}>{formatDate(loan.end_date)}</Text>
+              <Text style={[styles.detailValue, { color: colors.text }]}>
+                {formatDate(loan.end_date)}
+              </Text>
             </View>
           )}
         </View>
@@ -788,12 +857,18 @@ export default function LoanDetailScreen() {
         <LoanFinancialOverview
           principal={parseFloat(String(loan.principal)) || 0}
           totalInterest={parseFloat(String(loan.total_interest)) || calculateTotalInterest()}
-          totalFees={parseFloat(String(loan.total_fees || loan.fee_setup || 0)) +
-            (parseFloat(String(loan.fee_monthly || 0)) * (loan.term || 0))}
+          totalFees={
+            parseFloat(String(loan.total_fees || loan.fee_setup || 0)) +
+            parseFloat(String(loan.fee_monthly || 0)) * (loan.term || 0)
+          }
           paidPrincipal={parseFloat(String(loan.paid_principal || loan.amount_paid)) || 0}
           paidInterest={calculatePaidInterest()}
           remainingPrincipal={parseFloat(String(loan.remaining_balance)) || 0}
-          remainingInterest={Math.max(0, (parseFloat(String(loan.total_interest)) || calculateTotalInterest()) - calculatePaidInterest())}
+          remainingInterest={Math.max(
+            0,
+            (parseFloat(String(loan.total_interest)) || calculateTotalInterest()) -
+              calculatePaidInterest()
+          )}
           monthlyPayment={parseFloat(String(loan.monthly_payment)) || 0}
         />
       </CollapsibleSection>
@@ -826,9 +901,19 @@ export default function LoanDetailScreen() {
     const overdueFilterCount = optimisticSchedule.filter((i) => i.status === 'overdue').length;
 
     // Filter chips config - simplified
-    const filterChips: Array<{ id: 'unpaid' | 'overdue' | 'all'; label: string; count: number; isDanger?: boolean }> = [
+    const filterChips: Array<{
+      id: 'unpaid' | 'overdue' | 'all';
+      label: string;
+      count: number;
+      isDanger?: boolean;
+    }> = [
       { id: 'unpaid', label: 'Neuhradené', count: unpaidCount },
-      { id: 'overdue', label: 'Po splatnosti', count: overdueFilterCount, isDanger: overdueFilterCount > 0 },
+      {
+        id: 'overdue',
+        label: 'Po splatnosti',
+        count: overdueFilterCount,
+        isDanger: overdueFilterCount > 0,
+      },
     ];
 
     return (
@@ -941,13 +1026,13 @@ export default function LoanDetailScreen() {
 
                     setOptimisticSchedule((prev) =>
                       prev.map((e) =>
-                        e.id === entryId
-                          ? { ...e, status: 'pending' as const, paid_at: null }
-                          : e
+                        e.id === entryId ? { ...e, status: 'pending' as const, paid_at: null } : e
                       )
                     );
 
-                    const { data: { session } } = await supabase.auth.getSession();
+                    const {
+                      data: { session },
+                    } = await supabase.auth.getSession();
 
                     const response = await fetch(
                       `${process.env.EXPO_PUBLIC_API_URL}/api/loans/${id}/schedules/${entryId}/unpay`,
@@ -996,7 +1081,9 @@ export default function LoanDetailScreen() {
           >
             <CheckCircle size={18} color={colors.success} />
             <Text style={[styles.showHistoryText, { color: colors.textSecondary }]}>
-              {showPaidHistory ? 'Skryť uhradené splátky' : `Zobraziť uhradené splátky (${paidInstallmentsCount})`}
+              {showPaidHistory
+                ? 'Skryť uhradené splátky'
+                : `Zobraziť uhradené splátky (${paidInstallmentsCount})`}
             </Text>
           </TouchableOpacity>
         )}
@@ -1029,13 +1116,13 @@ export default function LoanDetailScreen() {
                     try {
                       setOptimisticSchedule((prev) =>
                         prev.map((e) =>
-                          e.id === entryId
-                            ? { ...e, status: 'pending' as const, paid_at: null }
-                            : e
+                          e.id === entryId ? { ...e, status: 'pending' as const, paid_at: null } : e
                         )
                       );
 
-                      const { data: { session } } = await supabase.auth.getSession();
+                      const {
+                        data: { session },
+                      } = await supabase.auth.getSession();
 
                       const response = await fetch(
                         `${process.env.EXPO_PUBLIC_API_URL}/api/loans/${id}/schedules/${entryId}/unpay`,
@@ -1092,7 +1179,10 @@ export default function LoanDetailScreen() {
         {/* Upload buttons */}
         <View style={styles.uploadButtonsRow}>
           <TouchableOpacity
-            style={[styles.uploadDocButton, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}
+            style={[
+              styles.uploadDocButton,
+              { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+            ]}
             onPress={() => handleUploadDocument('contract')}
             disabled={isUploadingDoc}
           >
@@ -1106,7 +1196,10 @@ export default function LoanDetailScreen() {
             )}
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.uploadDocButton, { backgroundColor: colors.surfacePressed, borderColor: colors.border }]}
+            style={[
+              styles.uploadDocButton,
+              { backgroundColor: colors.surfacePressed, borderColor: colors.border },
+            ]}
             onPress={() => handleUploadDocument('payment_schedule')}
             disabled={isUploadingDoc}
           >
@@ -1214,8 +1307,20 @@ export default function LoanDetailScreen() {
     <GestureHandlerRootView style={styles.gestureContainer}>
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         {/* Header */}
-        <View style={[styles.header, { paddingTop: insets.top + 16, backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={() => router.replace('/(tabs)/loans')} style={styles.backButton}>
+        <View
+          style={[
+            styles.header,
+            {
+              paddingTop: insets.top + 16,
+              backgroundColor: colors.surface,
+              borderBottomColor: colors.border,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            onPress={() => router.replace('/(tabs)/loans')}
+            style={styles.backButton}
+          >
             <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
           </TouchableOpacity>
           <View style={styles.headerCenter}>
@@ -1349,6 +1454,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 24,
+  },
+  // Linked asset card
+  linkedAssetCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  linkedAssetCardEmpty: {
+    borderStyle: 'dashed',
+  },
+  linkedAssetIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  linkedAssetContent: {
+    flex: 1,
+  },
+  linkedAssetLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  linkedAssetName: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  linkedAssetSub: {
+    fontSize: 12,
+    marginTop: 2,
   },
   // Details grid
   detailsGrid: {

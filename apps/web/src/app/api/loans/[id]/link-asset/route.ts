@@ -8,14 +8,13 @@ export const dynamic = 'force-dynamic';
  * POST /api/loans/[id]/link-asset
  * Prepojí úver s majetkom
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: loanId } = await params;
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -77,26 +76,28 @@ export async function POST(
 
     if (updateError) {
       console.error('Update loan error:', updateError);
-      return NextResponse.json(
-        { error: 'Failed to link loan to asset' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to link loan to asset' }, { status: 500 });
     }
 
-    // Aktualizuj asset-loan metriky
-    await supabase.rpc('update_asset_loan_metrics', {
+    // Aktualizuj asset-loan metriky (best-effort, ale chybu zalogujeme)
+    const { error: metricsError } = await supabase.rpc('update_asset_loan_metrics', {
       p_household_id: loan.household_id,
     });
+
+    if (metricsError) {
+      console.error('update_asset_loan_metrics failed after link-asset:', metricsError);
+    }
 
     return NextResponse.json({
       success: true,
       message: 'Loan successfully linked to asset',
       loanId: validatedInput.loanId,
       assetId: validatedInput.assetId,
+      metricsWarning: metricsError ? 'LTV/equity sa neaktualizovali, skús neskôr.' : undefined,
     });
   } catch (error) {
     console.error('POST /api/loans/[id]/link-asset error:', error);
-    
+
     if (error instanceof Error && error.message.includes('validation')) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
@@ -119,7 +120,9 @@ export async function DELETE(
   try {
     const { id: loanId } = await params;
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -156,16 +159,23 @@ export async function DELETE(
 
     if (updateError) {
       console.error('Update loan error:', updateError);
-      return NextResponse.json(
-        { error: 'Failed to unlink loan from asset' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to unlink loan from asset' }, { status: 500 });
+    }
+
+    // Refresh asset-loan metriky po odpojení (môže resetovať LTV pre asset)
+    const { error: metricsError } = await supabase.rpc('update_asset_loan_metrics', {
+      p_household_id: loan.household_id,
+    });
+
+    if (metricsError) {
+      console.error('update_asset_loan_metrics failed after unlink-asset:', metricsError);
     }
 
     return NextResponse.json({
       success: true,
       message: 'Loan successfully unlinked from asset',
       loanId,
+      metricsWarning: metricsError ? 'LTV/equity sa neaktualizovali, skús neskôr.' : undefined,
     });
   } catch (error) {
     console.error('DELETE /api/loans/[id]/link-asset error:', error);
@@ -176,4 +186,3 @@ export async function DELETE(
     );
   }
 }
-
