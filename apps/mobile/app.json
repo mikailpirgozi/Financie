@@ -56,7 +56,9 @@
       "@react-native-community/datetimepicker",
       "expo-secure-store",
       "expo-web-browser",
-      "expo-image"
+      "expo-image",
+      "expo-font",
+      "@sentry/react-native"
     ],
     "scheme": "finapp",
     "extra": {
