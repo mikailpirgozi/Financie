@@ -641,6 +641,19 @@ export default function LoanDetailScreen() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  // Group documents by type for better overview.
+  // IMPORTANT: must be declared BEFORE any early return so the hook order
+  // stays consistent across renders (Rules of Hooks).
+  const documentsByType = useMemo(() => {
+    const grouped: Record<string, LoanDocument[]> = {};
+    for (const doc of documents) {
+      const key = doc.documentType || 'other';
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(doc);
+    }
+    return grouped;
+  }, [documents]);
+
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -1270,17 +1283,6 @@ export default function LoanDetailScreen() {
       </View>
     );
   };
-
-  // Group documents by type for better overview
-  const documentsByType = useMemo(() => {
-    const grouped: Record<string, LoanDocument[]> = {};
-    for (const doc of documents) {
-      const key = doc.documentType || 'other';
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(doc);
-    }
-    return grouped;
-  }, [documents]);
 
   // Render Documents Tab content
   const renderDocumentsTab = () => (
