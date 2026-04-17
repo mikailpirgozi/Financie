@@ -75,7 +75,7 @@ begin
   if auth.uid() is null then
     raise exception 'Authentication required';
   end if;
-  if not public.is_household_member(auth.uid(), p_household_id) then
+  if not public.is_household_member(p_household_id) then
     raise exception 'Forbidden';
   end if;
 

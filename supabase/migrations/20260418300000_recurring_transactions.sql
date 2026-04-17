@@ -55,20 +55,20 @@ alter table recurring_transactions enable row level security;
 
 create policy "recurring_select_own_household"
   on recurring_transactions for select
-  using (public.is_household_member(auth.uid(), household_id));
+  using (public.is_household_member(household_id));
 
 create policy "recurring_insert_own_household"
   on recurring_transactions for insert
-  with check (public.is_household_member(auth.uid(), household_id));
+  with check (public.is_household_member(household_id));
 
 create policy "recurring_update_own_household"
   on recurring_transactions for update
-  using (public.is_household_member(auth.uid(), household_id))
-  with check (public.is_household_member(auth.uid(), household_id));
+  using (public.is_household_member(household_id))
+  with check (public.is_household_member(household_id));
 
 create policy "recurring_delete_own_household"
   on recurring_transactions for delete
-  using (public.is_household_member(auth.uid(), household_id));
+  using (public.is_household_member(household_id));
 
 -- ============================================================================
 -- Helper: spočítaj ďalší výskyt po danom dátume podľa frequency
@@ -126,7 +126,7 @@ begin
     raise exception 'Authentication required';
   end if;
 
-  if not public.is_household_member(auth.uid(), p_household_id) then
+  if not public.is_household_member(p_household_id) then
     raise exception 'Forbidden';
   end if;
 

@@ -182,7 +182,11 @@ REFRESH MATERIALIZED VIEW public.mv_household_dashboard_summary;
 --   "netWorth": 37654.33
 -- }
 
-DROP FUNCTION IF EXISTS public.get_dashboard_data(uuid, integer);
+-- Stara funkcia mala iny return type (RETURNS TABLE per-month) a bola
+-- pouzita len cez nepouzivany view `dashboard_summary` (nikde v aplikacnom
+-- kode). Nahradzame ju novou jsonb verziou (jeden roundtrip = 1 dashboard
+-- payload). DROP CASCADE odstrani aj zavisly view dashboard_summary.
+DROP FUNCTION IF EXISTS public.get_dashboard_data(uuid, integer) CASCADE;
 
 CREATE OR REPLACE FUNCTION public.get_dashboard_data(
   p_household_id uuid,
