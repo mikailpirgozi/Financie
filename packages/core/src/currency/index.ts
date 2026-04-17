@@ -81,7 +81,7 @@ export async function fetchEcbRates(date: Date = new Date()): Promise<FxRate[]> 
   while ((m = cubeRegex.exec(xml)) !== null) {
     out.push({
       from: 'EUR',
-      to: m[1],
+      to: m[1]!,
       rate: Number(m[2]),
       date: isoDate,
     });

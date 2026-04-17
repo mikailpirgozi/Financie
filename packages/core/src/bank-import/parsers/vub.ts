@@ -13,7 +13,7 @@ export const vubParser: BankParser = {
     const lines = splitCsvLines(csv);
     if (lines.length === 0) return [];
 
-    const header = parseCsvLine(lines[0], ';').map((s) => s.toLowerCase());
+    const header = parseCsvLine(lines[0]!, ';').map((s) => s.toLowerCase());
     const idx = (needle: string) => header.findIndex((h) => h.includes(needle));
 
     const dateIdx = idx('zaúčtovania') >= 0 ? idx('zaúčtovania') : idx('zauctovania');
@@ -29,12 +29,17 @@ export const vubParser: BankParser = {
 
     const out: NormalizedTransaction[] = [];
     for (let i = 1; i < lines.length; i += 1) {
-      const cells = parseCsvLine(lines[i], ';');
+      const line = lines[i];
+      if (!line) continue;
+      const cells = parseCsvLine(line, ';');
       if (cells.length < amountIdx + 1) continue;
+      const dateCell = cells[dateIdx];
+      const amountCell = cells[amountIdx];
+      if (dateCell === undefined || amountCell === undefined) continue;
       try {
         out.push({
-          date: parseSkDate(cells[dateIdx]),
-          amount: parseSkAmount(cells[amountIdx]),
+          date: parseSkDate(dateCell),
+          amount: parseSkAmount(amountCell),
           currency: currencyIdx >= 0 ? cells[currencyIdx] || 'EUR' : 'EUR',
           counterparty: counterpartyIdx >= 0 ? cells[counterpartyIdx] || undefined : undefined,
           description: descriptionIdx >= 0 ? cells[descriptionIdx] || undefined : undefined,

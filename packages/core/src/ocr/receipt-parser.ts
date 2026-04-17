@@ -84,14 +84,18 @@ function guessDate(lines: string[]): string | undefined {
     for (const re of DATE_REGEXES) {
       const m = line.match(re);
       if (!m) continue;
-      if (m[1].length === 4) {
-        // ISO
-        return `${m[1]}-${m[2]}-${m[3]}`;
+      // Capture groups [1..3] are guaranteed to be present when the regex
+      // matches; TS with noUncheckedIndexedAccess types them as optional.
+      const a = m[1]!;
+      const b = m[2]!;
+      const c = m[3]!;
+      if (a.length === 4) {
+        // ISO yyyy-mm-dd
+        return `${a}-${b}-${c}`;
       }
-      const day = m[1].padStart(2, '0');
-      const month = m[2].padStart(2, '0');
-      const year = m[3];
-      return `${year}-${month}-${day}`;
+      const day = a.padStart(2, '0');
+      const month = b.padStart(2, '0');
+      return `${c}-${month}-${day}`;
     }
   }
   return undefined;
@@ -126,9 +130,12 @@ function guessTotal(lines: string[]): number | undefined {
   // largest amount across the whole receipt.
   const lc = lines.map((l) => l.toLowerCase());
   for (let i = 0; i < lc.length; i += 1) {
-    if (TOTAL_KEYWORDS.some((kw) => lc[i].includes(kw))) {
-      const fromCurrent = extractAmounts(lines[i]);
-      const fromNext = i + 1 < lines.length ? extractAmounts(lines[i + 1]) : [];
+    const lcLine = lc[i]!;
+    if (TOTAL_KEYWORDS.some((kw) => lcLine.includes(kw))) {
+      const currentLine = lines[i]!;
+      const nextLine = i + 1 < lines.length ? lines[i + 1]! : undefined;
+      const fromCurrent = extractAmounts(currentLine);
+      const fromNext = nextLine !== undefined ? extractAmounts(nextLine) : [];
       const candidates = [...fromCurrent, ...fromNext].filter((n) => n > 0);
       if (candidates.length > 0) return Math.max(...candidates);
     }
@@ -141,8 +148,9 @@ function guessTotal(lines: string[]): number | undefined {
 function guessVat(lines: string[]): number | undefined {
   const lc = lines.map((l) => l.toLowerCase());
   for (let i = 0; i < lc.length; i += 1) {
-    if (VAT_KEYWORDS.some((kw) => lc[i].includes(kw))) {
-      const amounts = extractAmounts(lines[i]);
+    const lcLine = lc[i]!;
+    if (VAT_KEYWORDS.some((kw) => lcLine.includes(kw))) {
+      const amounts = extractAmounts(lines[i]!);
       if (amounts.length > 0) return amounts[amounts.length - 1];
     }
   }
@@ -153,6 +161,6 @@ function capitalise(s: string): string {
   return s
     .toLowerCase()
     .split(/\s+/)
-    .map((w) => (w.length === 0 ? w : w[0].toUpperCase() + w.slice(1)))
+    .map((w) => (w.length === 0 ? w : w[0]!.toUpperCase() + w.slice(1)))
     .join(' ');
 }

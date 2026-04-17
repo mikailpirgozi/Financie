@@ -13,8 +13,9 @@ export const csobParser: BankParser = {
     const lines = splitCsvLines(csv);
     if (lines.length === 0) return [];
 
-    const sepCandidate = lines[0].includes(';') ? ';' : ',';
-    const header = parseCsvLine(lines[0], sepCandidate).map((s) => s.toLowerCase());
+    const headerLine = lines[0]!;
+    const sepCandidate = headerLine.includes(';') ? ';' : ',';
+    const header = parseCsvLine(headerLine, sepCandidate).map((s) => s.toLowerCase());
     const idx = (needle: string) => header.findIndex((h) => h.includes(needle));
 
     const dateIdx = idx('date') >= 0 ? idx('date') : idx('dátum');
@@ -30,12 +31,17 @@ export const csobParser: BankParser = {
 
     const out: NormalizedTransaction[] = [];
     for (let i = 1; i < lines.length; i += 1) {
-      const cells = parseCsvLine(lines[i], sepCandidate);
+      const line = lines[i];
+      if (!line) continue;
+      const cells = parseCsvLine(line, sepCandidate);
       if (cells.length < amountIdx + 1) continue;
+      const dateCell = cells[dateIdx];
+      const amountCell = cells[amountIdx];
+      if (dateCell === undefined || amountCell === undefined) continue;
       try {
         out.push({
-          date: parseSkDate(cells[dateIdx]),
-          amount: parseSkAmount(cells[amountIdx]),
+          date: parseSkDate(dateCell),
+          amount: parseSkAmount(amountCell),
           currency: currencyIdx >= 0 ? cells[currencyIdx] || 'EUR' : 'EUR',
           counterparty: counterpartyIdx >= 0 ? cells[counterpartyIdx] || undefined : undefined,
           description: descriptionIdx >= 0 ? cells[descriptionIdx] || undefined : undefined,

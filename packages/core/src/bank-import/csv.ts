@@ -71,6 +71,10 @@ export function parseSkDate(raw: string): string {
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
   const m = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
   if (!m) throw new Error(`Cannot parse date: ${raw}`);
-  const [, d, mo, y] = m;
+  // Capture groups [1..3] are always present when the regex matches, but
+  // TS with noUncheckedIndexedAccess types them as `string | undefined`.
+  const d = m[1]!;
+  const mo = m[2]!;
+  const y = m[3]!;
   return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
 }

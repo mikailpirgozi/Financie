@@ -77,7 +77,9 @@ function monthKey(year: number, month0: number): string {
 }
 
 function parseMonth(key: string): { year: number; month0: number } {
-  const [y, m] = key.split('-').map(Number);
+  const parts = key.split('-').map(Number);
+  const y = parts[0]!;
+  const m = parts[1]!;
   return { year: y, month0: m - 1 };
 }
 
